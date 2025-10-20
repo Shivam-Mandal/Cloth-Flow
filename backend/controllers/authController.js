@@ -88,19 +88,20 @@ export const login = async (req, res) => {
     // access token cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "lax",
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 1000 * 60 * 15, // 15 minutes
-      // path: "/",
+      path: "/",
       // domain: "localhost"
     });
 
     // refresh token cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "lax",
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      path: "/",
 
     });
 
@@ -163,17 +164,19 @@ export const refreshTokenHandler = async (req, res) => {
       // Set new access token cookie
       res.cookie("accessToken", newAccessToken, {
         httpOnly: true,
-        secure: true,
-        sameSite: "lax",
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 1000 * 60 * 15, // 15 minutes
+        path: "/",
       });
 
       // Set new refresh token cookie
       res.cookie("refreshToken", newRefreshToken, {
         httpOnly: true,
-        secure: true,
-        sameSite: "lax",
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        path: "/",
       });
 
       return res.status(200).json({ success: true, message: "Token refreshed" });

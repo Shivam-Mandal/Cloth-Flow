@@ -19,6 +19,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // --- Security & Parsing Middlewares ---
+app.set('trust proxy', 1); // trust first proxy
 app.use(helmet()); // Secure HTTP headers
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
@@ -29,7 +30,7 @@ app.use(morgan('combined')); // Logging requests
 const allowedOrigins = [
   'http://localhost:5173',        // dev frontend
   'http://localhost:5174',        // optional dev frontend
-  process.env.FRONTEND_URL        // production frontend
+  process.env.FRONTEND_URL         // production frontend
 ];
 
 app.use(cors({
