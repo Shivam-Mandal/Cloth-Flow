@@ -68,11 +68,11 @@ app.get('/', (req, res) => {
 
 // --- Serve static files and client-side routing fallback ---
 // Serve Vite's dist folder (ensure you run `npm run build` so dist exists)
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, '..frontend/dist')));
 
 // Catch-all for client-side routes — use regex /.*/ to avoid path-to-regexp errors
 app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(__dirname, '..frontend/dist', 'index.html'));
 });
 
 // --- Error Handling Middleware (last) ---
