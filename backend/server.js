@@ -71,7 +71,7 @@ app.get('/', (req, res) => {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Catch-all for client-side routes — use regex /.*/ to avoid path-to-regexp errors
-app.get(/.*/, (req, res) => {
+app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
