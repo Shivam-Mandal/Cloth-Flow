@@ -121,18 +121,22 @@ export const logout = async (req, res) => {
   try {
     const refreshToken = req.cookies?.refreshToken;
     if (refreshToken) {
-      // remove from DB
-      await User.findOneAndUpdate({ refreshToken }, { $unset: { refreshToken: 1 } });
+      // clear from any user that has this refresh token
+      const admin = await AdminModel.findOneAndUpdate({ refreshToken }, { $unset: { refreshToken: 1 } });
+      if (!admin) {
+        await WorkerModel.findOneAndUpdate({ refreshToken }, { $unset: { refreshToken: 1 } });
+      }
     }
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
-    res.status(200).json({ message: 'Logged out' });
+
+    // clear cookies (set sameSite/secure as login does)
+    res.clearCookie('accessToken', { path: '/' });
+    res.clearCookie('refreshToken', { path: '/' });
+    return res.status(200).json({ success: true, message: 'Logged out' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Server error' });
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
-
 
 //refresh handler
 export const refreshTokenHandler = async (req, res) => {
@@ -147,7 +151,7 @@ export const refreshTokenHandler = async (req, res) => {
     }
     if (!user) return res.status(403).json({ success: false, message: "Invalid refresh token" });
 
-    jwt.verify(refreshToken, JWT_REFRESH_SECRET, (err, decoded) => {
+    jwt.verify(refreshToken, JWT_REFRESH_SECRET, async (err, decoded) => {
       if (err || decoded.id !== user._id.toString()) {
         return res.status(403).json({ success: false, message: "Invalid refresh token" });
       }
@@ -157,25 +161,23 @@ export const refreshTokenHandler = async (req, res) => {
       const newRefreshToken = createRefreshToken({ id: user._id.toString() });
 
       user.refreshToken = newRefreshToken;
-      user.save();
+      await user.save();   // <--- important: await
 
       const isProd = process.env.NODE_ENV === 'production';
 
-      // Set new access token cookie
       res.cookie("accessToken", newAccessToken, {
         httpOnly: true,
         secure: isProd,
         sameSite: isProd ? 'none' : 'lax',
-        maxAge: 1000 * 60 * 15, // 15 minutes
+        maxAge: 1000 * 60 * 15,
         path: "/",
       });
 
-      // Set new refresh token cookie
       res.cookie("refreshToken", newRefreshToken, {
         httpOnly: true,
         secure: isProd,
         sameSite: isProd ? 'none' : 'lax',
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        maxAge: 1000 * 60 * 60 * 24 * 7,
         path: "/",
       });
 
@@ -184,11 +186,12 @@ export const refreshTokenHandler = async (req, res) => {
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
-}
+};
 
 // me handler
 export const me = async (req, res) => {
   try {
+     if (!req.user?.id) return res.status(401).json({ success: false, message: 'Not authenticated' });
     const userId = req.user.id;
     console.log("me handler userId:", userId);
     let user = await AdminModel.findById(userId).select('-password -refreshToken');
