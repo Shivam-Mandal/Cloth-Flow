@@ -2,26 +2,15 @@
 import api from "../../api/api";
 
 /**
- * Fetch all styles
+ * Orders service - returns res.data for convenience
  */
-export const fetchStyles = async () => {
-  const res = await api.get("/styles/"); // match your backend endpoint
-  return res.data?.data || res.data || [];
-};
 
+export const getOrders = () => api.get("/orders/").then((res) => res.data);
 
+export const createOrder = (orderData) => api.post("/orders/", orderData).then((res) => res.data);
 
-// Fetch all orders (for logged-in user or admin)
-export const getOrders = () => api.get("/orders");
+export const deleteOrder = (orderId) =>
+  api.delete(`/orders/${orderId}`).then((res) => res.data);
 
-// Create a new order
-export const createOrder = (orderData) => api.post("/orders", orderData);
-
-// Delete order by id
-export const deleteOrder = (orderId) => api.delete(`/orders/${orderId}`);
-
-// Optional: update order
-export const updateOrder = (orderId, data) => api.put(`/orders/${orderId}`, data);
-
-
-
+export const updateOrder = (orderId, data) =>
+  api.put(`/orders/${orderId}`, data).then((res) => res.data);

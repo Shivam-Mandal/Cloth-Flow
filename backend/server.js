@@ -14,7 +14,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
+import AssignedRouter from './routes/assignmentRoutes.js';
+import WorkerRouter from './routes/workerRoutes.js';
 dotenv.config();
 
 const app = express();
@@ -48,7 +49,7 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -57,6 +58,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/styles', styleRouter);
 app.use('/api/stocks', stockRouter);
 app.use('/api/orders', orderRouter);
+app.use('/api/assignments', AssignedRouter);
+app.use('/api/workers', WorkerRouter);
 
 // --- Example API/test routes ---
 app.get('/api/admin/secret', verifyAccessToken, requireRole('admin'), (req, res) => {
@@ -77,6 +80,17 @@ app.get(/.*/, (req, res) => {
 
 // --- Error Handling Middleware (last) ---
 app.use(errorHandler);
+
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err && err.stack ? err.stack : err);
+  const isDev = process.env.NODE_ENV !== 'production';
+  res.status(err.status || 500).json({
+    message: err.message || 'Internal Server Error',
+    ...(isDev ? { stack: err.stack } : {})
+  });
+});
+
 
 // --- Connect to Database and Start Server ---
 connectDB()

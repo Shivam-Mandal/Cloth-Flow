@@ -94,25 +94,49 @@ export const OrderManagement = () => {
     if (!selectedStyleId) return alert("Select a style first");
 
     try {
+      // build payload
       const payload = {
         styleId: selectedStyleId,
         pieces,
         requiredKg: requiredKgInput ? Number(requiredKgInput) : undefined,
+        // send ISO or raw date — backend usually accepts ISO or date string
         deadline: deadlineInput ? new Date(deadlineInput).toISOString() : undefined,
         priority: priorityInput || "Normal",
+        // optional: allow specifying initial workers (server supports it)
+        // initialWorkers: 4
       };
 
-      const res = await orderService.createOrder(payload);
+      console.log("Creating order payload:", payload);
 
-      // Try to obtain created order robustly
-      const created =
-        res?.data?.order ?? // controller returns { order }
-        res?.data ?? // sometimes create returns the created object as data
-        res; // fallback
+      const data = await orderService.createOrder(payload);
+      console.log("Raw createOrder response:", data);
+
+      // Prefer axios style (res.data). Fall back to raw res.
+      let created = null;
+      if (!data) {
+        created = null;
+      } else if (data.order) {
+        created = data.order;
+      } else if (data._id || data.id || data.orderId) {
+        // server already returned an order object directly
+        created = data;
+      } else if (Array.isArray(data)) {
+        // weird shape: maybe server returned [order, ...] — try first item
+        created = data[0] || null;
+      }
+
+      if (!created) {
+        // Try to extract server error message if any
+        const serverMessage = data?.message || data?.error || JSON.stringify(data);
+        console.error("Create returned unexpected shape", data);
+        alert("Order created but client couldn't parse response. Check console.", serverMessage);
+        // optionally refetch orders
+        return;
+      }
 
       const normalized = normalizeOrder(created);
 
-      // Add created order to state immediately (most responsive)
+      // Add created order to state immediately
       setOrders((prev) => [normalized, ...prev]);
 
       alert("Order created successfully!");
@@ -122,15 +146,29 @@ export const OrderManagement = () => {
       setRequiredKgInput("");
       setDeadlineInput("");
       setPriorityInput("Normal");
-
-      // optional: refetch all orders to keep server-authoritative state
-      // const updated = normalizeOrdersResponse(await orderService.getOrders());
-      // setOrders((updated || []).map(normalizeOrder));
     } catch (err) {
-      console.error("Error creating order:", err);
-      alert("Failed to create order.");
+      // axios error objects for server responses are nested: err.response.data
+      console.error("Error creating order (catch):", err);
+
+      // Prefer server-provided JSON body message
+      const serverResponse = err?.response?.data;
+      console.log("err.response?.data:", serverResponse);
+
+      // Determine friendly message
+      const serverMsg =
+        serverResponse?.message ||
+        serverResponse?.error ||
+        (typeof serverResponse === "string" ? serverResponse : null) ||
+        err?.message ||
+        "Unknown error";
+
+      // show raw server object in console for debugging
+      console.error("Server error payload:", serverResponse ?? err);
+
+      alert(`Failed to create order: ${serverMsg}`);
     }
   };
+
 
   const getStatusColor = (status) => {
     switch ((status || "").toLowerCase()) {

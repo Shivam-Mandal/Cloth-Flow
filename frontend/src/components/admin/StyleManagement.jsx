@@ -2,21 +2,19 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { X, Plus, ImageIcon, Trash, ChevronLeft, ChevronRight } from 'lucide-react';
-import * as styleService  from '../services/styleServices'; // <-- ensure this file exists
+import * as styleService from '../services/styleServices'; // <-- ensure this file exists
 
 // Cloudinary setup: use Vite env vars
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'your_cloud_name';
 const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'your_upload_preset';
 
 const defaultSteps = [
-  'Step 1',
-  'Step 2',
-  'Step 3',
-  'Step 4',
-  'Step 5',
-  'Step 6',
-  'Step 7',
-  'Step 8',
+  'Cutting',
+'Printing',
+  'Stitching',
+  'Finishing',
+  'Packing',
+  'Sale out'
 ];
 
 export default function StyleManagement() {

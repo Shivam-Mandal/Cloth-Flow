@@ -9,9 +9,13 @@ const workerSchema = new mongoose.Schema({
     address: { type: String },
     profileImageUrl: { type: String },
     role: { type: String, enum: ["worker"], default: "worker" },
+    workerType: { 
+      type: String, 
+      enum: ["Cutting","Printing", "Stitching", "Finishing", "Packing", "Sale out"], 
+      required: function() { return this.role === "worker"; } 
+    },
     lastLogin: { type: Date },
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now }
-});
+
+}, { timestamps: true });
 
 export const WorkerModel = mongoose.model("Worker", workerSchema);

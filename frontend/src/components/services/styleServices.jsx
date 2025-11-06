@@ -3,7 +3,7 @@ import api from "../../api/api";
 
 // ✅ Fetch all styles
 export const fetchStyles = async () => {
-  const res = await api.get("/styles");
+  const res = await api.get("/styles/");
   return res.data.data; // adjust based on your backend response
 };
 

@@ -22,7 +22,7 @@ function createRefreshToken(payload) {
 // Signup
 export const signup = async (req, res) => {
   try {
-    const { name, email, password, role, phone, dob, address, profileImageUrl } = req.body;
+    const { name, email, password, role, phone, dob, address, profileImageUrl,workerType } = req.body;
 
     if (!name || !email || !password || !role)
       return res.status(400).json({ success: false, message: "Missing required fields" });
@@ -38,7 +38,7 @@ export const signup = async (req, res) => {
     if (role === "admin") {
       newUser = new AdminModel({ name, email: email.toLowerCase(), password: hashedPassword, phone, profileImageUrl });
     } else {
-      newUser = new WorkerModel({ name, email: email.toLowerCase(), password: hashedPassword, phone, dob, address, profileImageUrl });
+      newUser = new WorkerModel({ name, email: email.toLowerCase(), password: hashedPassword, phone, dob, address, profileImageUrl,workerType });
     }
 
     await newUser.save();

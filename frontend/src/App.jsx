@@ -7,6 +7,10 @@ import {StockManagement} from './components/admin/StockManagement'
 import {OrderManagement} from './components/admin/OrderManagement'
 import ProtectedRoute from './components/ProtectedRoutes'
 import { useUser } from './components/context/UserContext'
+import { WorkerDashboard} from './components/worker/WorkerDashboard'
+import { AssignedTasks } from './components/worker/AssignedTasks'
+import { AvailableTasks } from './components/worker/AvailableTasks'
+import { WorkerOverview } from './components/worker/WorkerOverview'
 
 
 export default function App() {
@@ -42,7 +46,19 @@ export default function App() {
 
         {/* Worker area (example) */}
         <Route element={<ProtectedRoute allowedRoles={["worker"]} />}>
-          <Route path="/worker" element={<div className="p-6">Worker Home (stub)</div>} />
+          <Route path="/worker" element={<WorkerDashboard />} >
+          <Route index element={<WorkerOverview />} />
+          <Route path='overview' element={<WorkerOverview/>}/>
+          <Route
+              path='assigned'
+              element={<AssignedTasks workerId={user?._id} workerCategory={user?.workerType || user?.worker_type} />}
+            />
+            <Route
+              path='available'
+              element={<AvailableTasks workerId={user?._id} workerCategory={user?.workerType || user?.worker_type} />}
+            />
+
+          </Route>
         </Route>
 
 
