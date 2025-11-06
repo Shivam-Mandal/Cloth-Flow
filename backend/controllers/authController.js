@@ -128,9 +128,12 @@ export const logout = async (req, res) => {
       }
     }
 
-    // clear cookies (set sameSite/secure as login does)
-    res.clearCookie('accessToken', { path: '/' });
-    res.clearCookie('refreshToken', { path: '/' });
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOptions = { path: '/', httpOnly: true, secure: isProd, sameSite: isProd ? 'none' : 'lax' };
+
+    res.clearCookie('accessToken', cookieOptions);
+    res.clearCookie('refreshToken', cookieOptions);
+    
     return res.status(200).json({ success: true, message: 'Logged out' });
   } catch (err) {
     console.error(err);
