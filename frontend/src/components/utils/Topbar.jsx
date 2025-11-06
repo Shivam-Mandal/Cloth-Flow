@@ -51,7 +51,7 @@ const Topbar = ({ user = {}, onLogout }) => {
           {/* Logout Button */}
           <button
             onClick={() => { console.log('logout clicked', typeof onLogout); onLogout?.(); }}
-            className="p-2 text-gray-500 hover:text-red-600 transition-colors"
+            className="p-2 text-gray-500 hover:text-red-600 transition-colors cursor-pointer"
             title="Logout"
           >
             <LogOut className="w-5 h-5" />
