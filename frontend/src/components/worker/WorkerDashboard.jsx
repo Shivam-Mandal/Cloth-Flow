@@ -5,7 +5,7 @@ import { WorkerTopbar } from './WorkerTopbar';
 import { useUser } from '../context/UserContext'; // or wherever your auth context is
 
 export const WorkerDashboard=() =>{
-  const { user, loading, initialLoadDone } = useUser();
+  const { user, loading, initialLoadDone, logout } = useUser();
 
   if (!initialLoadDone) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
 
@@ -15,7 +15,7 @@ export const WorkerDashboard=() =>{
     <div className="flex h-screen bg-gray-50">
       <WorkerSidebar />  {/* Sidebar now uses NavLink for routing */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <WorkerTopbar user={user} />
+        <WorkerTopbar user={user} onLogout={logout} />
         <main className="flex-1 overflow-auto p-6">
           <Outlet />  {/* Nested routes render here */}
         </main>

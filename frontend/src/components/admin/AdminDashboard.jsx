@@ -56,7 +56,7 @@ const StatCard = ({ title, value, changeText, icon }) => (
 );
 
 export default function AdminDashboard() {
-  const { user, loading, initialLoadDone } = useUser();
+  const { user, loading, initialLoadDone, logout } = useUser();
   console.log('[AdminDashboard] render', { user, loading, initialLoadDone });
   // Show loading only until first fetch is done
   if (!initialLoadDone) {
@@ -76,7 +76,7 @@ export default function AdminDashboard() {
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Topbar user={user} />
+        <Topbar user={user} onLogout={logout} />
         <main className="flex-1 overflow-auto p-6">
           <Outlet />
         </main>

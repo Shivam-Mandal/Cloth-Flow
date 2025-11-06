@@ -43,8 +43,9 @@ export const WorkerTopbar = ({ user, onLogout }) => {
 
           <button
             onClick={onLogout}
-            className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+            className="p-2 text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
             title="Logout"
+
           >
             <LogOut className="w-5 h-5" />
           </button>
