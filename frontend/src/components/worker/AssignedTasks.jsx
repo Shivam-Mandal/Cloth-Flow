@@ -8,16 +8,6 @@ import {
   patchAssignment
 } from '../services/assignmentServices.jsx'; // keep your existing import path
 
-/**
- * AssignedTasks (shows only assignments claimed by current worker)
- *
- * - Loads only assignments for the authenticated worker (GET /assignments/for-me)
- * - Allows worker to Pause/Resume, Deselect (release), Complete, and update progress
- * - Refreshes list after each server action
- *
- * NOTE: axios auth (cookies / Authorization header) must be set in your api client
- * so backend can read req.user and return the correct "for-me" list.
- */
 export const AssignedTasks = () => {
   const [mine, setMine] = useState([]);
   const [loading, setLoading] = useState({ fetch: false, action: false });
@@ -28,7 +18,6 @@ export const AssignedTasks = () => {
     setError(null);
     try {
       const res = await fetchAssignedForMe();
-      // tolerate different response shapes: array or { assignments: [...] }
       const list = Array.isArray(res) ? res : (res?.assignments ?? (res?.data ?? []));
       setMine(list);
     } catch (e) {
@@ -40,21 +29,6 @@ export const AssignedTasks = () => {
   }, []);
 
   useEffect(() => { loadMine(); }, [loadMine]);
-
-  const handleTogglePause = async (assignment) => {
-    setLoading(l => ({ ...l, action: true }));
-    setError(null);
-    try {
-      const nextStatus = assignment.status === 'in_progress' ? 'paused' : 'in_progress';
-      await patchAssignment(assignment._id || assignment.id, { status: nextStatus });
-      await loadMine();
-    } catch (e) {
-      console.error('toggle pause failed', e);
-      setError(e?.response?.data?.error || e?.response?.data?.message || e.message || 'Failed to update status');
-    } finally {
-      setLoading(l => ({ ...l, action: false }));
-    }
-  };
 
   const handleDeselect = async (assignmentId) => {
     if (!window.confirm('Are you sure you want to release this task? It will return to available tasks.')) return;
@@ -86,17 +60,17 @@ export const AssignedTasks = () => {
     }
   };
 
-  const handleUpdateProgress = async (assignment, newCompleted) => {
+  // (kept for compatibility in case you still use it elsewhere)
+  const handleTogglePause = async (assignment) => {
     setLoading(l => ({ ...l, action: true }));
     setError(null);
     try {
-      // backend must support PATCH /assignments/:id with completedPieces
-      await patchAssignment(assignment._id || assignment.id, { completedPieces: newCompleted });
+      const nextStatus = assignment.status === 'in_progress' ? 'paused' : 'in_progress';
+      await patchAssignment(assignment._id || assignment.id, { status: nextStatus });
       await loadMine();
     } catch (e) {
-      console.error('update progress failed', e);
-      setError(e?.response?.data?.error || e?.response?.data?.message || e.message || 'Failed to update progress');
-      await loadMine();
+      console.error('toggle pause failed', e);
+      setError(e?.response?.data?.error || e?.response?.data?.message || e.message || 'Failed to update status');
     } finally {
       setLoading(l => ({ ...l, action: false }));
     }
@@ -145,53 +119,48 @@ export const AssignedTasks = () => {
             {mine.map(task => {
               const progress = ((task.completedPieces || 0) / (task.totalPieces || 1)) * 100;
               const timeRemaining = getTimeRemaining(task.order?.deadline || task.deadline);
+
+              // Consider the task (or its parent order) completed if any common flag says so
+              const isCompleted =
+                task.status === 'completed' ||
+                task.order?.status === 'completed' ||
+                task.order?.isCompleted === true ||
+                task.isCompleted === true;
+
               return (
                 <div key={task._id || task.id} className="p-4 rounded-md border border-gray-100 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div className="flex items-start gap-3">
                     {getStatusIcon(task.status)}
                     <div>
                       <div className="font-medium">{task._id || task.id} — {task.order?.orderId || task.orderId}</div>
-                      <div className="text-xs text-gray-600">{task.stage || task.process} • {Math.round(progress)}% • {task.totalPieces} pcs</div>
+                      <div className="text-xs text-gray-600">{task.stage || task.process}  • {task.totalPieces} pcs</div>
                       <div className={`text-xs ${timeRemaining.color}`}>{timeRemaining.text}</div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleTogglePause(task)}
-                      disabled={loading.action}
-                      className="px-3 py-1 rounded bg-gray-100 text-sm"
-                    >
-                      {task.status === 'in_progress' ? 'Pause' : 'Resume'}
-                    </button>
+                    {/* Show only Complete + Deselect and hide them when the task/order is completed */}
+                    {!isCompleted ? (
+                      <>
+                        <button
+                          onClick={() => handleComplete(task._id || task.id)}
+                          disabled={loading.action}
+                          className="px-3 py-1 rounded bg-green-50 text-sm"
+                        >
+                          Complete
+                        </button>
 
-                    <div className="flex items-center space-x-2">
-                      <label className="text-sm text-gray-600">Completed:</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max={task.totalPieces || 0}
-                        value={task.completedPieces ?? 0}
-                        onChange={(e) => handleUpdateProgress(task, parseInt(e.target.value || '0', 10))}
-                        className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    <button
-                      onClick={() => handleComplete(task._id || task.id)}
-                      disabled={loading.action}
-                      className="px-3 py-1 rounded bg-green-50 text-sm"
-                    >
-                      Complete
-                    </button>
-
-                    <button
-                      onClick={() => handleDeselect(task._id || task.id)}
-                      disabled={loading.action}
-                      className="px-3 py-1 rounded bg-yellow-50 text-sm"
-                    >
-                      Deselect
-                    </button>
+                        <button
+                          onClick={() => handleDeselect(task._id || task.id)}
+                          disabled={loading.action}
+                          className="px-3 py-1 rounded bg-yellow-50 text-sm"
+                        >
+                          Deselect
+                        </button>
+                      </>
+                    ) : (
+                      <div className="text-sm text-gray-500">Completed</div>
+                    )}
                   </div>
                 </div>
               );
