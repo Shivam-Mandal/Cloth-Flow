@@ -36,7 +36,8 @@ app.use(morgan('combined'));
 const allowedOrigins = [
   'https://cloth-flow.onrender.com',
   'http://localhost:5173',
-  'https://cloth-flow-production.onrender.com'
+  'https://cloth-flow-production.onrender.com',
+  'https://cloth-flow.netlify.app'
 ];
 
 app.use(cors({
