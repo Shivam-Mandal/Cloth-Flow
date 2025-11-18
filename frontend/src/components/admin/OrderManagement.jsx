@@ -14,9 +14,11 @@ export const OrderManagement = () => {
   const [deadlineInput, setDeadlineInput] = useState(""); // yyyy-mm-dd from input
   const [priorityInput, setPriorityInput] = useState("Normal");
 
+  // NEW: submission state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Helper: normalize API result into an array of orders
   const normalizeOrdersResponse = (res) => {
-    // Accept multiple shapes: res (array), res.data (array), res.data.orders
     const data = res?.data ?? res;
     if (Array.isArray(data)) return data;
     if (Array.isArray(data?.orders)) return data.orders;
@@ -31,7 +33,6 @@ export const OrderManagement = () => {
       _id: o._id || o.id || (o.order && (o.order._id || o.order.id)) || o._id,
       id: o.id || o._id || (o.order && (o.order._id || o.order.id)) || o.id,
       orderId: o.orderId || o.orderID || o.orderId || (o.order && o.order.orderId) || undefined,
-      // styleSnapshot compatibility: prefer snapshot if present
       styleSnapshot: o.styleSnapshot || o.style_snapshot || (o.style && o.style.styleSnapshot) || o.styleSnapshot,
     };
   };
@@ -55,7 +56,6 @@ export const OrderManagement = () => {
       try {
         const res = await orderService.getOrders();
         const arr = normalizeOrdersResponse(res);
-        // normalize each order for consistent fields
         setOrders((arr || []).map(normalizeOrder));
       } catch (err) {
         console.error("Failed to fetch orders:", err);
@@ -94,16 +94,14 @@ export const OrderManagement = () => {
     if (!selectedStyleId) return alert("Select a style first");
 
     try {
-      // build payload
+      setIsSubmitting(true); // <-- disable UI while waiting
+
       const payload = {
         styleId: selectedStyleId,
         pieces,
         requiredKg: requiredKgInput ? Number(requiredKgInput) : undefined,
-        // send ISO or raw date — backend usually accepts ISO or date string
         deadline: deadlineInput ? new Date(deadlineInput).toISOString() : undefined,
         priority: priorityInput || "Normal",
-        // optional: allow specifying initial workers (server supports it)
-        // initialWorkers: 4
       };
 
       console.log("Creating order payload:", payload);
@@ -111,32 +109,25 @@ export const OrderManagement = () => {
       const data = await orderService.createOrder(payload);
       console.log("Raw createOrder response:", data);
 
-      // Prefer axios style (res.data). Fall back to raw res.
       let created = null;
       if (!data) {
         created = null;
       } else if (data.order) {
         created = data.order;
       } else if (data._id || data.id || data.orderId) {
-        // server already returned an order object directly
         created = data;
       } else if (Array.isArray(data)) {
-        // weird shape: maybe server returned [order, ...] — try first item
         created = data[0] || null;
       }
 
       if (!created) {
-        // Try to extract server error message if any
         const serverMessage = data?.message || data?.error || JSON.stringify(data);
         console.error("Create returned unexpected shape", data);
-        alert("Order created but client couldn't parse response. Check console.", serverMessage);
-        // optionally refetch orders
+        alert("Order created but client couldn't parse response. Check console. " + serverMessage);
         return;
       }
 
       const normalized = normalizeOrder(created);
-
-      // Add created order to state immediately
       setOrders((prev) => [normalized, ...prev]);
 
       alert("Order created successfully!");
@@ -147,28 +138,21 @@ export const OrderManagement = () => {
       setDeadlineInput("");
       setPriorityInput("Normal");
     } catch (err) {
-      // axios error objects for server responses are nested: err.response.data
       console.error("Error creating order (catch):", err);
-
-      // Prefer server-provided JSON body message
       const serverResponse = err?.response?.data;
       console.log("err.response?.data:", serverResponse);
-
-      // Determine friendly message
       const serverMsg =
         serverResponse?.message ||
         serverResponse?.error ||
         (typeof serverResponse === "string" ? serverResponse : null) ||
         err?.message ||
         "Unknown error";
-
-      // show raw server object in console for debugging
       console.error("Server error payload:", serverResponse ?? err);
-
       alert(`Failed to create order: ${serverMsg}`);
+    } finally {
+      setIsSubmitting(false); // <-- re-enable UI
     }
   };
-
 
   const getStatusColor = (status) => {
     switch ((status || "").toLowerCase()) {
@@ -198,7 +182,6 @@ export const OrderManagement = () => {
 
   const selectedStyle = styles.find((s) => s._id === selectedStyleId || s.id === selectedStyleId);
 
-  // Compute stats from orders (so overview shows real numbers)
   const stats = useMemo(() => {
     const total = orders.length;
     const inProgress = orders.filter((o) => (o.currentStage || "").toLowerCase() === "in progress").length;
@@ -286,18 +269,13 @@ export const OrderManagement = () => {
                   const order = normalizeOrder(orderRaw);
                   return (
                     <tr key={order.orderId || order._id || order.id} className="hover:bg-gray-50 transition-colors">
-                      {/* Order ID: prefer orderId */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {order.orderId || order._id || order.id}
                       </td>
-
-                      {/* Design: use styleSnapshot.name if available */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {order.styleSnapshot?.name || order.design || "N/A"}
                       </td>
-
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.requiredKg || 0} kg</td>
-
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
@@ -307,7 +285,6 @@ export const OrderManagement = () => {
                           {order.currentStage || "Pending"}
                         </span>
                       </td>
-
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-3">
                           <div className="w-20 h-2 bg-gray-200 rounded-full">
@@ -319,9 +296,7 @@ export const OrderManagement = () => {
                           <span className="text-sm text-gray-600">{order.progress || 0}%</span>
                         </div>
                       </td>
-
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.assignedWorkers || 0}</td>
-
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(order.priority)}`}
@@ -329,14 +304,12 @@ export const OrderManagement = () => {
                           {order.priority || "Normal"}
                         </span>
                       </td>
-
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div className="flex items-center space-x-1">
                           <Calendar className="w-4 h-4 text-gray-400" />
                           <span>{order.deadline ? new Date(order.deadline).toLocaleDateString() : "N/A"}</span>
                         </div>
                       </td>
-
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div className="flex space-x-2">
                           <button className="p-1 text-blue-600 hover:text-blue-800 transition-colors">
@@ -369,6 +342,7 @@ export const OrderManagement = () => {
                   value={selectedStyleId}
                   onChange={(e) => handleStyleChange(e.target.value)}
                   className="w-full border p-2 rounded"
+                  disabled={isSubmitting} // disable while submitting
                 >
                   <option value="">Select style</option>
                   {styles.map((s) => (
@@ -391,6 +365,7 @@ export const OrderManagement = () => {
                     onChange={(e) => setRequiredKgInput(e.target.value)}
                     className="w-full border p-2 rounded"
                     placeholder="e.g. 12.5"
+                    disabled={isSubmitting}
                   />
                 </div>
 
@@ -401,6 +376,7 @@ export const OrderManagement = () => {
                     value={deadlineInput}
                     onChange={(e) => setDeadlineInput(e.target.value)}
                     className="w-full border p-2 rounded"
+                    disabled={isSubmitting}
                   />
                 </div>
 
@@ -410,6 +386,7 @@ export const OrderManagement = () => {
                     value={priorityInput}
                     onChange={(e) => setPriorityInput(e.target.value)}
                     className="w-full border p-2 rounded"
+                    disabled={isSubmitting}
                   >
                     <option value="Low">Low</option>
                     <option value="Normal">Normal</option>
@@ -444,6 +421,7 @@ export const OrderManagement = () => {
                                 value={pieces?.[color]?.[size] ?? 0}
                                 onChange={(e) => updatePiece(color, size, e.target.value)}
                                 className="w-20 px-2 py-1 border rounded text-sm"
+                                disabled={isSubmitting}
                               />
                             </td>
                           ))}
@@ -457,16 +435,32 @@ export const OrderManagement = () => {
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowCreateForm(false)}
+                  onClick={() => {
+                    if (isSubmitting) return; // prevent closing while submitting
+                    setShowCreateForm(false);
+                  }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={isSubmitting}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className={`flex-1 px-4 py-2 rounded-lg text-white ${isSubmitting ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+                  disabled={isSubmitting}
                 >
-                  Create Order
+                  {isSubmitting ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      {/* small spinner */}
+                      <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" strokeOpacity="0.2"></circle>
+                        <path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="4" strokeLinecap="round"></path>
+                      </svg>
+                      <span>Creating...</span>
+                    </div>
+                  ) : (
+                    "Create Order"
+                  )}
                 </button>
               </div>
             </form>
