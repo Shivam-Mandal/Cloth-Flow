@@ -16,6 +16,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import AssignedRouter from './routes/assignmentRoutes.js';
 import WorkerRouter from './routes/workerRoutes.js';
+import approvalRouter from './routes/approvalRoutes.js';
 dotenv.config();
 
 const app = express();
@@ -61,6 +62,7 @@ app.use('/api/stocks', stockRouter);
 app.use('/api/orders', orderRouter);
 app.use('/api/assignments', AssignedRouter);
 app.use('/api/workers', WorkerRouter);
+app.use('/api/approvals', approvalRouter);
 
 // --- Example API/test routes ---
 app.get('/api/admin/secret', verifyAccessToken, requireRole('admin'), (req, res) => {

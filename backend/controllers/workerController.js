@@ -33,3 +33,26 @@ export const getWorker = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc Get count of active workers (logged in within last 24 hours)
+ * @route GET /api/workers/active/count
+ * @access Private (admin)
+ */
+export const getActiveWorkersCount = async (req, res) => {
+  try {
+    const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const activeWorkersCount = await WorkerModel.countDocuments({
+      lastLogin: { $gte: last24Hours }
+    });
+
+    res.status(200).json({ success: true, activeWorkersCount });
+  } catch (error) {
+    console.error("Error fetching active workers count:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};

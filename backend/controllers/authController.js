@@ -76,6 +76,11 @@ export const login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ success: false, message: "Incorrect password" });
 
+    // Update lastLogin for workers
+    if (user.role === 'worker') {
+      user.lastLogin = new Date();
+    }
+
     const payload = { id: user._id.toString(), role: user.role, name: user.name };
     const accessToken = createAccessToken(payload);
     const refreshToken = createRefreshToken({ id: user._id.toString() });

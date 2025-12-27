@@ -10,6 +10,11 @@ const SubOrderSchema = new mongoose.Schema({
   assignedWorkers: { type: Number, default: 0 },
   priority: { type: String, enum: ['Low', 'Normal', 'High'], default: 'Normal' },
   requiredKg: { type: Number },
+  status: { type: String, enum: ['pending', 'in_progress', 'pending_approval', 'approved', 'completed'], default: 'pending' },
+  completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Worker' },
+  approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+  approvedAt: { type: Date },
+  amount: { type: Number, default: 0 },
 }, {
   timestamps: true
 });

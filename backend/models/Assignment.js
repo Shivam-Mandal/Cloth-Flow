@@ -12,6 +12,9 @@ const AssignmentSchema = new mongoose.Schema({
   assignedAt: Date,
   completedAt: Date,
   completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Worker', default: null },
+  completedPieces: { type: Number, default: 0 },
+  damagedPieces: { type: Number, default: 0 },
+  damagedReason: { type: String, default: '' },
 }, { timestamps: true });
 
 AssignmentSchema.index({ worker: 1, status: 1 });

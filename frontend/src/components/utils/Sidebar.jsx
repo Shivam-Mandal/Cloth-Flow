@@ -10,12 +10,15 @@ import {
   Users,
   BarChart3,
   Factory,
-  Group
+  Group,
+  CheckCircle
 } from 'lucide-react';
 
 const Sidebar = ({ activeTab, onTabChange }) => {
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard, to: '/admin' },
+    { id: 'approvals', label: 'Approvals', icon: CheckCircle, to: '/admin/approvals' },
+    { id: 'approval-history', label: 'Approval History', icon: BarChart3, to: '/admin/approval-history' },
     { id: 'style', label: 'Style Management', icon: Shirt, to: '/admin/styles' },
     { id: 'stock', label: 'Stock Management', icon: Package, to: '/admin/stock' },
     { id: 'orders', label: 'Order Management', icon: ShoppingCart, to: '/admin/orders' },

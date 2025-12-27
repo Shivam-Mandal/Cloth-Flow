@@ -18,7 +18,18 @@ export const getWorkerById = async (id) => {
     const response = await api.get(`/workers/${id}`);
     return response.data;
   } catch (error) {
-    console.error("Error fetching worker by ID:", error);
+    console.error("Error fetching worker by id:", error);
     throw error.response?.data || { message: "Failed to fetch worker" };
+  }
+};
+
+// Get active workers count
+export const getActiveWorkersCount = async () => {
+  try {
+    const response = await api.get('/workers/active/count');
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching active workers count:", error);
+    throw error.response?.data || { message: "Failed to fetch active workers count" };
   }
 };

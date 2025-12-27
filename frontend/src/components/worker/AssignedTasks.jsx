@@ -12,6 +12,8 @@ export const AssignedTasks = () => {
   const [mine, setMine] = useState([]);
   const [loading, setLoading] = useState({ fetch: false, action: false });
   const [error, setError] = useState(null);
+  const [completionModal, setCompletionModal] = useState({ open: false, assignment: null });
+  const [completionData, setCompletionData] = useState({ completedPieces: 0, damagedPieces: 0, damagedReason: '' });
 
   const loadMine = useCallback(async () => {
     setLoading(l => ({ ...l, fetch: true }));
@@ -46,11 +48,20 @@ export const AssignedTasks = () => {
   };
 
   const handleComplete = async (assignmentId) => {
-    if (!window.confirm('Mark this assignment as completed?')) return;
+    const assignment = mine.find(a => (a._id || a.id) === assignmentId);
+    if (!assignment) return;
+    setCompletionData({ completedPieces: assignment.totalPieces || 0, damagedPieces: 0, damagedReason: '' });
+    setCompletionModal({ open: true, assignment });
+  };
+
+  const submitCompletion = async () => {
+    const { assignment } = completionModal;
+    if (!assignment) return;
     setLoading(l => ({ ...l, action: true }));
     setError(null);
     try {
-      await completeAssignment(assignmentId);
+      await completeAssignment(assignment._id || assignment.id, completionData);
+      setCompletionModal({ open: false, assignment: null });
       await loadMine();
     } catch (e) {
       console.error('complete failed', e);
@@ -174,6 +185,71 @@ export const AssignedTasks = () => {
         {loading.fetch && <div className="text-sm text-gray-500">Loading...</div>}
         {loading.action && <div className="text-sm text-gray-500">Processing...</div>}
       </div>
+
+      {/* Completion Modal */}
+      {completionModal.open && completionModal.assignment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Complete Assignment</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Assignment: {completionModal.assignment._id || completionModal.assignment.id} — {completionModal.assignment.stage || completionModal.assignment.process}
+            </p>
+            <p className="text-sm text-gray-600 mb-4">Total Pieces: {completionModal.assignment.totalPieces}</p>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Completed Pieces</label>
+                <input
+                  type="number"
+                  min="0"
+                  max={completionModal.assignment.totalPieces}
+                  value={completionData.completedPieces}
+                  onChange={(e) => setCompletionData(prev => ({ ...prev, completedPieces: parseInt(e.target.value) || 0 }))}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Damaged Pieces</label>
+                <input
+                  type="number"
+                  min="0"
+                  max={completionModal.assignment.totalPieces - completionData.completedPieces}
+                  value={completionData.damagedPieces}
+                  onChange={(e) => setCompletionData(prev => ({ ...prev, damagedPieces: parseInt(e.target.value) || 0 }))}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Reason for Damaged Pieces (optional)</label>
+                <textarea
+                  value={completionData.damagedReason}
+                  onChange={(e) => setCompletionData(prev => ({ ...prev, damagedReason: e.target.value }))}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  rows="3"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setCompletionModal({ open: false, assignment: null })}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitCompletion}
+                disabled={loading.action || (completionData.completedPieces + completionData.damagedPieces) !== completionModal.assignment.totalPieces}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
+              >
+                Complete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

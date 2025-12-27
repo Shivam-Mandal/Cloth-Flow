@@ -5,8 +5,35 @@ import Order from '../models/Order.js';
 import SubOrder from '../models/SubOrderSchema.js';
 import { createNextStageAssignments, isStageCompleted } from './orderController.js';
 import { WorkerModel } from '../models/Worker.js';
+import ApprovalHistory from '../models/ApprovalHistory.js';
 
 console.log('Loaded assignmentController from', typeof import.meta !== 'undefined' ? import.meta.url : __filename);
+
+/**
+ * Helper function to log approval history for submission
+ */
+const logApprovalHistoryForSubmission = async (subOrder, workerId) => {
+  try {
+    const historyEntry = new ApprovalHistory({
+      subOrder: subOrder._id,
+      order: subOrder.order,
+      action: 'submitted',
+      actor: workerId,
+      actorRole: 'worker',
+      previousStatus: 'in_progress',
+      newStatus: subOrder.status,
+      metadata: {
+        subOrderName: subOrder.name,
+        orderId: subOrder.orderId,
+        stage: subOrder.currentStage,
+        progress: subOrder.progress
+      }
+    });
+    await historyEntry.save();
+  } catch (error) {
+    console.error('Failed to log submission history:', error);
+  }
+};
 
 /**
  * GET /api/assignments/available
@@ -32,7 +59,13 @@ export const getAvailableAssignments = async (req, res) => {
     }
 
     const assignments = await Assignment.find(query)
-      .populate('order')
+      .populate({
+        path: 'order',
+        populate: {
+          path: 'style'
+          // Include all style fields
+        }
+      })
       .populate('subOrder')
       .sort({ 'order.priority': -1 });
 
@@ -72,7 +105,11 @@ export const getAvailableForMe = async (req, res) => {
     })
       .populate({
         path: 'order',
-        select: 'orderId styleSnapshot priority deadline totalQuantity category stages'
+        select: 'orderId styleSnapshot priority deadline totalQuantity category stages style',
+        populate: {
+          path: 'style'
+          // Don't select specific fields — include all, especially photos
+        }
       })
       .populate('subOrder')
       .sort({ createdAt: 1 })
@@ -110,7 +147,13 @@ export const pickAssignment = async (req, res) => {
       { _id: id, status: 'available' },
       { $set: { status: 'assigned', worker: workerId, assignedAt: new Date() } },
       { new: true, runValidators: true }
-    ).populate('order').populate('subOrder').exec();
+    ).populate({
+      path: 'order',
+      populate: {
+        path: 'style'
+        // Include all style fields
+      }
+    }).populate('subOrder').exec();
 
     // fallback to 'assignedTo' if schema uses that
     if (!updated) {
@@ -118,7 +161,13 @@ export const pickAssignment = async (req, res) => {
         { _id: id, status: 'available' },
         { $set: { status: 'assigned', assignedTo: workerId, assignedAt: new Date() } },
         { new: true, runValidators: true }
-      ).populate('order').populate('subOrder').exec();
+      ).populate({
+        path: 'order',
+        populate: {
+          path: 'style'
+          // Include all style fields
+        }
+      }).populate('subOrder').exec();
     }
 
     if (!updated) {
@@ -151,7 +200,13 @@ export const pickAssignment = async (req, res) => {
  */
 export const getAssignmentById = async (req, res) => {
   try {
-    const a = await Assignment.findById(req.params.id).populate('order').populate('subOrder');
+    const a = await Assignment.findById(req.params.id).populate({
+      path: 'order',
+      populate: {
+        path: 'style'
+        // Include all style fields
+      }
+    }).populate('subOrder');
     if (!a) return res.status(404).json({ error: 'Not found' });
     res.json(a);
   } catch (err) {
@@ -219,10 +274,23 @@ export const completeAssignment = async (req, res) => {
         throw e;
       }
 
+      // validate piece counts
+      const completedPieces = req.body.completedPieces || 0;
+      const damagedPieces = req.body.damagedPieces || 0;
+      const totalReported = completedPieces + damagedPieces;
+      if (totalReported !== assignment.totalPieces) {
+        const e = new Error(`Completed pieces (${completedPieces}) + damaged pieces (${damagedPieces}) must equal total pieces (${assignment.totalPieces})`);
+        e.status = 400;
+        throw e;
+      }
+
       // mark assignment completed
       assignment.status = 'completed';
       assignment.completedAt = new Date();
       assignment.completedBy = workerId;
+      assignment.completedPieces = completedPieces;
+      assignment.damagedPieces = damagedPieces;
+      assignment.damagedReason = req.body.damagedReason || '';
       await assignment.save({ session });
 
       // decrement assignedWorkers on subOrder safely (clamp to 0 later)
@@ -251,10 +319,22 @@ export const completeAssignment = async (req, res) => {
 
       // if this completes the subOrder for the stage, create next-stage assignments
       if (progress === 100) {
-        console.log('[completeAssignment] subOrder finished for stage=', stage, '; creating next-stage assignments');
+        console.log('[completeAssignment] subOrder finished for stage=', stage, '; setting to pending approval');
         const orderId = assignment.order?._id || assignment.order;
-        const created = await createNextStageAssignments(orderId, stage, { session });
-        console.log('[completeAssignment] created next-stage assignments count:', (created || []).length);
+        
+        // Update suborder status to pending_approval and set completedBy
+        await SubOrder.findByIdAndUpdate(subOrderId, { 
+          status: 'pending_approval',
+          completedBy: workerId
+        }, { session }).exec();
+
+        // Log submission to approval history
+        const updatedSubOrder = await SubOrder.findById(subOrderId).session(session);
+        await logApprovalHistoryForSubmission(updatedSubOrder, workerId);
+        
+        // Don't create next-stage assignments yet - wait for approval
+        // const created = await createNextStageAssignments(orderId, stage, { session });
+        // console.log('[completeAssignment] created next-stage assignments count:', (created || []).length);
       }
 
       // fetch updated subOrder within the transaction and expose it
@@ -333,7 +413,14 @@ export const forMeAssignments = async (req, res) => {
     if (req.query.status) filter.status = req.query.status;
 
     const assignments = await Assignment.find(filter)
-      .populate({ path: 'order', select: 'orderId styleSnapshot priority deadline totalQuantity' })
+      .populate({
+        path: 'order',
+        select: 'orderId styleSnapshot priority deadline totalQuantity style',
+        populate: {
+          path: 'style'
+          // Include all style fields
+        }
+      })
       .populate({ path: 'subOrder' })
       .sort({ createdAt: -1 })
       .lean();

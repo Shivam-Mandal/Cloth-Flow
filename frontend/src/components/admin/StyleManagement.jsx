@@ -47,7 +47,17 @@ export default function StyleManagement() {
     if (!val) return '';
     if (/^https?:\/\//i.test(val)) return val;
     if (!CLOUDINARY_CLOUD_NAME || CLOUDINARY_CLOUD_NAME === 'your_cloud_name') return val;
-    return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/${val}`;
+
+    // Only treat as a Cloudinary public_id if it looks like one (not common words/attributes)
+    // Cloudinary public IDs typically contain alphanumeric chars, hyphens, underscores, and dots
+    // But exclude common style attributes, process names, and short generic words
+    const commonWords = /^(xl|s|m|l|xs|xxl|red|blue|green|yellow|orange|black|white|cutting|packing|printing|finishing|stitching|available|low|medium|high|normal|pending|approved|rejected|completed|in.progress|delayed)$/i;
+    const looksLikePublicId = /^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$/.test(val) && val.length > 3 && !commonWords.test(val);
+
+    if (looksLikePublicId) {
+      return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/${val}`;
+    }
+    return '';
   }, []);
 
   // fetch styles on mount
@@ -313,19 +323,18 @@ export default function StyleManagement() {
 
                   <td className="p-4 align-top">
                     <div className="flex items-center gap-2">
-                      {visible.map((p, i) => {
-                        const src = getPhotoUrl(p);
-                        return (
+                      {visible
+                        .map((p, i) => ({ photo: p, index: i, url: getPhotoUrl(p) }))
+                        .filter(({ url }) => url) // Only show photos with valid URLs
+                        .map(({ photo, index, url }) => (
                           <img
-                            key={i}
-                            src={src}
-                            alt={`photo-${i}`}
+                            key={index}
+                            src={url}
+                            alt={`photo-${index}`}
                             className="h-12 w-12 object-cover rounded cursor-pointer"
-                            onClick={() => openGallery(stylePhotos, i)}
-                            onError={e => (e.currentTarget.style.display = 'none')}
+                            onClick={() => openGallery(stylePhotos, index)}
                           />
-                        );
-                      })}
+                        ))}
 
                       {/* If there are more than 2 photos, show +N button */}
                       {extraCount > 0 && (
@@ -440,15 +449,15 @@ export default function StyleManagement() {
                       {uploading && <div className="text-sm text-gray-500 mt-2">Uploading images...</div>}
 
                       <div className="mt-3 grid grid-cols-4 gap-2">
-                        {photos.map((p, i) => {
-                          const src = getPhotoUrl(p);
-                          return (
-                            <div key={i} className="relative group">
-                              <img src={src} alt={p.filename || `photo-${i}`} className="w-full h-24 object-cover rounded cursor-pointer" onClick={() => openGallery(photos, i)} onError={e => (e.currentTarget.style.display = 'none')} />
-                              <button onClick={() => removePhoto(i)} className="absolute top-1 right-1 bg-white p-1 rounded-full opacity-0 group-hover:opacity-100 shadow"><Trash size={14} /></button>
+                        {photos
+                          .map((p, i) => ({ photo: p, index: i, url: getPhotoUrl(p) }))
+                          .filter(({ url }) => url) // Only show photos with valid URLs
+                          .map(({ photo, index, url }) => (
+                            <div key={index} className="relative group">
+                              <img src={url} alt={photo.filename || `photo-${index}`} className="w-full h-24 object-cover rounded cursor-pointer" onClick={() => openGallery(photos, index)} />
+                              <button onClick={() => removePhoto(index)} className="absolute top-1 right-1 bg-white p-1 rounded-full opacity-0 group-hover:opacity-100 shadow"><Trash size={14} /></button>
                             </div>
-                          );
-                        })}
+                          ))}
                       </div>
                     </div>
                   </div>

@@ -1,12 +1,15 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, ClipboardList, Package, TrendingUp, Factory } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Package, TrendingUp, Factory, Clock, CheckCircle, BarChart3 } from "lucide-react";
 
 export const WorkerSidebar = () => {
   const menuItems = [
     { id: "overview", label: "My Dashboard", icon: LayoutDashboard, path: "/worker/overview" },
     { id: "assigned", label: "Assigned Tasks", icon: ClipboardList, path: "/worker/assigned" },
     { id: "available", label: "Available Tasks", icon: Package, path: "/worker/available" },
+    { id: "pending", label: "Pending Approvals", icon: Clock, path: "/worker/pending" },
+    { id: "completed", label: "Completed Work", icon: CheckCircle, path: "/worker/completed" },
+    { id: "approval-history", label: "Approval History", icon: TrendingUp, path: "/worker/approval-history" },
     { id: "progress", label: "My Progress", icon: TrendingUp, path: "/worker/progress" },
   ];
 
