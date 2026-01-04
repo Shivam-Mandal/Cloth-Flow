@@ -40,12 +40,38 @@ const logApprovalHistory = async (subOrder, action, actor, actorRole, options = 
 export const getPendingApprovals = async (req, res) => {
   try {
     const pendingSubOrders = await SubOrder.find({ status: 'pending_approval' })
-      .populate('order')
-      .populate('completedBy', 'name email')
+      .populate({
+        path: 'order',
+        populate: {
+          path: 'style'
+        }
+      })
+      .populate('completedBy', 'name email workerType')
       .sort({ updatedAt: -1 })
       .lean();
 
-    res.json({ success: true, approvals: pendingSubOrders });
+    // Add calculated payment info for admin review
+    const enrichedApprovals = pendingSubOrders.map(subOrder => {
+      let calculatedPayment = 0;
+      if (subOrder.order?.style?.steps && subOrder.approvedPieces > 0) {
+        const currentStageStep = subOrder.order.style.steps.find(
+          step => step.label.toLowerCase() === subOrder.currentStage.toLowerCase()
+        );
+        if (currentStageStep && currentStageStep.price) {
+          calculatedPayment = subOrder.approvedPieces * currentStageStep.price;
+        }
+      }
+      
+      return {
+        ...subOrder,
+        calculatedPayment,
+        pricePerPiece: subOrder.order?.style?.steps?.find(
+          step => step.label.toLowerCase() === subOrder.currentStage.toLowerCase()
+        )?.price || 0
+      };
+    });
+
+    res.json({ success: true, approvals: enrichedApprovals });
   } catch (error) {
     console.error('getPendingApprovals error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -62,7 +88,7 @@ export const approveSubOrder = async (req, res) => {
   try {
     const { subOrderId } = req.params;
     const adminId = req.user?._id;
-    const { amount } = req.body; // Amount to be paid for this suborder
+    // Admin only confirms approval - no amount input
 
     if (!mongoose.Types.ObjectId.isValid(subOrderId)) {
       return res.status(400).json({ error: 'Invalid subOrderId' });
@@ -70,7 +96,15 @@ export const approveSubOrder = async (req, res) => {
 
     await session.withTransaction(async () => {
       // Find and update the suborder
-      const subOrder = await SubOrder.findById(subOrderId).session(session);
+      const subOrder = await SubOrder.findById(subOrderId)
+        .populate({
+          path: 'order',
+          populate: {
+            path: 'style'
+          }
+        })
+        .session(session);
+        
       if (!subOrder) {
         throw new Error('SubOrder not found');
       }
@@ -79,23 +113,42 @@ export const approveSubOrder = async (req, res) => {
         throw new Error('SubOrder is not pending approval');
       }
 
+      // Auto-calculate payment based on approved pieces and style pricing
+      let calculatedPayment = 0;
+      if (subOrder.order?.style?.steps && subOrder.approvedPieces > 0) {
+        const currentStageStep = subOrder.order.style.steps.find(
+          step => step.label.toLowerCase() === subOrder.currentStage.toLowerCase()
+        );
+        if (currentStageStep && currentStageStep.price) {
+          calculatedPayment = subOrder.approvedPieces * currentStageStep.price;
+        }
+      }
+
       // Update suborder status
       subOrder.status = 'approved';
       subOrder.approvedBy = adminId;
       subOrder.approvedAt = new Date();
-      if (amount !== undefined) {
-        subOrder.amount = amount;
-      }
+      subOrder.amount = calculatedPayment;
+      subOrder.workerEarnings = calculatedPayment;
       await subOrder.save({ session });
+
+      // Add payment to worker account
+      if (calculatedPayment > 0 && subOrder.completedBy) {
+        await mongoose.model('Worker').findByIdAndUpdate(
+          subOrder.completedBy,
+          { $inc: { accountBalance: calculatedPayment } },
+          { session }
+        );
+      }
 
       // Log approval to history
       await logApprovalHistory(subOrder, 'approved', adminId, 'admin', {
-        amount,
+        amount: calculatedPayment,
         previousStatus: 'pending_approval'
       });
 
       // Create next stage assignments
-      const orderId = subOrder.order;
+      const orderId = subOrder.order._id;
       const currentStage = subOrder.currentStage;
       console.log('[approveSubOrder] creating next-stage assignments for stage:', currentStage);
 
@@ -103,7 +156,7 @@ export const approveSubOrder = async (req, res) => {
       console.log('[approveSubOrder] created next-stage assignments count:', (created || []).length);
     });
 
-    res.json({ success: true, message: 'SubOrder approved successfully' });
+    res.json({ success: true, message: 'SubOrder approved and payment calculated automatically' });
   } catch (error) {
     console.error('approveSubOrder error:', error);
     res.status(500).json({ error: error.message || 'Server error' });

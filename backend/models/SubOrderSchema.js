@@ -15,6 +15,26 @@ const SubOrderSchema = new mongoose.Schema({
   approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
   approvedAt: { type: Date },
   amount: { type: Number, default: 0 },
+  submittedPieces: {
+    type: Number,
+    default: 0
+  },
+  approvedPieces: {
+    type: Number,
+    default: 0
+  },
+  faultyPieces: {
+    type: Number,
+    default: 0
+  },
+  pricePerPiece: {
+    type: Number,
+    default: 0   // set from style management
+  },
+  workerEarnings: {
+    type: Number,
+    default: 0  // calculated after approval
+  }
 }, {
   timestamps: true
 });

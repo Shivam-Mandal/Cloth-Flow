@@ -418,7 +418,7 @@ export const AssignedTasksTable = () => {
 
       {/* Completion Modal */}
       {completionModal.open && completionModal.assignment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 shadow-2xl">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Complete Assignment</h3>
             <p className="text-sm text-gray-600 mb-4">

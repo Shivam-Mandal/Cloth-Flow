@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle, XCircle, Eye, DollarSign } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, User, Package, DollarSign } from 'lucide-react';
 import {
   fetchPendingApprovals,
   approveSubOrder,
@@ -12,7 +12,6 @@ export const ApprovalManagement = () => {
   const [loading, setLoading] = useState({ fetch: false, action: false });
   const [error, setError] = useState(null);
   const [selectedApproval, setSelectedApproval] = useState(null);
-  const [amount, setAmount] = useState('');
   const [rejectReason, setRejectReason] = useState('');
 
   const loadPendingApprovals = async () => {
@@ -32,17 +31,11 @@ export const ApprovalManagement = () => {
   useEffect(() => { loadPendingApprovals(); }, []);
 
   const handleApprove = async (subOrderId) => {
-    if (!amount || parseFloat(amount) <= 0) {
-      toast.error('Please enter a valid amount');
-      return;
-    }
-
     setLoading(l => ({ ...l, action: true }));
     try {
-      await approveSubOrder(subOrderId, parseFloat(amount));
-      toast.success('SubOrder approved successfully');
+      await approveSubOrder(subOrderId); // No amount needed - auto-calculated
+      toast.success('SubOrder approved and payment processed automatically');
       setSelectedApproval(null);
-      setAmount('');
       await loadPendingApprovals();
     } catch (e) {
       console.error('Approval failed', e);
@@ -75,7 +68,6 @@ export const ApprovalManagement = () => {
 
   const openApprovalModal = (approval) => {
     setSelectedApproval(approval);
-    setAmount('');
     setRejectReason('');
   };
 
@@ -157,76 +149,153 @@ export const ApprovalManagement = () => {
 
       {/* Approval Modal */}
       {selectedApproval && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full mx-4">
-            <h3 className="text-xl font-semibold mb-4">Review SubOrder</h3>
+        <div className="fixed inset-0 bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 shadow-2xl">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
+              <Eye className="w-5 h-5" />
+              Work Review & Approval
+            </h3>
 
-            <div className="mb-6">
-              <h4 className="font-medium mb-2">{selectedApproval.name}</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                <div>Order ID: {selectedApproval.orderId}</div>
-                <div>Stage: {selectedApproval.currentStage}</div>
-                <div>Progress: {selectedApproval.progress}%</div>
-                <div>Completed By: {selectedApproval.completedBy?.name || 'Unknown'}</div>
+            {/* Order Information */}
+            <div className="bg-gray-50 p-4 rounded-lg mb-6">
+              <h4 className="font-medium mb-3 flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Order Information
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">Order ID:</span>
+                  <div className="font-medium">{selectedApproval.order?.orderId || selectedApproval.orderId}</div>
+                </div>
+                <div>
+                  <span className="text-gray-600">Style:</span>
+                  <div className="font-medium">{selectedApproval.order?.style?.name || 'N/A'}</div>
+                </div>
+                <div>
+                  <span className="text-gray-600">Stage:</span>
+                  <div className="font-medium">{selectedApproval.currentStage}</div>
+                </div>
+                <div>
+                  <span className="text-gray-600">SubOrder:</span>
+                  <div className="font-medium">{selectedApproval.name}</div>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Payment Amount (₹)
-                </label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="pl-10 w-full border border-gray-300 rounded-md shadow-sm p-3"
-                    placeholder="Enter payment amount"
-                  />
+            {/* Worker Information */}
+            <div className="bg-blue-50 p-4 rounded-lg mb-6">
+              <h4 className="font-medium mb-3 flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Worker Information
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">Name:</span>
+                  <div className="font-medium">{selectedApproval.completedBy?.name || 'Unknown'}</div>
+                </div>
+                <div>
+                  <span className="text-gray-600">Type:</span>
+                  <div className="font-medium">{selectedApproval.completedBy?.workerType || 'N/A'}</div>
+                </div>
+                <div>
+                  <span className="text-gray-600">Email:</span>
+                  <div className="font-medium">{selectedApproval.completedBy?.email || 'N/A'}</div>
                 </div>
               </div>
+            </div>
 
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-2">Decision</h4>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleApprove(selectedApproval._id)}
-                    disabled={loading.action || !amount}
-                    className="flex-1 bg-green-600 text-white py-3 px-4 rounded hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                    Approve & Pay
-                  </button>
-
-                  <div className="flex-1">
-                    <textarea
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                      placeholder="Reason for rejection..."
-                      className="w-full border border-gray-300 rounded-md shadow-sm p-3 mb-2"
-                      rows="2"
-                    />
-                    <button
-                      onClick={() => handleReject(selectedApproval._id)}
-                      disabled={loading.action || !rejectReason.trim()}
-                      className="w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      Reject
-                    </button>
+            {/* Work Submission Details */}
+            <div className="bg-green-50 p-4 rounded-lg mb-6">
+              <h4 className="font-medium mb-3">Work Submission Details</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-3 bg-white rounded border">
+                  <div className="text-2xl font-bold text-blue-600">{selectedApproval.submittedPieces || 0}</div>
+                  <div className="text-sm text-gray-600">Total Submitted</div>
+                </div>
+                <div className="text-center p-3 bg-white rounded border">
+                  <div className="text-2xl font-bold text-green-600">{selectedApproval.approvedPieces || 0}</div>
+                  <div className="text-sm text-gray-600">Completed Pieces</div>
+                </div>
+                <div className="text-center p-3 bg-white rounded border">
+                  <div className="text-2xl font-bold text-red-600">{selectedApproval.faultyPieces || 0}</div>
+                  <div className="text-sm text-gray-600">Damaged Pieces</div>
+                </div>
+                <div className="text-center p-3 bg-white rounded border">
+                  <div className="text-lg font-bold text-gray-600">
+                    {selectedApproval.faultyPieces > 0 ? 
+                      `${((selectedApproval.faultyPieces / selectedApproval.submittedPieces) * 100).toFixed(1)}%` : 
+                      '0%'
+                    }
                   </div>
+                  <div className="text-sm text-gray-600">Damage Rate</div>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end mt-6">
+            {/* Payment Calculation */}
+            <div className="bg-yellow-50 p-4 rounded-lg mb-6">
+              <h4 className="font-medium mb-3 flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                Payment Calculation (Auto-Calculated)
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">Price per Piece ({selectedApproval.currentStage}):</span>
+                  <div className="font-bold text-lg">${selectedApproval.pricePerPiece || 0}</div>
+                </div>
+                <div>
+                  <span className="text-gray-600">Calculation:</span>
+                  <div className="font-medium">{selectedApproval.approvedPieces || 0} × ${selectedApproval.pricePerPiece || 0}</div>
+                </div>
+                <div>
+                  <span className="text-gray-600">Total Payment:</span>
+                  <div className="font-bold text-xl text-green-600">${selectedApproval.calculatedPayment || 0}</div>
+                </div>
+              </div>
+              <div className="mt-3 p-3 bg-white rounded border border-yellow-200">
+                <div className="text-sm text-yellow-800">
+                  💡 This amount will be automatically added to the worker's account upon approval
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="border-t pt-6">
+              <div className="flex gap-4">
+                <button
+                  onClick={() => handleApprove(selectedApproval._id)}
+                  disabled={loading.action}
+                  className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  {loading.action ? 'Processing...' : 'Approve & Process Payment'}
+                </button>
+
+                <div className="flex-1">
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Reason for rejection (required)..."
+                    className="w-full border border-gray-300 rounded-lg p-3 mb-3 resize-none"
+                    rows="2"
+                  />
+                  <button
+                    onClick={() => handleReject(selectedApproval._id)}
+                    disabled={loading.action || !rejectReason.trim()}
+                    className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Reject Work
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-4">
               <button
                 onClick={() => setSelectedApproval(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                disabled={loading.action}
+                className="px-6 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 disabled:opacity-50"
               >
                 Cancel
               </button>

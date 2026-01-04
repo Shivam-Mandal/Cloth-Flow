@@ -10,8 +10,8 @@ export const fetchPendingApprovals = async () => {
   return res.data;
 };
 
-export const approveSubOrder = async (subOrderId, amount = 0) => {
-  const res = await api.post(`/approvals/${subOrderId}/approve`, { amount });
+export const approveSubOrder = async (subOrderId) => {
+  const res = await api.post(`/approvals/${subOrderId}/approve`);
   return res.data;
 };
 

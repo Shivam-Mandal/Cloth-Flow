@@ -322,10 +322,23 @@ export const completeAssignment = async (req, res) => {
         console.log('[completeAssignment] subOrder finished for stage=', stage, '; setting to pending approval');
         const orderId = assignment.order?._id || assignment.order;
         
-        // Update suborder status to pending_approval and set completedBy
+        // Calculate total pieces from all completed assignments for this stage
+        const stageAssignments = await Assignment.find({
+          subOrder: subOrderId,
+          stage: stage,
+          status: 'completed'
+        }).session(session);
+        
+        const totalCompletedPieces = stageAssignments.reduce((sum, a) => sum + (a.completedPieces || 0), 0);
+        const totalDamagedPieces = stageAssignments.reduce((sum, a) => sum + (a.damagedPieces || 0), 0);
+        
+        // Update suborder with submission details for admin review
         await SubOrder.findByIdAndUpdate(subOrderId, { 
           status: 'pending_approval',
-          completedBy: workerId
+          completedBy: workerId,
+          submittedPieces: totalCompletedPieces + totalDamagedPieces,
+          approvedPieces: totalCompletedPieces, // Will be reviewed by admin
+          faultyPieces: totalDamagedPieces
         }, { session }).exec();
 
         // Log submission to approval history
