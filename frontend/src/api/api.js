@@ -33,7 +33,10 @@ api.interceptors.response.use(
         
         return api(originalRequest);
       } catch (refreshError) {
-        window.location.href = '/login';
+        // Only redirect if not already on login page
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
       }
     }
     
