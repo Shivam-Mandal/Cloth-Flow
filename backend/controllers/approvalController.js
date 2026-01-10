@@ -141,6 +141,21 @@ export const approveSubOrder = async (req, res) => {
         );
       }
 
+      // Emit real-time update to worker
+      const io = req.app.get('io');
+      if (io && subOrder.completedBy) {
+        io.emit(`worker-${subOrder.completedBy}`, {
+          type: 'APPROVAL_APPROVED',
+          subOrder: {
+            _id: subOrder._id,
+            name: subOrder.name,
+            currentStage: subOrder.currentStage,
+            amount: calculatedPayment,
+            status: 'approved'
+          }
+        });
+      }
+
       // Log approval to history
       await logApprovalHistory(subOrder, 'approved', adminId, 'admin', {
         amount: calculatedPayment,
@@ -323,7 +338,11 @@ const getWorkerSubOrders = async (workerId) => {
  */
 export const getWorkerPendingApprovals = async (req, res) => {
   try {
-    const workerId = req.user._id;
+    const workerId = req.user?._id;
+
+    if (!workerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     const pendingSubOrders = await SubOrder.find({
       completedBy: workerId,
@@ -345,7 +364,11 @@ export const getWorkerPendingApprovals = async (req, res) => {
  */
 export const getWorkerCompletedWork = async (req, res) => {
   try {
-    const workerId = req.user._id;
+    const workerId = req.user?._id;
+
+    if (!workerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     const completedSubOrders = await SubOrder.find({
       completedBy: workerId,

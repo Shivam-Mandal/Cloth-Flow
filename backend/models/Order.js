@@ -11,6 +11,7 @@ const OrderSchema = new mongoose.Schema({
   pieces: { type: Object, default: {} },
   totalQuantity: { type: Number, default: 0 },
   requiredKg: { type: Number },
+  vendor: { type: String, trim: true },
   stages: { type: [String], default: ['Cutting', 'Printing', 'Stitching', 'Finishing', 'Packing', 'Sale out'] },
   priority: { type: String, enum: ['Low', 'Normal', 'High'], default: 'Normal' },
   deadline: { type: Date },

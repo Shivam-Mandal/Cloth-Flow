@@ -7,9 +7,10 @@ const router = express.Router();
 
 // Get all workers or a single worker by ID
 router.get("/", verifyAccessToken, getWorker);
-router.get("/:id", verifyAccessToken, getWorker);
 
 // Get active workers count
 router.get("/active/count", verifyAccessToken, getActiveWorkersCount);
+
+router.get("/:id", verifyAccessToken, getWorker);
 
 export default router;

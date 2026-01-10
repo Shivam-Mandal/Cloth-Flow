@@ -164,3 +164,17 @@ export const deleteStock = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
+
+/**
+ * GET /api/stocks/vendors
+ * Get unique vendors from stock
+ */
+export const getVendors = async (req, res) => {
+  try {
+    const vendors = await Stock.distinct('vendor');
+    return res.json({ success: true, data: vendors });
+  } catch (err) {
+    console.error('getVendors err:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};

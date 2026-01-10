@@ -340,6 +340,7 @@ export const createOrder = async (req, res) => {
       pieces = {},
       deadline,
       priority,
+      vendor,
       distributionMode = 'perSku',
       workersCount = 1
     } = req.body;
@@ -359,6 +360,7 @@ export const createOrder = async (req, res) => {
       totalQuantity,
       deadline,
       priority,
+      vendor,
       createdBy: req.user?.id
     });
     await order.save();
