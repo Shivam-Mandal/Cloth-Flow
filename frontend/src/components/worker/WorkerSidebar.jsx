@@ -1,24 +1,25 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
+import { motion } from "framer-motion";
 import { LayoutDashboard, ClipboardList, Package, TrendingUp, Factory, Clock, CheckCircle, BarChart3 } from "lucide-react";
 
 export const WorkerSidebar = () => {
   const menuItems = [
-    { id: "overview", label: "My Dashboard", icon: LayoutDashboard, path: "/worker/overview" },
-    { id: "assigned", label: "Assigned Tasks", icon: ClipboardList, path: "/worker/assigned" },
-    { id: "available", label: "Available Tasks", icon: Package, path: "/worker/available" },
-    { id: "pending", label: "Pending Approvals", icon: Clock, path: "/worker/pending" },
-    { id: "completed", label: "Completed Work", icon: CheckCircle, path: "/worker/completed" },
-    { id: "approval-history", label: "Approval History", icon: TrendingUp, path: "/worker/approval-history" },
-    { id: "progress", label: "My Progress", icon: TrendingUp, path: "/worker/progress" },
+    { id: "overview", label: "My Dashboard", icon: LayoutDashboard, path: "/worker/overview", badge: null },
+    { id: "assigned", label: "Assigned Tasks", icon: ClipboardList, path: "/worker/assigned", badge: "5" },
+    { id: "available", label: "Available Tasks", icon: Package, path: "/worker/available", badge: "12" },
+    { id: "pending", label: "Pending Approvals", icon: Clock, path: "/worker/pending", badge: "2" },
+    { id: "completed", label: "Completed Work", icon: CheckCircle, path: "/worker/completed", badge: null },
+    { id: "approval-history", label: "Approval History", icon: BarChart3, path: "/worker/approval-history", badge: null },
+    { id: "progress", label: "My Progress", icon: TrendingUp, path: "/worker/progress", badge: null },
   ];
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <div className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm">
       {/* Header */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
             <Factory className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -28,31 +29,56 @@ export const WorkerSidebar = () => {
         </div>
       </div>
 
-      {/* Menu */}
+      {/* Navigation */}
       <nav className="flex-1 p-4">
-        <ul className="space-y-2">
-          {menuItems.map((item) => {
+        <ul className="space-y-1">
+          {menuItems.map((item, index) => {
             const Icon = item.icon;
             return (
-              <li key={item.id}>
+              <motion.li
+                key={item.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+              >
                 <NavLink
                   to={item.path}
                   className={({ isActive }) =>
-                    `w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${
+                    `group relative w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 ${
                       isActive
-                        ? "bg-blue-50 text-blue-700 border border-blue-200"
-                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                        ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg transform scale-[1.02]'
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 hover:transform hover:scale-[1.01]'
                     }`
                   }
                 >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
+                  <div className="flex items-center space-x-3">
+                    <Icon className="w-5 h-5 transition-transform group-hover:scale-110" />
+                    <span className="font-medium">{item.label}</span>
+                  </div>
+                  
+                  {/* Badge */}
+                  {item.badge && (
+                    <span className="ml-auto bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center">
+                      {item.badge}
+                    </span>
+                  )}
+                  
+                  {/* Active indicator */}
+                  <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-white rounded-r-full opacity-0 group-[.active]:opacity-100 transition-opacity" />
                 </NavLink>
-              </li>
+              </motion.li>
             );
           })}
         </ul>
       </nav>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-gray-200 bg-gray-50">
+        <div className="text-center">
+          <p className="text-xs text-gray-500">Worker Portal</p>
+          <p className="text-xs text-gray-400 mt-1">© 2024 ClothFlow</p>
+        </div>
+      </div>
     </div>
   );
 };

@@ -4,9 +4,11 @@ import AssignedTasksTable from "./AssignedTasksTable";
 import { useUser } from "../context/UserContext";
 import { fetchWorkerPendingApprovals, fetchWorkerCompletedWork, fetchWorkerApprovalHistory } from "../services/approvalServices";
 import { fetchAssignedForMe } from "../services/assignmentServices";
-import { Clock, CheckCircle, DollarSign, TrendingUp } from "lucide-react";
+import { Clock, CheckCircle, DollarSign, TrendingUp, Target, Award, Activity } from "lucide-react";
 import { toast } from "react-toastify";
 import { useSocket } from "../../hooks/useSocket";
+import { motion } from "framer-motion";
+import { StatsCard, Card, Badge, EmptyState, Spinner } from "../ui/UIComponents";
 
 export default function WorkerOverview() {
   const { user } = useUser();
@@ -27,7 +29,7 @@ export default function WorkerOverview() {
     const handleApprovalUpdate = (event) => {
       const { detail } = event;
       if (detail.type === 'APPROVAL_APPROVED') {
-        toast.success(`Work approved! +$${detail.subOrder.amount} added to your account`);
+        toast.success(`Work approved! +₹${detail.subOrder.amount} added to your account`);
         // Refresh all data
         loadTodaysTasks();
         loadPendingApprovals();
@@ -105,54 +107,109 @@ export default function WorkerOverview() {
   };
 
   const totalEarnings = completedWork.reduce((sum, work) => sum + (work.amount || 0), 0);
+  const completionRate = todaysTasks > 0 ? Math.round((completedWork.length / todaysTasks) * 100) : 0;
+
+  const tabs = [
+    { id: "available", label: "Available Tasks", icon: Target },
+    { id: "current", label: "Current Tasks", icon: Activity },
+    { id: "approval", label: "Pending Approval", icon: Clock },
+    { id: "added", label: "Completed Work", icon: CheckCircle },
+  ];
 
   return (
-    <div className="p-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">My Dashboard</h1>
-        <div className="text-sm text-gray-600">
-          {new Date().toLocaleDateString("en-US", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between"
+      >
+        <div>
+          <h1 className="text-4xl font-bold text-gray-900">My Dashboard</h1>
+          <p className="text-gray-600 mt-2">Track your tasks and earnings</p>
         </div>
-      </div>
+        <div className="text-right">
+          <div className="text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg">
+            {new Date().toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </div>
+        </div>
+      </motion.div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <Card title="Today's Tasks" value={todaysTasks} color="blue" />
-        <Card title="Pending Approvals" value={pendingApprovals.length} color="orange" icon={<Clock className="w-4 h-4" />} />
-        <Card title="Completed Work" value={completedWork.length} color="green" icon={<CheckCircle className="w-4 h-4" />} />
-        <Card title="Total Earnings" value={`₹${totalEarnings}`} color="purple" icon={<DollarSign className="w-4 h-4" />} />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatsCard
+          title="Today's Tasks"
+          value={todaysTasks}
+          change="Active assignments"
+          icon={<Target className="w-6 h-6" />}
+          color="blue"
+          trend="neutral"
+        />
+        <StatsCard
+          title="Pending Approvals"
+          value={pendingApprovals.length}
+          change="Awaiting review"
+          icon={<Clock className="w-6 h-6" />}
+          color="yellow"
+          trend={pendingApprovals.length > 0 ? "up" : "neutral"}
+        />
+        <StatsCard
+          title="Completed Work"
+          value={completedWork.length}
+          change={`${completionRate}% completion rate`}
+          icon={<CheckCircle className="w-6 h-6" />}
+          color="green"
+          trend="up"
+        />
+        <StatsCard
+          title="Total Earnings"
+          value={`₹${totalEarnings.toLocaleString()}`}
+          change="This month"
+          icon={<DollarSign className="w-6 h-6" />}
+          color="purple"
+          trend="up"
+        />
       </div>
 
-      {/* Box Container */}
-      <div className=" rounded-2xl p-6 shadow-md bg-white">
-        {/* Tabs */}
-        <div className="flex justify-center mb-4 gap-3">
-          {["available", "current", "approval", "added"].map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 border rounded-lg capitalize ${
-                tab === t
-                  ? "bg-green-100 border-green-500 text-green-600 font-semibold"
-                  : "bg-gray-50 border-gray-300"
-              }`}
-            >
-              {t === "available" && "available task"}
-              {t === "current" && "current task"}
-              {t === "approval" && "approval"}
-              {t === "added" && "added to acc."}
-            </button>
-          ))}
+      {/* Main Content */}
+      <Card className="p-6">
+        {/* Enhanced Tabs */}
+        <div className="flex flex-wrap justify-center mb-6 gap-2">
+          {tabs.map((tabItem) => {
+            const Icon = tabItem.icon;
+            return (
+              <button
+                key={tabItem.id}
+                onClick={() => setTab(tabItem.id)}
+                className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  tab === tabItem.id
+                    ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg transform scale-105"
+                    : "bg-gray-50 hover:bg-gray-100 text-gray-700 hover:scale-105"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tabItem.label}</span>
+                {tabItem.id === "approval" && pendingApprovals.length > 0 && (
+                  <Badge variant="warning" size="sm">{pendingApprovals.length}</Badge>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Table Area */}
-        <div className=" rounded-xl p-4">
+        {/* Content Area */}
+        <motion.div 
+          key={tab}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="bg-gray-50 rounded-2xl p-6"
+        >
           {tab === "available" && (
             <AvailableTasksTable
               workerId={workerId}
@@ -165,37 +222,43 @@ export default function WorkerOverview() {
           {tab === "approval" && (
             <div>
               {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
-                  <p className="text-gray-500 mt-2">Loading pending approvals...</p>
+                <div className="text-center py-12">
+                  <Spinner size="lg" className="mx-auto mb-4" />
+                  <p className="text-gray-500">Loading pending approvals...</p>
                 </div>
               ) : pendingApprovals.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p>No pending approvals</p>
-                  <p className="text-sm">Your completed work will appear here once submitted for approval</p>
-                </div>
+                <EmptyState
+                  icon={<Clock className="w-8 h-8 text-gray-400" />}
+                  title="No pending approvals"
+                  description="Your completed work will appear here once submitted for approval"
+                />
               ) : (
-                <div className="space-y-3">
-                  {pendingApprovals.map((approval) => (
-                    <div key={approval._id} className="flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">{approval.name}</p>
-                        <p className="text-sm text-gray-600">
+                <div className="space-y-4">
+                  {pendingApprovals.map((approval, index) => (
+                    <motion.div 
+                      key={approval._id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.1 }}
+                      className="flex items-center justify-between p-4 bg-white border border-orange-200 rounded-xl hover:shadow-md transition-all duration-200"
+                    >
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">{approval.name}</p>
+                        <p className="text-sm text-gray-600 mt-1">
                           Order: {approval.order?.orderId || 'N/A'}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 mt-1">
                           Submitted: {new Date(approval.updatedAt).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        <Badge variant="warning" className="mb-2">
                           <Clock className="w-3 h-3 mr-1" />
                           Pending
-                        </span>
-                        <p className="text-sm font-semibold text-green-600 mt-1">₹{approval.amount || 0}</p>
+                        </Badge>
+                        <p className="text-lg font-bold text-green-600">₹{approval.amount || 0}</p>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               )}
@@ -205,72 +268,66 @@ export default function WorkerOverview() {
           {tab === "added" && (
             <div>
               {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-                  <p className="text-gray-500 mt-2">Loading completed work...</p>
+                <div className="text-center py-12">
+                  <Spinner size="lg" className="mx-auto mb-4" />
+                  <p className="text-gray-500">Loading completed work...</p>
                 </div>
               ) : completedWork.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <CheckCircle className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p>No completed work yet</p>
-                  <p className="text-sm">Approved work will appear here with your earnings</p>
-                </div>
+                <EmptyState
+                  icon={<CheckCircle className="w-8 h-8 text-gray-400" />}
+                  title="No completed work yet"
+                  description="Approved work will appear here with your earnings"
+                />
               ) : (
-                <div className="space-y-3">
-                  {completedWork.map((work) => (
-                    <div key={work._id} className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">{work.name}</p>
-                        <p className="text-sm text-gray-600">
+                <div className="space-y-4">
+                  {completedWork.map((work, index) => (
+                    <motion.div 
+                      key={work._id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.1 }}
+                      className="flex items-center justify-between p-4 bg-white border border-green-200 rounded-xl hover:shadow-md transition-all duration-200"
+                    >
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">{work.name}</p>
+                        <p className="text-sm text-gray-600 mt-1">
                           Order: {work.order?.orderId || 'N/A'}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 mt-1">
                           Completed: {new Date(work.updatedAt).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <Badge variant="success" className="mb-2">
                           <CheckCircle className="w-3 h-3 mr-1" />
                           Approved
-                        </span>
-                        <p className="text-sm font-semibold text-green-600 mt-1">+₹{work.amount || 0}</p>
+                        </Badge>
+                        <p className="text-lg font-bold text-green-600">+₹{work.amount || 0}</p>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl"
+                  >
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-blue-900">Total Earnings</span>
-                      <span className="text-lg font-bold text-blue-600">₹{totalEarnings}</span>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <Award className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <span className="font-semibold text-blue-900">Total Earnings</span>
+                      </div>
+                      <span className="text-2xl font-bold text-blue-600">₹{totalEarnings.toLocaleString()}</span>
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
               )}
             </div>
           )}
-        </div>
-      </div>
+        </motion.div>
+      </Card>
     </div>
   );
 }
 
-/* Small card component */
-const Card = ({ title, value, color, icon }) => {
-  const colorMap = {
-    blue: "bg-blue-500",
-    green: "bg-green-500",
-    purple: "bg-purple-500",
-    orange: "bg-orange-500",
-  };
-
-  return (
-    <div className="bg-white border rounded-xl p-4 shadow-sm flex items-center justify-between">
-      <div>
-        <p className="text-gray-600 text-sm">{title}</p>
-        <p className="text-2xl font-bold">{value}</p>
-      </div>
-      <div className={`w-6 h-6 rounded flex items-center justify-center ${colorMap[color]}`}>
-        {icon || <div className="w-2 h-2 bg-white rounded-full"></div>}
-      </div>
-    </div>
-  );
-};
