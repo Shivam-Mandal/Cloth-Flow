@@ -15,6 +15,9 @@ api.interceptors.request.use(
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (config.url === '/auth/me') {
+      // Don't make the request if no token for protected routes
+      return Promise.reject(new Error('No access token available'));
     }
     return config;
   },
@@ -46,10 +49,16 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return api(originalRequest);
         } catch (refreshError) {
-          // Refresh failed, clear tokens
+          // Refresh failed, clear tokens and redirect to login
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
+          window.location.href = '/login';
         }
+      } else {
+        // No refresh token, redirect to login
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
       }
     }
     

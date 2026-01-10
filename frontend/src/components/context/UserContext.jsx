@@ -20,20 +20,26 @@ export const UserProvider = ({ children }) => {
 
   // ================== USER FUNCTIONS ==================
   const fetchMe = async () => {
+    // Check for token first
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      setUser(null);
+      setLoading(false);
+      return { success: false, message: "No token available" };
+    }
+
     setLoading(true);
     try {
-      // Only try to fetch if we have a token
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        setUser(null);
-        return { success: false, message: "No token available" };
-      }
-      
       const res = await api.get("/auth/me");
       setUser(res.data.user ?? null);
       return { success: true, user: res.data.user ?? null };
     } catch (err) {
       setUser(null);
+      // Clear invalid tokens
+      if (err?.response?.status === 401) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+      }
       return {
         success: false,
         message: err?.response?.data?.message || "Not authenticated",
