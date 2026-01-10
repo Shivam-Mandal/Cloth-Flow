@@ -22,6 +22,13 @@ export const UserProvider = ({ children }) => {
   const fetchMe = async () => {
     setLoading(true);
     try {
+      // Only try to fetch if we have a token
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        setUser(null);
+        return { success: false, message: "No token available" };
+      }
+      
       const res = await api.get("/auth/me");
       setUser(res.data.user ?? null);
       return { success: true, user: res.data.user ?? null };
