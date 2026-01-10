@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, LogOut, User as UserIcon, Clock, Settings, ChevronDown, Target, Award } from 'lucide-react';
+import { Bell, LogOut, User as UserIcon, Clock, Settings, ChevronDown, Target, Award, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLayout } from '../context/LayoutContext';
 
 export const WorkerTopbar = ({ user, onLogout }) => {
+  const { toggleSidebar } = useLayout();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -25,14 +27,23 @@ export const WorkerTopbar = ({ user, onLogout }) => {
   });
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
+    <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 shadow-sm">
       <div className="flex items-center justify-between">
         {/* Left Section */}
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-4 sm:space-x-6">
+          <button 
+            onClick={toggleSidebar}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          
           <div className="flex items-center space-x-2 text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
             <Clock className="w-5 h-5 text-green-600" />
-            <span className="font-mono font-medium">{timeString}</span>
+            <span className="font-mono font-medium text-sm sm:text-base">{timeString}</span>
           </div>
+          
           <div className="hidden md:block">
             <p className="text-sm text-gray-600">
               Welcome back, <span className="font-semibold text-gray-900">{user?.name || 'Worker'}</span>

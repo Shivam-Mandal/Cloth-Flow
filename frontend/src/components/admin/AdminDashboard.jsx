@@ -4,6 +4,7 @@ import { Outlet, Navigate } from 'react-router-dom';
 import Sidebar from '../utils/Sidebar';
 import Topbar from '../utils/Topbar';
 import { useUser } from '../context/UserContext';
+import { useLayout } from '../context/LayoutContext';
 import { motion } from 'framer-motion';
 import { ShoppingCart, Package, Users, CheckCircle, Clock, BarChart3, Check, X, TrendingUp, TrendingDown } from 'lucide-react';
 import { fetchPendingApprovals, fetchApprovalHistory } from '../services/approvalServices';
@@ -56,13 +57,13 @@ export const Overview = () => {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex items-center justify-between"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-4xl font-bold text-gray-900">Dashboard Overview</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Dashboard Overview</h1>
           <p className="text-gray-600 mt-2">Monitor your manufacturing operations in real-time</p>
         </div>
-        <div className="text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg">
+        <div className="text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg whitespace-nowrap">
           Last updated: {new Date().toLocaleString()}
         </div>
       </motion.div>
@@ -107,7 +108,7 @@ export const Overview = () => {
       </div>
 
       {/* Approval Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
         {/* Pending Approvals */}
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
@@ -300,7 +301,10 @@ const StatCard = ({ title, value, changeText, icon, trend = 'up', color = 'blue'
 
 export default function AdminDashboard() {
   const { user, loading, initialLoadDone, logout } = useUser();
+  const { sidebarOpen } = useLayout();
+  
   console.log('[AdminDashboard] render', { user, loading, initialLoadDone });
+  
   // Show loading only until first fetch is done
   if (!initialLoadDone) {
     return (
@@ -316,11 +320,13 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${
+        sidebarOpen ? 'lg:ml-0' : 'ml-0'
+      } min-w-0`}>
         <Topbar user={user} onLogout={logout} />
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-4 sm:p-6">
           <Outlet />
         </main>
       </div>

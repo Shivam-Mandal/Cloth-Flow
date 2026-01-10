@@ -2,8 +2,10 @@
 import React, { useState } from 'react';
 import { Bell, Search, LogOut, User as UserIcon, Settings, ChevronDown, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLayout } from '../context/LayoutContext';
 
 const Topbar = ({ user = {}, onLogout }) => {
+  const { toggleSidebar } = useLayout();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -14,17 +16,21 @@ const Topbar = ({ user = {}, onLogout }) => {
   ];
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
+    <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 shadow-sm">
       <div className="flex items-center justify-between gap-4">
         
         {/* Left Section */}
         <div className="flex items-center space-x-4">
-          <button className="lg:hidden p-2 text-gray-500 hover:text-gray-700 transition-colors">
+          <button 
+            onClick={toggleSidebar}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Toggle sidebar"
+          >
             <Menu className="w-5 h-5" />
           </button>
           
           {/* Search Bar */}
-          <div className="flex-1 max-w-md">
+          <div className="flex-1 max-w-md hidden sm:block">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input

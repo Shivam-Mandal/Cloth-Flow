@@ -9,6 +9,7 @@ import { OrderManagement } from './components/admin/OrderManagement';
 import ApprovalManagement from './components/admin/ApprovalManagement';
 import ProtectedRoute from './components/ProtectedRoutes';
 import { useUser } from './components/context/UserContext';
+import { LayoutProvider } from './components/context/LayoutContext';
 import WorkerDashboard from './components/worker/WorkerDashboard';
 import AssignedTasks from './components/worker/AssignedTasks';
 import AvailableTasks from './components/worker/AvailableTasks';
@@ -30,8 +31,9 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
+    <LayoutProvider>
+      <BrowserRouter>
+        <Routes>
         {/* Public */}
         <Route path="/login" element={<LoginForm />} />
         <Route
@@ -74,7 +76,8 @@ export default function App() {
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </LayoutProvider>
   );
 }

@@ -274,30 +274,30 @@ export default function StyleManagement() {
   // ---------- render ----------
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between mb-6">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold">Style Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold">Style Management</h1>
           <p className="text-sm text-gray-500">Create and manage style definitions and per-step pricing.</p>
         </div>
         <button
           onClick={() => setIsOpen(true)}
-          className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg shadow"
+          className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg shadow whitespace-nowrap"
         >
           <Plus size={16} /> Create new Style
         </button>
       </header>
 
-      <div className="bg-white rounded-lg shadow border">
+      <div className="bg-white rounded-lg shadow border overflow-x-auto">
         <table className="min-w-full table-auto">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-4 text-left">Name</th>
-              <th className="p-4 text-left">SKU</th>
-              <th className="p-4 text-left">Sizes</th>
-              <th className="p-4 text-left">Colors</th>
-              <th className="p-4 text-left">Photos</th>
-              <th className="p-4 text-left">Steps / Prices</th>
-              <th className="p-4 text-right">Actions</th>
+              <th className="p-2 sm:p-4 text-left text-xs sm:text-sm">Name</th>
+              <th className="p-2 sm:p-4 text-left text-xs sm:text-sm">SKU</th>
+              <th className="p-2 sm:p-4 text-left text-xs sm:text-sm hidden sm:table-cell">Sizes</th>
+              <th className="p-2 sm:p-4 text-left text-xs sm:text-sm hidden md:table-cell">Colors</th>
+              <th className="p-2 sm:p-4 text-left text-xs sm:text-sm">Photos</th>
+              <th className="p-2 sm:p-4 text-left text-xs sm:text-sm hidden lg:table-cell">Steps / Prices</th>
+              <th className="p-2 sm:p-4 text-right text-xs sm:text-sm">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -316,13 +316,13 @@ export default function StyleManagement() {
 
               return (
                 <tr key={style._id} className="border-t">
-                  <td className="p-4 align-top">{style.name}</td>
-                  <td className="p-4 align-top">{style.skuId}</td>
-                  <td className="p-4 align-top">{(style.sizes || []).join(', ')}</td>
-                  <td className="p-4 align-top">{(style.colors || []).join(', ')}</td>
+                  <td className="p-2 sm:p-4 align-top text-sm">{style.name}</td>
+                  <td className="p-2 sm:p-4 align-top text-sm">{style.skuId}</td>
+                  <td className="p-2 sm:p-4 align-top text-sm hidden sm:table-cell">{(style.sizes || []).join(', ')}</td>
+                  <td className="p-2 sm:p-4 align-top text-sm hidden md:table-cell">{(style.colors || []).join(', ')}</td>
 
-                  <td className="p-4 align-top">
-                    <div className="flex items-center gap-2">
+                  <td className="p-2 sm:p-4 align-top">
+                    <div className="flex items-center gap-1 sm:gap-2">
                       {visible
                         .map((p, i) => ({ photo: p, index: i, url: getPhotoUrl(p) }))
                         .filter(({ url }) => url) // Only show photos with valid URLs
@@ -331,7 +331,7 @@ export default function StyleManagement() {
                             key={index}
                             src={url}
                             alt={`photo-${index}`}
-                            className="h-12 w-12 object-cover rounded cursor-pointer"
+                            className="h-8 w-8 sm:h-12 sm:w-12 object-cover rounded cursor-pointer"
                             onClick={() => openGallery(stylePhotos, index)}
                           />
                         ))}
@@ -341,7 +341,7 @@ export default function StyleManagement() {
                         <button
                           type="button"
                           onClick={() => openGallery(stylePhotos, visible.length)} // open gallery starting at the 3rd image
-                          className="h-12 w-12 flex items-center justify-center rounded bg-black/10 text-sm font-medium cursor-pointer border"
+                          className="h-8 w-8 sm:h-12 sm:w-12 flex items-center justify-center rounded bg-black/10 text-xs sm:text-sm font-medium cursor-pointer border"
                           title={`Show ${stylePhotos.length} images`}
                         >
                           +{extraCount}
@@ -350,20 +350,20 @@ export default function StyleManagement() {
                     </div>
                   </td>
 
-                  <td className="p-4 align-top">
+                  <td className="p-2 sm:p-4 align-top hidden lg:table-cell">
                     <div className="space-y-1">
                       {(style.steps || []).map((s, i) => (
-                        <div key={i} className="text-sm">
+                        <div key={i} className="text-xs sm:text-sm">
                           <strong>{s.label}:</strong> ₹{s.price}
                         </div>
                       ))}
                     </div>
                   </td>
 
-                  <td className="p-4 align-top text-right">
+                  <td className="p-2 sm:p-4 align-top text-right">
                     <button
                       onClick={() => deleteStyle(style._id)}
-                      className="px-3 py-1 border rounded text-red-600 hover:bg-red-50"
+                      className="px-2 sm:px-3 py-1 border rounded text-red-600 hover:bg-red-50 text-xs sm:text-sm"
                     >
                       Delete
                     </button>
@@ -397,7 +397,7 @@ export default function StyleManagement() {
                 </button>
               </div>
 
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* left */}
                 <div className="space-y-4">
                   <label className="block">
