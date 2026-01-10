@@ -6,14 +6,6 @@ export const login = async (email, password) => {
   try {
     const res = await api.post("/auth/login", { email, password });
     
-    // Store tokens if provided
-    if (res.data.accessToken) {
-      localStorage.setItem('accessToken', res.data.accessToken);
-    }
-    if (res.data.refreshToken) {
-      localStorage.setItem('refreshToken', res.data.refreshToken);
-    }
-    
     // Fetch user profile
     try {
       const me = await api.get("/auth/me");
@@ -44,14 +36,8 @@ export const signup = async (formData) => {
 export const logout = async () => {
   try {
     const res = await api.post("/auth/logout");
-    // Clear stored tokens
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
     return { success: true, message: res.data?.message || "Logged out" };
   } catch (err) {
-    // Clear tokens even if logout request fails
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
     const message = err?.response?.data?.message || err?.response?.data?.error || "Logout failed";
     return { success: false, message };
   }
