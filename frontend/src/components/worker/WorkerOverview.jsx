@@ -8,7 +8,7 @@ import { Clock, CheckCircle, DollarSign, TrendingUp, Target, Award, Activity } f
 import { toast } from "react-toastify";
 import { useSocket } from "../../hooks/useSocket";
 import { motion } from "framer-motion";
-import { StatsCard, Card, Badge, EmptyState, Spinner } from "../ui/UIComponents";
+import { StatsCard, Card, EmptyState, Spinner } from "../ui/UIComponents";
 
 export default function WorkerOverview() {
   const { user } = useUser();
@@ -194,9 +194,6 @@ export default function WorkerOverview() {
               >
                 <Icon className="w-4 h-4" />
                 <span>{tabItem.label}</span>
-                {tabItem.id === "approval" && pendingApprovals.length > 0 && (
-                  <Badge variant="warning" size="sm">{pendingApprovals.length}</Badge>
-                )}
               </button>
             );
           })}
@@ -252,10 +249,6 @@ export default function WorkerOverview() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <Badge variant="warning" className="mb-2">
-                          <Clock className="w-3 h-3 mr-1" />
-                          Pending
-                        </Badge>
                         <p className="text-lg font-bold text-green-600">₹{approval.amount || 0}</p>
                       </div>
                     </motion.div>
@@ -298,10 +291,6 @@ export default function WorkerOverview() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <Badge variant="success" className="mb-2">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Approved
-                        </Badge>
                         <p className="text-lg font-bold text-green-600">+₹{work.amount || 0}</p>
                       </div>
                     </motion.div>

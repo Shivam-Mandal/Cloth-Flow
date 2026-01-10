@@ -17,16 +17,16 @@ import {
 
 const Sidebar = ({ activeTab, onTabChange }) => {
   const menuItems = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard, to: '/admin', badge: null },
-    { id: 'approvals', label: 'Approvals', icon: CheckCircle, to: '/admin/approvals', badge: '3' },
-    { id: 'approval-history', label: 'Approval History', icon: BarChart3, to: '/admin/approval-history', badge: null },
-    { id: 'style', label: 'Style Management', icon: Shirt, to: '/admin/styles', badge: null },
-    { id: 'stock', label: 'Stock Management', icon: Package, to: '/admin/stock', badge: null },
-    { id: 'orders', label: 'Order Management', icon: ShoppingCart, to: '/admin/orders', badge: '12' },
-    { id: 'processes', label: 'Process Tracking', icon: Activity, to: '/admin/processes', badge: null },
-    { id: 'manage-worker', label: 'Worker Management', icon: Group, to: '/admin/manage-worker', badge: null },
-    { id: 'workers', label: 'Worker Performance', icon: Users, to: '/admin/workers', badge: null },
-    { id: 'reports', label: 'Reports', icon: BarChart3, to: '/admin/reports', badge: null }
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard, to: '/admin' },
+    { id: 'approvals', label: 'Approvals', icon: CheckCircle, to: '/admin/approvals' },
+    { id: 'approval-history', label: 'Approval History', icon: BarChart3, to: '/admin/approval-history' },
+    { id: 'style', label: 'Style Management', icon: Shirt, to: '/admin/styles' },
+    { id: 'stock', label: 'Stock Management', icon: Package, to: '/admin/stock' },
+    { id: 'orders', label: 'Order Management', icon: ShoppingCart, to: '/admin/orders' },
+    { id: 'processes', label: 'Process Tracking', icon: Activity, to: '/admin/processes' },
+    { id: 'manage-worker', label: 'Worker Management', icon: Group, to: '/admin/manage-worker' },
+    { id: 'workers', label: 'Worker Performance', icon: Users, to: '/admin/workers' },
+    { id: 'reports', label: 'Reports', icon: BarChart3, to: '/admin/reports' }
   ];
 
   return (
@@ -74,13 +74,6 @@ const Sidebar = ({ activeTab, onTabChange }) => {
                     <Icon className="w-5 h-5 transition-transform group-hover:scale-110" />
                     <span className="font-medium">{item.label}</span>
                   </div>
-                  
-                  {/* Badge */}
-                  {item.badge && (
-                    <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center">
-                      {item.badge}
-                    </span>
-                  )}
                   
                   {/* Active indicator */}
                   <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-white rounded-r-full opacity-0 group-[.active]:opacity-100 transition-opacity" />

@@ -5,13 +5,13 @@ import { LayoutDashboard, ClipboardList, Package, TrendingUp, Factory, Clock, Ch
 
 export const WorkerSidebar = () => {
   const menuItems = [
-    { id: "overview", label: "My Dashboard", icon: LayoutDashboard, path: "/worker/overview", badge: null },
-    { id: "assigned", label: "Assigned Tasks", icon: ClipboardList, path: "/worker/assigned", badge: "5" },
-    { id: "available", label: "Available Tasks", icon: Package, path: "/worker/available", badge: "12" },
-    { id: "pending", label: "Pending Approvals", icon: Clock, path: "/worker/pending", badge: "2" },
-    { id: "completed", label: "Completed Work", icon: CheckCircle, path: "/worker/completed", badge: null },
-    { id: "approval-history", label: "Approval History", icon: BarChart3, path: "/worker/approval-history", badge: null },
-    { id: "progress", label: "My Progress", icon: TrendingUp, path: "/worker/progress", badge: null },
+    { id: "overview", label: "My Dashboard", icon: LayoutDashboard, path: "/worker/overview" },
+    { id: "assigned", label: "Assigned Tasks", icon: ClipboardList, path: "/worker/assigned" },
+    { id: "available", label: "Available Tasks", icon: Package, path: "/worker/available" },
+    { id: "pending", label: "Pending Approvals", icon: Clock, path: "/worker/pending" },
+    { id: "completed", label: "Completed Work", icon: CheckCircle, path: "/worker/completed" },
+    { id: "approval-history", label: "Approval History", icon: BarChart3, path: "/worker/approval-history" },
+    { id: "progress", label: "My Progress", icon: TrendingUp, path: "/worker/progress" },
   ];
 
   return (
@@ -55,13 +55,6 @@ export const WorkerSidebar = () => {
                     <Icon className="w-5 h-5 transition-transform group-hover:scale-110" />
                     <span className="font-medium">{item.label}</span>
                   </div>
-                  
-                  {/* Badge */}
-                  {item.badge && (
-                    <span className="ml-auto bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center">
-                      {item.badge}
-                    </span>
-                  )}
                   
                   {/* Active indicator */}
                   <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-white rounded-r-full opacity-0 group-[.active]:opacity-100 transition-opacity" />
