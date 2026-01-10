@@ -75,6 +75,12 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Handle Private Network Access for localhost requests from HTTPS origins
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Private-Network', 'true');
+  next();
+});
+
 // --- API Routes (register before static/catch-all) ---
 app.use('/api/auth', authRouter);
 app.use('/api/styles', styleRouter);
