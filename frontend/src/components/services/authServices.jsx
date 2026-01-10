@@ -17,16 +17,25 @@ export const login = async (email, password) => {
     // 1) call login endpoint; server should set httpOnly cookies (access/refresh)
     const res = await api.post("/auth/login", { email, password });
 
-    // 2) immediately request /auth/me which reads cookie(s) server-side
+    // 2) wait a moment for cookies to be set, then request /auth/me
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     try {
       const me = await api.get("/auth/me");
       return { success: true, message: res.data?.message || "Logged in", user: me.data.user ?? null };
     } catch (meErr) {
-      // login succeeded but fetching user failed
-      return {
-        success: false,
-        message: "Logged in but failed to fetch user profile",
-      };
+      console.error('Failed to fetch user profile:', meErr.response?.data || meErr.message);
+      // Try refresh token if available
+      try {
+        await api.post("/auth/refresh-token");
+        const me = await api.get("/auth/me");
+        return { success: true, message: res.data?.message || "Logged in", user: me.data.user ?? null };
+      } catch (refreshErr) {
+        return {
+          success: false,
+          message: "Logged in but failed to fetch user profile",
+        };
+      }
     }
   } catch (err) {
     const message = err?.response?.data?.message || err?.response?.data?.error || "Login failed";
