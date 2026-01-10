@@ -6,6 +6,7 @@ import { fetchWorkerPendingApprovals, fetchWorkerCompletedWork, fetchWorkerAppro
 import { fetchAssignedForMe } from "../services/assignmentServices";
 import { Clock, CheckCircle, DollarSign, TrendingUp } from "lucide-react";
 import { toast } from "react-toastify";
+import { useSocket } from "../../hooks/useSocket";
 
 export default function WorkerOverview() {
   const { user } = useUser();
@@ -18,6 +19,26 @@ export default function WorkerOverview() {
   const [loading, setLoading] = useState(false);
   const [todaysTasks, setTodaysTasks] = useState(0);
 
+  // Initialize Socket.IO connection
+  useSocket();
+
+  // Listen for real-time approval updates
+  useEffect(() => {
+    const handleApprovalUpdate = (event) => {
+      const { detail } = event;
+      if (detail.type === 'APPROVAL_APPROVED') {
+        toast.success(`Work approved! +$${detail.subOrder.amount} added to your account`);
+        // Refresh all data
+        loadTodaysTasks();
+        loadPendingApprovals();
+        loadCompletedWork();
+      }
+    };
+
+    window.addEventListener('approvalUpdate', handleApprovalUpdate);
+    return () => window.removeEventListener('approvalUpdate', handleApprovalUpdate);
+  }, []);
+
   const loadTodaysTasks = async () => {
     try {
       const res = await fetchAssignedForMe();
@@ -29,16 +50,18 @@ export default function WorkerOverview() {
   };
 
   useEffect(() => {
-    if (tab === "approval" && pendingApprovals.length === 0) {
+    loadTodaysTasks();
+    loadPendingApprovals();
+    loadCompletedWork();
+  }, []);
+
+  useEffect(() => {
+    if (tab === "approval") {
       loadPendingApprovals();
-    } else if (tab === "added" && completedWork.length === 0) {
+    } else if (tab === "added") {
       loadCompletedWork();
     }
   }, [tab]);
-
-  useEffect(() => {
-    loadTodaysTasks();
-  }, []);
 
   // Real-time updates every 60 seconds
   useEffect(() => {
@@ -103,7 +126,7 @@ export default function WorkerOverview() {
         <Card title="Today's Tasks" value={todaysTasks} color="blue" />
         <Card title="Pending Approvals" value={pendingApprovals.length} color="orange" icon={<Clock className="w-4 h-4" />} />
         <Card title="Completed Work" value={completedWork.length} color="green" icon={<CheckCircle className="w-4 h-4" />} />
-        <Card title="Total Earnings" value={`$${totalEarnings}`} color="purple" icon={<DollarSign className="w-4 h-4" />} />
+        <Card title="Total Earnings" value={`₹${totalEarnings}`} color="purple" icon={<DollarSign className="w-4 h-4" />} />
       </div>
 
       {/* Box Container */}
@@ -170,7 +193,7 @@ export default function WorkerOverview() {
                           <Clock className="w-3 h-3 mr-1" />
                           Pending
                         </span>
-                        <p className="text-sm font-semibold text-green-600 mt-1">${approval.amount || 0}</p>
+                        <p className="text-sm font-semibold text-green-600 mt-1">₹{approval.amount || 0}</p>
                       </div>
                     </div>
                   ))}
@@ -210,14 +233,14 @@ export default function WorkerOverview() {
                           <CheckCircle className="w-3 h-3 mr-1" />
                           Approved
                         </span>
-                        <p className="text-sm font-semibold text-green-600 mt-1">+${work.amount || 0}</p>
+                        <p className="text-sm font-semibold text-green-600 mt-1">+₹{work.amount || 0}</p>
                       </div>
                     </div>
                   ))}
                   <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-blue-900">Total Earnings</span>
-                      <span className="text-lg font-bold text-blue-600">${totalEarnings}</span>
+                      <span className="text-lg font-bold text-blue-600">₹{totalEarnings}</span>
                     </div>
                   </div>
                 </div>

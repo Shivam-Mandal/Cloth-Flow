@@ -3,12 +3,15 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Plus, ShoppingCart, Eye, Edit3, Calendar } from "lucide-react";
 import * as orderService from "../services/orderServices";
 import * as styleService from "../services/styleServices";
+import stockService from "../services/stockServices";
 
 export const OrderManagement = () => {
   const [orders, setOrders] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [styles, setStyles] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [selectedStyleId, setSelectedStyleId] = useState("");
+  const [selectedVendor, setSelectedVendor] = useState("");
   const [pieces, setPieces] = useState({});
   const [requiredKgInput, setRequiredKgInput] = useState("");
   const [deadlineInput, setDeadlineInput] = useState(""); // yyyy-mm-dd from input
@@ -48,6 +51,19 @@ export const OrderManagement = () => {
       }
     };
     fetchStyles();
+  }, []);
+
+  // === Fetch vendors on mount ===
+  useEffect(() => {
+    const fetchVendors = async () => {
+      try {
+        const data = await stockService.fetchVendors();
+        setVendors(data || []);
+      } catch (err) {
+        console.error("Failed to fetch vendors:", err);
+      }
+    };
+    fetchVendors();
   }, []);
 
   // === Fetch orders on mount ===
@@ -102,6 +118,7 @@ export const OrderManagement = () => {
         requiredKg: requiredKgInput ? Number(requiredKgInput) : undefined,
         deadline: deadlineInput ? new Date(deadlineInput).toISOString() : undefined,
         priority: priorityInput || "Normal",
+        vendor: selectedVendor || undefined,
       };
 
       console.log("Creating order payload:", payload);
@@ -133,6 +150,7 @@ export const OrderManagement = () => {
       alert("Order created successfully!");
       setShowCreateForm(false);
       setSelectedStyleId("");
+      setSelectedVendor("");
       setPieces({});
       setRequiredKgInput("");
       setDeadlineInput("");
@@ -240,6 +258,7 @@ export const OrderManagement = () => {
                 {[
                   "Order ID",
                   "Design",
+                  "Vendor",
                   "Required Kg",
                   "Current Stage",
                   "Progress",
@@ -260,7 +279,7 @@ export const OrderManagement = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-6 text-gray-500">
+                  <td colSpan={10} className="text-center py-6 text-gray-500">
                     No orders available
                   </td>
                 </tr>
@@ -274,6 +293,9 @@ export const OrderManagement = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {order.styleSnapshot?.name || order.design || "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {order.vendor || "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.requiredKg || 0} kg</td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -348,6 +370,24 @@ export const OrderManagement = () => {
                   {styles.map((s) => (
                     <option key={s._id || s.id} value={s._id || s.id}>
                       {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Vendor select */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
+                <select
+                  value={selectedVendor}
+                  onChange={(e) => setSelectedVendor(e.target.value)}
+                  className="w-full border p-2 rounded"
+                  disabled={isSubmitting}
+                >
+                  <option value="">Select vendor (optional)</option>
+                  {vendors.map((vendor) => (
+                    <option key={vendor} value={vendor}>
+                      {vendor}
                     </option>
                   ))}
                 </select>
@@ -438,6 +478,12 @@ export const OrderManagement = () => {
                   onClick={() => {
                     if (isSubmitting) return; // prevent closing while submitting
                     setShowCreateForm(false);
+                    setSelectedStyleId("");
+                    setSelectedVendor("");
+                    setPieces({});
+                    setRequiredKgInput("");
+                    setDeadlineInput("");
+                    setPriorityInput("Normal");
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   disabled={isSubmitting}

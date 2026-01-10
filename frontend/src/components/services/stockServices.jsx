@@ -22,6 +22,11 @@ const stockService = {
     const res = await api.put(`/stocks/${id}`, stock); // PUT updated stock
     return res.data?.data ?? null;
   },
+
+  fetchVendors: async () => {
+    const res = await api.get('/stocks/vendors'); // GET unique vendors
+    return res.data?.data ?? [];
+  },
 };
 
 export default stockService;
