@@ -15,18 +15,18 @@ import api from '../../api/api.js';
  * in the body is optional and useful for local/dev calls where auth isn't attached.
  */
 
-export const fetchAvailableAssignments = async () => {
-  const res = await api.get('/assignments/available');
+export const fetchAvailableAssignments = async (config = {}) => {
+  const res = await api.get('/assignments/available', config);
   return res.data;
 };
 
-export const fetchAvailableForMe = async (params = {}) => {
-  const res = await api.get('/assignments/available-for-me', { params });
+export const fetchAvailableForMe = async (params = {}, config = {}) => {
+  const res = await api.get('/assignments/available-for-me', { ...config, params });
   return res.data;
 };
 
-export const fetchAssignedForMe = async (params = {}) => {
-  const res = await api.get('/assignments/for-me', { params });
+export const fetchAssignedForMe = async (params = {}, config = {}) => {
+  const res = await api.get('/assignments/for-me', { ...config, params });
   return res.data; // array of assignments or { assignments: [...] } depending on backend shape
 };
 

@@ -273,6 +273,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Package, Edit3, Trash2, Filter } from 'lucide-react';
 import stockService from '../services/stockServices';
+import PaginationControls from '../ui/PaginationControls';
+import { useClientPagination } from '../../hooks/useClientPagination';
 
 export const StockManagement = () => {
   const [stocks, setStocks] = useState([]);
@@ -311,6 +313,15 @@ export const StockManagement = () => {
 
     return matchesSearch && matchesVendor;
   });
+
+  const {
+    currentPage,
+    totalPages,
+    totalItems,
+    pageSize,
+    paginatedItems: paginatedStocks,
+    handlePageChange
+  } = useClientPagination(filteredStocks, 10);
 
   const totalValue = stocks.reduce((sum, stock) => {
     const q = Number(stock.quantityKg) || 0;
@@ -483,7 +494,7 @@ export const StockManagement = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredStocks.map((stock) => {
+              {paginatedStocks.map((stock) => {
                 const keyId = stock.id ?? stock._id;
                 return (
                   <tr key={keyId} className="hover:bg-gray-50 transition-colors">
@@ -526,6 +537,17 @@ export const StockManagement = () => {
               })}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-6 pb-6">
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            itemLabel="stock items"
+          />
         </div>
       </div>
 
@@ -614,4 +636,3 @@ export const StockManagement = () => {
     </div>
   );
 };
-

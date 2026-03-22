@@ -1,5 +1,5 @@
   // src/components/AvailableTasks.jsx
-  import React, { useEffect, useState, useMemo } from 'react';
+  import React, { useEffect, useState, useMemo, useRef } from 'react';
   import PropTypes from 'prop-types';
   import { Package, AlertCircle, Plus, Filter } from 'lucide-react';
   import {
@@ -10,6 +10,9 @@
   } from '../services/assignmentServices';
   import { getWorker } from '../services/workerService';
   import { toast } from 'react-toastify';
+  import { emitWorkerDataRefresh, subscribeWorkerDataRefresh } from '../../utils/workerRefresh';
+  import PaginationControls from '../ui/PaginationControls';
+  import { useClientPagination } from '../../hooks/useClientPagination';
 
   export const AvailableTasks = ({ workerId, workerCategory: initialWorkerCategory = null }) => {
     console.log('[AvailableTasks] render - workerId=', workerId, 'initialWorkerCategory=', initialWorkerCategory);
@@ -26,6 +29,7 @@
 
     const [activeAssigned, setActiveAssigned] = useState(null);
     const [assignedLoading, setAssignedLoading] = useState(true);
+    const lastRefreshRef = useRef(0);
 
     const normalize = (s) => (s === null || s === undefined ? '' : String(s).trim().toLowerCase());
 
@@ -164,25 +168,42 @@
         if (!mounted) return;
         await load();
         await loadAssignedForMe();
+        if (mounted) lastRefreshRef.current = Date.now();
       };
       bootstrap();
       return () => { mounted = false; };
     }, [workerId, initialWorkerCategory]);
 
-    // polling/refresh: start only after workerLoading resolves
     useEffect(() => {
-      if (workerLoading) return;
+      const refreshIfStale = async ({ force = false } = {}) => {
+        if (workerLoading) return;
+        if (!force && Date.now() - lastRefreshRef.current < 20000) return;
 
-      // immediate refresh
-      load();
-      loadAssignedForMe();
+        await load();
+        await loadAssignedForMe();
+        lastRefreshRef.current = Date.now();
+      };
 
-      const t = setInterval(() => {
-        load();
-        loadAssignedForMe();
-      }, 7000);
+      const unsubscribe = subscribeWorkerDataRefresh(({ scope, force }) => {
+        if (!scope || scope === 'worker' || scope === 'assignments') {
+          refreshIfStale({ force: Boolean(force) });
+        }
+      });
 
-      return () => clearInterval(t);
+      const revalidateVisibleState = () => {
+        if (document.visibilityState === 'visible') {
+          refreshIfStale();
+        }
+      };
+
+      window.addEventListener('focus', revalidateVisibleState);
+      document.addEventListener('visibilitychange', revalidateVisibleState);
+
+      return () => {
+        unsubscribe();
+        window.removeEventListener('focus', revalidateVisibleState);
+        document.removeEventListener('visibilitychange', revalidateVisibleState);
+      };
     }, [workerCategory, workerId, workerLoading]);
 
     // derive UI lists (filter out falsy)
@@ -214,6 +235,15 @@
       (selectedPriority === 'all' || g.priority === selectedPriority)
     );
 
+    const {
+      currentPage,
+      totalPages,
+      totalItems,
+      pageSize,
+      paginatedItems,
+      handlePageChange
+    } = useClientPagination(filtered, 5);
+
     const getPriorityColor = (priority) => {
       switch ((priority || '').toLowerCase()) {
         case 'high': return 'bg-red-100 text-red-800 border-red-200';
@@ -224,7 +254,7 @@
       }
     };
 
-    const getTimeRemaining = (deadline) => {
+  const getTimeRemaining = (deadline) => {
       if (!deadline) return { text: 'No deadline', color: 'text-gray-500' };
       const now = new Date();
       const diffMs = new Date(deadline).getTime() - now.getTime();
@@ -232,8 +262,22 @@
       if (diffHours < 0) return { text: 'Overdue', color: 'text-red-600' };
       if (diffHours < 24) return { text: `${diffHours}h left`, color: 'text-orange-600' };
       const diffDays = Math.ceil(diffHours / 24);
-      return { text: `${diffDays}d left`, color: 'text-gray-600' };
-    };
+    return { text: `${diffDays}d left`, color: 'text-gray-600' };
+  };
+
+  const getSubOrderCode = (task) => {
+    const sub = task?.subOrder;
+    if (sub && typeof sub === 'object') {
+      return sub.subOrderCode || sub.code || sub.suborderCode || null;
+    }
+    return null;
+  };
+
+  const shortId = (val) => {
+    if (!val) return '—';
+    const s = String(val);
+    return s.length <= 6 ? s : s.slice(-6);
+  };
 
     const handleClaim = async (chunkId) => {
       if (!workerId) {
@@ -253,6 +297,8 @@
         toast.success('Claimed successfully');
         setAssignments(prev => prev.filter(p => p._id !== chunkId));
         await loadAssignedForMe();
+        lastRefreshRef.current = Date.now();
+        emitWorkerDataRefresh({ scope: 'assignments', reason: 'claim', force: true });
       } catch (err) {
         if (err?.response?.status === 409) {
           toast.error('Chunk already taken by someone else');
@@ -261,6 +307,7 @@
         }
         await load();
         await loadAssignedForMe();
+        lastRefreshRef.current = Date.now();
       } finally {
         setClaimingId(null);
       }
@@ -284,7 +331,7 @@
               <div>
                 <p className="text-sm font-semibold text-yellow-800">You have an active assignment</p>
                 <p className="text-sm text-yellow-700">
-                  Please complete the current assignment for order <strong>{activeAssigned.order?.orderId || activeAssigned.order}</strong> (Chunk: {activeAssigned._id}) before claiming another.
+                  Please complete the current assignment for order <strong>{activeAssigned.order?.orderId || activeAssigned.order || '—'}</strong> (SubOrder: {getSubOrderCode(activeAssigned) || shortId(activeAssigned?.subOrder?._id || activeAssigned?.subOrder || activeAssigned?._id)}) before claiming another.
                 </p>
                 <p className="text-xs text-gray-500 mt-1">You can view it in <em>My Tasks</em> or complete it from there.</p>
               </div>
@@ -311,12 +358,12 @@
               <option value="all">All Priorities</option>
               {['high','normal','low'].map(p => <option key={p} value={p}>{p}</option>)}
             </select>
-            <div className="ml-auto text-sm text-gray-500">{filtered.length} order(s)</div>
+          <div className="ml-auto text-sm text-gray-500">{filtered.length} order(s)</div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6">
-          {filtered.map(group => {
+          {paginatedItems.map(group => {
             const timeRemaining = getTimeRemaining(group.deadline);
             return (
               <div key={group.orderKey} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all">
@@ -391,6 +438,15 @@
             );
           })}
         </div>
+
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+          itemLabel="task groups"
+        />
 
         {!loading && filtered.length === 0 && (
           <div className="text-center py-12">

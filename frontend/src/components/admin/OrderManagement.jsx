@@ -4,6 +4,8 @@ import { Plus, ShoppingCart, Eye, Edit3, Calendar } from "lucide-react";
 import * as orderService from "../services/orderServices";
 import * as styleService from "../services/styleServices";
 import stockService from "../services/stockServices";
+import PaginationControls from "../ui/PaginationControls";
+import { useClientPagination } from "../../hooks/useClientPagination";
 
 export const OrderManagement = () => {
   const [orders, setOrders] = useState([]);
@@ -16,6 +18,7 @@ export const OrderManagement = () => {
   const [requiredKgInput, setRequiredKgInput] = useState("");
   const [deadlineInput, setDeadlineInput] = useState(""); // yyyy-mm-dd from input
   const [priorityInput, setPriorityInput] = useState("Normal");
+  const [photoMap, setPhotoMap] = useState({});
 
   // NEW: submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,7 +48,20 @@ export const OrderManagement = () => {
     const fetchStyles = async () => {
       try {
         const data = await styleService.fetchStyles();
+        console.log('fetchstyle data', data);
         setStyles(data || []);
+        
+        // Create a map of styleId to photo/image
+        const photos = {};
+        (data || []).forEach((style) => {
+          if (style._id || style.id) {
+            const styleId = style._id || style.id;
+            // Extract first photo from photos array
+            photos[styleId] = (style.photos && style.photos[0]) || style.photo || style.image || style.imageUrl || null;
+          }
+        });
+        console.log('style photo map', photos);
+        setPhotoMap(photos);
       } catch (err) {
         console.error("Failed to fetch styles:", err);
       }
@@ -208,6 +224,15 @@ export const OrderManagement = () => {
     return { total, inProgress, completed, delayed };
   }, [orders]);
 
+  const {
+    currentPage,
+    totalPages,
+    totalItems,
+    pageSize,
+    paginatedItems: paginatedOrders,
+    handlePageChange
+  } = useClientPagination(orders, 8);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -256,6 +281,7 @@ export const OrderManagement = () => {
             <thead className="bg-gray-50">
               <tr>
                 {[
+                  "Photos",
                   "Order ID",
                   "Design",
                   "Vendor",
@@ -284,12 +310,33 @@ export const OrderManagement = () => {
                   </td>
                 </tr>
               ) : (
-                orders.map((orderRaw) => {
+                paginatedOrders.map((orderRaw) => {
                   const order = normalizeOrder(orderRaw);
+                  console.log('rendering order', order)
+                  const styleId = order.style._id;
+                  const styleImage = photoMap[styleId];
+                  console.log('Style image',styleImage)
                   return (
                     <tr key={order.orderId || order._id || order.id} className="hover:bg-gray-50 transition-colors">
+                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {styleImage ? (
+                          <div className="flex items-center justify-center">
+                            <img 
+                              src={styleImage} 
+                              alt="Style" 
+                              className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-gray-500 text-sm">No image</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {order.orderId || order._id || order.id}
+                        {order.orderId || "—"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {order.styleSnapshot?.name || order.design || "N/A"}
@@ -348,6 +395,17 @@ export const OrderManagement = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-6 pb-6">
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            itemLabel="orders"
+          />
         </div>
       </div>
 

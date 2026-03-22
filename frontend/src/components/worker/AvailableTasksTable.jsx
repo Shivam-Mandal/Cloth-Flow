@@ -10,6 +10,7 @@ import {
 } from '../services/assignmentServices';
 import { getWorker } from '../services/workerService';
 import { toast } from 'react-toastify';
+import { emitWorkerDataRefresh, subscribeWorkerDataRefresh } from '../../utils/workerRefresh';
 
 // local thumbnail fallback — put placeholder.png in your public/ folder
 const exampleThumb = '/placeholder.png';
@@ -155,7 +156,7 @@ const extractSkuColorSize = (chunk, orderKey) => {
         const sizesObj = chunk.pieces[color] || {};
         const sizes = Object.keys(sizesObj);
         const size = sizes.length > 0 ? sizes[0] : '—';
-        const count = sizesObj[size] ?? chunk.totalPieces ?? 0;
+        const count = chunk.totalPieces ?? sizesObj[size] ?? 0;
         const skuId = chunk.subOrder?._id ?? chunk.subOrder ?? chunk.sku ?? chunk.skuId ?? orderKey;
         return { sku: String(skuId), color: String(color), size: String(size), pieces: Number(count) };
       }
@@ -177,6 +178,20 @@ const extractSkuColorSize = (chunk, orderKey) => {
   const fallbackSku = chunk.sku ?? chunk.skuId ?? orderKey ?? '—';
   const fallbackPieces = Number(chunk.totalPieces ?? 0);
   return { sku: String(fallbackSku), color: '—', size: '—', pieces: fallbackPieces };
+};
+
+const getSubOrderCode = (chunk) => {
+  const sub = chunk?.subOrder;
+  if (sub && typeof sub === 'object') {
+    return sub.subOrderCode || sub.code || sub.suborderCode || null;
+  }
+  return null;
+};
+
+const shortId = (val) => {
+  if (!val) return '—';
+  const s = String(val);
+  return s.length <= 6 ? s : s.slice(-6);
 };
 
 /* -------------------------
@@ -206,6 +221,8 @@ const TaskRow = React.memo(({
   const firstThumb = thumbs[0] || exampleThumb;
   const thumbCount = thumbs.length;
   const { sku, color, size, pieces } = useMemo(() => extractSkuColorSize(chunk, orderKey), [chunk, orderKey]);
+  const subOrderCode = useMemo(() => getSubOrderCode(chunk), [chunk]);
+  const subOrderShort = subOrderCode || shortId(chunk?.subOrder?._id || chunk?.subOrder || chunk?._id);
   const disabled = Boolean(activeAssignedId) || claimingId === chunk._id || !workerId;
   const badgeClass = status === 'Current' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
 
@@ -254,7 +271,8 @@ const TaskRow = React.memo(({
       </td>
 
       <td className="px-3 py-2 align-top text-sm">
-        <div className="font-medium">{orderKey}</div>
+        <div className="font-medium">SubOrder: {subOrderShort || '—'}</div>
+        <div className="text-xs text-gray-500 mt-1">Order: {orderKey || '—'}</div>
       </td>
 
       <td className="px-3 py-2 align-top text-sm">{pieces}</td>
@@ -300,6 +318,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
   const [assignedLoading, setAssignedLoading] = useState(true);
 
   const mountedRef = useRef(true);
+  const lastRefreshRef = useRef(0);
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   const loadWorker = useCallback(async (signal) => {
@@ -336,7 +355,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
     try {
       let data = null;
       if (workerCategory) {
-        try { data = await fetchAvailableForMe({ category: workerCategory, signal }); } catch (e) { data = null; }
+        try { data = await fetchAvailableForMe({ category: workerCategory }, { signal }); } catch (e) { data = null; }
       }
       if (!data) {
         try { data = await fetchAvailableForMe({}, { signal }); } catch (e) { data = null; }
@@ -401,9 +420,18 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
       await loadWorker(controller.signal);
       await fetchAvailable(controller.signal);
       await loadAssignedForMe(controller.signal);
+      lastRefreshRef.current = Date.now();
     })();
     return () => controller.abort();
   }, [loadWorker, fetchAvailable, loadAssignedForMe]);
+
+  const refreshAssignments = useCallback(async ({ force = false } = {}) => {
+    if (!force && Date.now() - lastRefreshRef.current < 20000) return;
+
+    await fetchAvailable();
+    await loadAssignedForMe();
+    lastRefreshRef.current = Date.now();
+  }, [fetchAvailable, loadAssignedForMe]);
 
   // Open gallery with array of image URLs (or candidates). startIndex optional.
   const verifyUrls = async (urls) => {
@@ -472,13 +500,28 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
     return () => window.removeEventListener('keydown', onKey);
   }, [galleryOpen, galleryImages.length]);
 
-  // periodic refresh (conservative every 10s)
   useEffect(() => {
-    const controller = new AbortController();
-    const tick = async () => { await fetchAvailable(controller.signal); await loadAssignedForMe(controller.signal); };
-    const id = setInterval(tick, 10000);
-    return () => { clearInterval(id); controller.abort(); };
-  }, [fetchAvailable, loadAssignedForMe]);
+    const unsubscribe = subscribeWorkerDataRefresh(({ scope, force }) => {
+      if (!scope || scope === 'worker' || scope === 'assignments') {
+        refreshAssignments({ force: Boolean(force) });
+      }
+    });
+
+    const revalidateVisibleState = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAssignments();
+      }
+    };
+
+    window.addEventListener('focus', revalidateVisibleState);
+    document.addEventListener('visibilitychange', revalidateVisibleState);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', revalidateVisibleState);
+      document.removeEventListener('visibilitychange', revalidateVisibleState);
+    };
+  }, [refreshAssignments]);
 
   const handleClaim = useCallback(async (chunkId) => {
     if (!workerId) { toast.error('Worker not identified — cannot claim. Please login or provide workerId.'); return; }
@@ -490,12 +533,15 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
       toast.success('Claimed successfully');
       setAssignments(prev => prev.filter(p => p._id !== chunkId));
       await loadAssignedForMe();
+      lastRefreshRef.current = Date.now();
+      emitWorkerDataRefresh({ scope: 'assignments', reason: 'claim', force: true });
     } catch (err) {
       console.error('claim error', err);
       if (err?.response?.status === 409) toast.error('Chunk already taken by someone else');
       else toast.error('Failed to claim chunk');
       await fetchAvailable();
       await loadAssignedForMe();
+      lastRefreshRef.current = Date.now();
     } finally {
       if (mountedRef.current) setClaimingId(null);
     }

@@ -1,10 +1,11 @@
 // src/services/workerService.jsx
 import api from '../../api/api'
 
-// Get all workers
-export const getWorker = async () => {
+// Get all workers or a specific worker when an id is provided
+export const getWorker = async (id = null, config = {}) => {
   try {
-    const response = await api.get('/workers');
+    const url = id ? `/workers/${id}` : '/workers';
+    const response = await api.get(url, config);
     return response.data;
   } catch (error) {
     console.error("Error fetching workers:", error);
@@ -13,9 +14,9 @@ export const getWorker = async () => {
 };
 
 // Get a specific worker by ID
-export const getWorkerById = async (id) => {
+export const getWorkerById = async (id, config = {}) => {
   try {
-    const response = await api.get(`/workers/${id}`);
+    const response = await api.get(`/workers/${id}`, config);
     return response.data;
   } catch (error) {
     console.error("Error fetching worker by id:", error);

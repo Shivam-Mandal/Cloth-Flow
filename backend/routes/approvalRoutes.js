@@ -5,6 +5,7 @@ import {
   approveSubOrder,
   rejectSubOrder,
   getWorkerCompletedWork,
+  getPackingInventory,
   getApprovalHistory,
   getWorkerApprovalHistory,
   getWorkerPendingApprovals
@@ -15,6 +16,7 @@ const router = express.Router();
 
 // Admin routes
 router.get('/pending', verifyAccessToken, getPendingApprovals);
+router.get('/inventory', verifyAccessToken, getPackingInventory);
 router.post('/:subOrderId/approve', verifyAccessToken, approveSubOrder);
 router.post('/:subOrderId/reject', verifyAccessToken, rejectSubOrder);
 router.get('/history', verifyAccessToken, getApprovalHistory);

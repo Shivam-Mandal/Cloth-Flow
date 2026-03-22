@@ -12,7 +12,7 @@ const OrderSchema = new mongoose.Schema({
   totalQuantity: { type: Number, default: 0 },
   requiredKg: { type: Number },
   vendor: { type: String, trim: true },
-  stages: { type: [String], default: ['Cutting', 'Printing', 'Stitching', 'Finishing', 'Packing', 'Sale out'] },
+  stages: { type: [String], default: [] },
   priority: { type: String, enum: ['Low', 'Normal', 'High'], default: 'Normal' },
   deadline: { type: Date },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'admin' },

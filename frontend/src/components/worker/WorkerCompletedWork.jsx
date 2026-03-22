@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle, DollarSign, Calendar, TrendingUp } from 'lucide-react';
 import { fetchWorkerCompletedWork } from '../services/approvalServices';
 import { toast } from 'react-toastify';
+import PaginationControls from '../ui/PaginationControls';
+import { useClientPagination } from '../../hooks/useClientPagination';
 
 export const WorkerCompletedWork = () => {
   const [completedWork, setCompletedWork] = useState([]);
@@ -33,6 +35,15 @@ export const WorkerCompletedWork = () => {
   };
 
   useEffect(() => { loadCompletedWork(); }, []);
+
+  const {
+    currentPage,
+    totalPages,
+    totalItems,
+    pageSize,
+    paginatedItems,
+    handlePageChange
+  } = useClientPagination(completedWork, 6);
 
   return (
     <div className="space-y-6">
@@ -93,7 +104,7 @@ export const WorkerCompletedWork = () => {
         ) : (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Work History</h3>
-            {completedWork.map(work => (
+            {paginatedItems.map(work => (
               <div key={work._id} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -129,6 +140,15 @@ export const WorkerCompletedWork = () => {
             ))}
           </div>
         )}
+
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+          itemLabel="completed tasks"
+        />
       </div>
 
       <div className="flex justify-center">

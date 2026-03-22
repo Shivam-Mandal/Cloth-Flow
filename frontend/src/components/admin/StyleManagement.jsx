@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { X, Plus, ImageIcon, Trash, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as styleService from '../services/styleServices'; // <-- ensure this file exists
+import PaginationControls from '../ui/PaginationControls';
+import { useClientPagination } from '../../hooks/useClientPagination';
 
 // Cloudinary setup: use Vite env vars
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'your_cloud_name';
@@ -13,8 +15,7 @@ const defaultSteps = [
 'Printing',
   'Stitching',
   'Finishing',
-  'Packing',
-  'Sale out'
+  'Packing'
 ];
 
 export default function StyleManagement() {
@@ -25,9 +26,10 @@ export default function StyleManagement() {
   // form state
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
-  const [sizes, setSizes] = useState({ S: false, M: false, L: false, XL: false, X: false });
+  const [sizes, setSizes] = useState([]);
   const [colors, setColors] = useState([]);
   const colorRef = useRef();
+  const sizeRef = useRef();
   const [photos, setPhotos] = useState([]); // { url, filename } or string URLs
   const [stepPrices, setStepPrices] = useState(defaultSteps.map(() => ''));
   const [stepsLabels, setStepsLabels] = useState(defaultSteps);
@@ -38,6 +40,15 @@ export default function StyleManagement() {
   const [galleryIndex, setGalleryIndex] = useState(0);
   const thumbnailsRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  const {
+    currentPage,
+    totalPages,
+    totalItems,
+    pageSize,
+    paginatedItems: paginatedStyles,
+    handlePageChange
+  } = useClientPagination(styles, 8);
 
   // Utility: build absolute photo URL if needed
   const getPhotoUrl = useCallback((urlOrObj) => {
@@ -77,7 +88,7 @@ export default function StyleManagement() {
   function resetForm() {
     setName('');
     setSku('');
-    setSizes({ S: false, M: false, L: false, XL: false, X: false });
+    setSizes([]);
     setColors([]);
     setPhotos([]);
     setStepPrices(defaultSteps.map(() => ''));
@@ -98,6 +109,8 @@ export default function StyleManagement() {
         const fd = new FormData();
         fd.append('file', file);
         fd.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+        // Cloudinary-side compression (no backend upload in this app)
+        fd.append('transformation', 'f_auto,q_auto:eco');
 
         try {
           const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
@@ -149,8 +162,26 @@ export default function StyleManagement() {
     setColors(c => c.filter((_, i) => i !== index));
   }, []);
 
-  const toggleSize = useCallback((key) => {
-    setSizes(s => ({ ...s, [key]: !s[key] }));
+  const addSize = useCallback(() => {
+    const raw = sizeRef.current?.value || '';
+    const parts = raw
+      .split(',')
+      .map(v => v.trim())
+      .filter(Boolean);
+    if (!parts.length) return;
+
+    setSizes(prev => {
+      const next = [...prev];
+      parts.forEach(p => {
+        if (!next.includes(p)) next.push(p);
+      });
+      return next;
+    });
+    if (sizeRef.current) sizeRef.current.value = '';
+  }, []);
+
+  const removeSize = useCallback((index) => {
+    setSizes(s => s.filter((_, i) => i !== index));
   }, []);
 
   const updateStepLabel = useCallback((index, value) => {
@@ -172,7 +203,6 @@ export default function StyleManagement() {
   }, []);
 
   const saveStyle = useCallback(async () => {
-    const selectedSizes = Object.keys(sizes).filter(k => sizes[k]);
     if (!name.trim() || !sku.trim()) return alert('Name and SKU required');
 
     const photoUrls = photos.map(p => (typeof p === 'string' ? p : p.url));
@@ -181,7 +211,7 @@ export default function StyleManagement() {
       name,
       skuId: sku,
       photos: photoUrls,
-      sizes: selectedSizes,
+      sizes,
       colors,
       steps: stepsLabels.map((label, i) => ({ label, price: Number(stepPrices[i] || 0) })),
     };
@@ -309,7 +339,7 @@ export default function StyleManagement() {
               </tr>
             )}
 
-            {styles.map(style => {
+            {paginatedStyles.map(style => {
               const stylePhotos = style.photos || [];
               const visible = stylePhotos.slice(0, 2); // show only first 2 inline
               const extraCount = Math.max(0, stylePhotos.length - visible.length);
@@ -376,6 +406,15 @@ export default function StyleManagement() {
         </table>
       </div>
 
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        itemLabel="styles"
+      />
+
       {/* create style modal */}
       {isOpen && (
         <div className="fixed inset-0 z-40 flex items-start justify-center p-6">
@@ -412,11 +451,26 @@ export default function StyleManagement() {
 
                   <div>
                     <span className="text-sm font-medium">Sizes</span>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {Object.keys(sizes).map(k => (
-                        <button key={k} onClick={() => toggleSize(k)} type="button" className={`px-3 py-1 rounded border ${sizes[k] ? 'bg-emerald-100 border-emerald-300' : 'bg-white'}`}>
-                          {k}
-                        </button>
+                    <div className="mt-2 flex gap-2 items-center">
+                      <input
+                        ref={sizeRef}
+                        className="rounded border px-2 py-1 w-full"
+                        placeholder="Add sizes (comma-separated), e.g. S, M, L, 28"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addSize();
+                          }
+                        }}
+                      />
+                      <button onClick={addSize} className="px-3 py-1 rounded bg-slate-100 border">Add</button>
+                    </div>
+                    <div className="mt-2 flex gap-2 flex-wrap">
+                      {sizes.map((s, i) => (
+                        <div key={`${s}-${i}`} className="flex items-center gap-2 px-2 py-1 border rounded">
+                          <span className="text-sm">{s}</span>
+                          <button onClick={() => removeSize(i)} className="p-1 rounded hover:bg-gray-100"><Trash size={14} /></button>
+                        </div>
                       ))}
                     </div>
                   </div>

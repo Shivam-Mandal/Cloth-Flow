@@ -1,11 +1,39 @@
 // controllers/approvalController.js
 import mongoose from 'mongoose';
 import SubOrder from '../models/SubOrderSchema.js';
-import Order from '../models/Order.js';
 import { createNextStageAssignments } from './orderController.js';
 import ApprovalHistory from '../models/ApprovalHistory.js';
+import { isLastStage } from '../utils/workflow.js';
 
 console.log('Loaded approvalController from', typeof import.meta !== 'undefined' ? import.meta.url : __filename);
+
+const generateSubOrderCode = () => {
+  const time = Date.now().toString(36).toUpperCase().slice(-4);
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `SO-${time}${rand}`;
+};
+
+const computePiecesTotal = (pieces = {}) => {
+  let total = 0;
+
+  if (!pieces || typeof pieces !== 'object') return total;
+
+  for (const color of Object.keys(pieces)) {
+    const sizes = pieces[color];
+    if (typeof sizes === 'number') {
+      total += Number(sizes) || 0;
+      continue;
+    }
+
+    if (!sizes || typeof sizes !== 'object') continue;
+
+    for (const size of Object.keys(sizes)) {
+      total += Number(sizes[size]) || 0;
+    }
+  }
+
+  return total;
+};
 
 /**
  * Helper function to log approval history
@@ -50,6 +78,23 @@ export const getPendingApprovals = async (req, res) => {
       .sort({ updatedAt: -1 })
       .lean();
 
+    // Backfill subOrderCode if missing (existing records)
+    await Promise.all(pendingSubOrders.map(async (so) => {
+      if (!so.subOrderCode) {
+        const code = generateSubOrderCode();
+        try {
+          await SubOrder.updateOne(
+            { _id: so._id, subOrderCode: { $exists: false } },
+            { $set: { subOrderCode: code } }
+          ).exec();
+          so.subOrderCode = code;
+        } catch (e) {
+          // best-effort: still return a generated code in response
+          so.subOrderCode = code;
+        }
+      }
+    }));
+
     // Add calculated payment info for admin review
     const enrichedApprovals = pendingSubOrders.map(subOrder => {
       let calculatedPayment = 0;
@@ -75,6 +120,87 @@ export const getPendingApprovals = async (req, res) => {
   } catch (error) {
     console.error('getPendingApprovals error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const getPackingInventory = async (req, res) => {
+  try {
+    const { q = '', status = '' } = req.query;
+
+    const inventoryQuery = {
+      $or: [
+        {
+          inventoryStatus: { $ne: 'not_ready' }
+        }
+      ]
+    };
+
+    const packedSubOrders = await SubOrder.find(inventoryQuery)
+      .populate({
+        path: 'order',
+        populate: {
+          path: 'style'
+        }
+      })
+      .populate('completedBy', 'name email workerType')
+      .populate('approvedBy', 'name email')
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const searchNeedle = String(q).trim().toLowerCase();
+
+    const inventory = packedSubOrders
+      .map((subOrder) => {
+        const totalPlannedPieces = computePiecesTotal(subOrder.pieces);
+        const photos = subOrder.order?.style?.photos || [];
+        const image =
+          photos[0] ||
+          subOrder.order?.style?.photo ||
+          subOrder.order?.style?.image ||
+          subOrder.order?.style?.imageUrl ||
+          null;
+
+        return {
+          ...subOrder,
+          totalPlannedPieces,
+          totalPackedPieces: Number(subOrder.submittedPieces) || totalPlannedPieces,
+          totalCompletedPieces: Number(subOrder.approvedPieces) || 0,
+          totalDamagedPieces: Number(subOrder.faultyPieces) || 0,
+          damageRate:
+            totalPlannedPieces > 0
+              ? Number((((Number(subOrder.faultyPieces) || 0) / totalPlannedPieces) * 100).toFixed(1))
+              : 0,
+          availablePieces: Math.max(0, (Number(subOrder.approvedPieces) || 0) - (Number(subOrder.faultyPieces) || 0)),
+          image
+        };
+      })
+      .filter((item) => (status && status !== 'all' ? item.inventoryStatus === status : true))
+      .filter((item) => {
+        if (!searchNeedle) return true;
+
+        const haystack = [
+          item.order?.orderId,
+          item.orderId,
+          item.subOrderCode,
+          item.name,
+          item.order?.style?.name,
+          item.completedBy?.name,
+          item.status,
+          item.inventoryStatus,
+          item.inventoryLocation,
+          item.saleReference
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+
+        return haystack.includes(searchNeedle);
+      });
+
+    return res.json({ success: true, inventory });
+  } catch (error) {
+    console.error('getPackingInventory error:', error);
+    return res.status(500).json({ error: error.message || 'Server error' });
   }
 };
 
@@ -125,7 +251,9 @@ export const approveSubOrder = async (req, res) => {
       }
 
       // Update suborder status
-      subOrder.status = 'approved';
+      const finalStage = isLastStage(subOrder.order, subOrder.currentStage);
+
+      subOrder.status = finalStage ? 'completed' : 'approved';
       subOrder.approvedBy = adminId;
       subOrder.approvedAt = new Date();
       subOrder.amount = calculatedPayment;
@@ -167,8 +295,10 @@ export const approveSubOrder = async (req, res) => {
       const currentStage = subOrder.currentStage;
       console.log('[approveSubOrder] creating next-stage assignments for stage:', currentStage);
 
-      const created = await createNextStageAssignments(orderId, currentStage, { session });
-      console.log('[approveSubOrder] created next-stage assignments count:', (created || []).length);
+      if (!finalStage) {
+        const created = await createNextStageAssignments(orderId, currentStage, { session });
+        console.log('[approveSubOrder] created next-stage assignments count:', (created || []).length);
+      }
     });
 
     res.json({ success: true, message: 'SubOrder approved and payment calculated automatically' });

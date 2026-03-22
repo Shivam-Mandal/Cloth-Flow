@@ -25,6 +25,11 @@ export const fetchApprovalHistory = async (params = {}) => {
   return res.data;
 };
 
+export const fetchPackingInventory = async (params = {}) => {
+  const res = await api.get('/approvals/inventory', { params });
+  return res.data;
+};
+
 // Worker functions
 export const fetchWorkerPendingApprovals = async () => {
   const res = await api.get('/approvals/worker/pending');

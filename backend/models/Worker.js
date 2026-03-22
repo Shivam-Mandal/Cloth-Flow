@@ -11,7 +11,7 @@ const workerSchema = new mongoose.Schema({
     role: { type: String, enum: ["worker"], default: "worker" },
     workerType: { 
       type: String, 
-      enum: ["Cutting","Printing", "Stitching", "Finishing", "Packing", "Sale out"], 
+      trim: true,
       required: function() { return this.role === "worker"; } 
     },
     lastLogin: { type: Date },

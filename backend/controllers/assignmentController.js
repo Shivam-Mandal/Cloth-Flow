@@ -3,9 +3,10 @@ import mongoose from 'mongoose';
 import Assignment from '../models/Assignment.js';
 import Order from '../models/Order.js';
 import SubOrder from '../models/SubOrderSchema.js';
-import { createNextStageAssignments, isStageCompleted } from './orderController.js';
+import { createNextStageAssignments } from './orderController.js';
 import { WorkerModel } from '../models/Worker.js';
 import ApprovalHistory from '../models/ApprovalHistory.js';
+import { isLastStage } from '../utils/workflow.js';
 
 console.log('Loaded assignmentController from', typeof import.meta !== 'undefined' ? import.meta.url : __filename);
 
@@ -90,18 +91,11 @@ export const getAvailableForMe = async (req, res) => {
     const workerType = worker.workerType;
     if (!workerType) return res.status(400).json({ success: false, message: 'Worker type missing' });
 
-    const regex = new RegExp(workerType, 'i');
+    const normalize = (value) => (value === null || value === undefined ? '' : String(value).trim().toLowerCase());
+    const normalizedWorkerType = normalize(workerType);
 
     const assignments = await Assignment.find({
-      status: 'available',
-      $or: [
-        { stage: regex },
-        { category: regex },
-        { requiredRole: regex },
-        { requiredRoles: regex },
-        // note: order.category is not a direct queryable field unless you populate / denormalize.
-        // but keeping this in case you have a denormalized field on Assignment named 'order.category'
-      ]
+      status: 'available'
     })
       .populate({
         path: 'order',
@@ -115,7 +109,25 @@ export const getAvailableForMe = async (req, res) => {
       .sort({ createdAt: 1 })
       .lean();
 
-    return res.status(200).json({ success: true, assignments });
+    const filteredAssignments = assignments.filter((assignment) => {
+      const stage = normalize(assignment.stage);
+      const category = normalize(assignment.category || assignment.order?.category || assignment.orderCategory);
+      const requiredRole = normalize(assignment.requiredRole);
+      const requiredRoles = Array.isArray(assignment.requiredRoles)
+        ? assignment.requiredRoles.map(normalize)
+        : assignment.requiredRoles
+          ? [normalize(assignment.requiredRoles)]
+          : [];
+
+      return (
+        stage === normalizedWorkerType ||
+        category === normalizedWorkerType ||
+        requiredRole === normalizedWorkerType ||
+        requiredRoles.includes(normalizedWorkerType)
+      );
+    });
+
+    return res.status(200).json({ success: true, assignments: filteredAssignments });
   } catch (err) {
     console.error('getAvailableForMe error:', err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
@@ -220,14 +232,6 @@ export const getAssignmentById = async (req, res) => {
  * Marks an assignment complete, updates related subOrder progress, and attempts to move order to next stage.
  */
 
-const STAGE_SEQUENCE = {
-  'Cutting': 'Printing',
-  'Printing': 'Stitching',
-  'Stitching': 'Finishing',
-  'Finishing': 'Packing',
-  'Packing': 'Sale out',
-  // add other stages as needed
-};
 export const completeAssignment = async (req, res) => {
   const session = await mongoose.startSession();
   let finalSubOrder = null;
@@ -278,8 +282,8 @@ export const completeAssignment = async (req, res) => {
       const completedPieces = req.body.completedPieces || 0;
       const damagedPieces = req.body.damagedPieces || 0;
       const totalReported = completedPieces + damagedPieces;
-      if (totalReported !== assignment.totalPieces) {
-        const e = new Error(`Completed pieces (${completedPieces}) + damaged pieces (${damagedPieces}) must equal total pieces (${assignment.totalPieces})`);
+      if (totalReported < assignment.totalPieces) {
+        const e = new Error(`Completed pieces (${completedPieces}) + damaged pieces (${damagedPieces}) must be at least total pieces (${assignment.totalPieces})`);
         e.status = 400;
         throw e;
       }
@@ -332,22 +336,52 @@ export const completeAssignment = async (req, res) => {
         const totalCompletedPieces = stageAssignments.reduce((sum, a) => sum + (a.completedPieces || 0), 0);
         const totalDamagedPieces = stageAssignments.reduce((sum, a) => sum + (a.damagedPieces || 0), 0);
         
+        const orderDoc = assignment.order?._id ? assignment.order : await Order.findById(orderId).session(session);
+        const isFinalStage = isLastStage(orderDoc, stage);
+
         // Update suborder with submission details for admin review
-        await SubOrder.findByIdAndUpdate(subOrderId, { 
+        await SubOrder.findByIdAndUpdate(subOrderId, {
+          currentStage: stage,
           status: 'pending_approval',
           completedBy: workerId,
           submittedPieces: totalCompletedPieces + totalDamagedPieces,
           approvedPieces: totalCompletedPieces, // Will be reviewed by admin
-          faultyPieces: totalDamagedPieces
+          faultyPieces: totalDamagedPieces,
+          ...(isFinalStage
+            ? {
+                inventoryStatus: 'ready_for_sale',
+                inventorySourceStage: stage,
+                inventoryUpdatedAt: new Date(),
+                inventoryUpdatedByName: req.user?.name || 'System',
+                inventoryUpdatedByRole: req.user?.role || 'worker',
+                $push: {
+                  inventoryEvents: {
+                    $each: [{
+                      status: 'ready_for_sale',
+                      location: '',
+                      notes: `Moved to inventory after ${stage} stage completion`,
+                      saleReference: '',
+                      updatedAt: new Date(),
+                      updatedByName: req.user?.name || 'System',
+                      updatedByRole: req.user?.role || 'worker'
+                    }],
+                    $position: 0,
+                    $slice: 20
+                  }
+                }
+              }
+            : {})
         }, { session }).exec();
 
         // Log submission to approval history
         const updatedSubOrder = await SubOrder.findById(subOrderId).session(session);
         await logApprovalHistoryForSubmission(updatedSubOrder, workerId);
         
-        // Don't create next-stage assignments yet - wait for approval
-        // const created = await createNextStageAssignments(orderId, stage, { session });
-        // console.log('[completeAssignment] created next-stage assignments count:', (created || []).length);
+        if (!isFinalStage) {
+          // Move the completed quantity to the next stage immediately while admin reviews it.
+          const created = await createNextStageAssignments(orderId, stage, { session });
+          console.log('[completeAssignment] created next-stage assignments count:', (created || []).length);
+        }
       }
 
       // fetch updated subOrder within the transaction and expose it

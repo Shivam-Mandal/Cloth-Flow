@@ -4,6 +4,7 @@ import Order from '../models/Order.js';
 import { Style } from '../models/StyleSchema.js';
 import Assignment from '../models/Assignment.js';
 import SubOrder from '../models/SubOrderSchema.js';
+import { getFirstStage, getNextStage, getOrderStages, normalizeStageLabel } from '../utils/workflow.js';
 
 /**
  * Helpers (pieces utilities)
@@ -35,6 +36,48 @@ const flattenPiecesToSkus = (pieces = {}) => {
 function flattenPieces(pieces = {}) {
   return flattenPiecesToSkus(pieces);
 }
+
+const alignPiecesToCount = (pieces = {}, targetCount = 0) => {
+  const normalizedTarget = Math.max(0, Number(targetCount) || 0);
+  if (normalizedTarget === 0) return {};
+
+  const skus = flattenPiecesToSkus(pieces);
+  const total = skus.reduce((sum, sku) => sum + sku.count, 0);
+
+  if (skus.length === 0) {
+    return {};
+  }
+
+  if (normalizedTarget === total) {
+    return pieces;
+  }
+
+  if (normalizedTarget > total) {
+    const expanded = {};
+    skus.forEach((sku, index) => {
+      const nextCount = index === 0 ? sku.count + (normalizedTarget - total) : sku.count;
+      if (!expanded[sku.color]) expanded[sku.color] = {};
+      expanded[sku.color][sku.size] = nextCount;
+    });
+    return expanded;
+  }
+
+  let remaining = normalizedTarget;
+  const trimmed = {};
+
+  for (const sku of skus) {
+    if (remaining <= 0) break;
+
+    const nextCount = Math.min(sku.count, remaining);
+    if (nextCount <= 0) continue;
+
+    if (!trimmed[sku.color]) trimmed[sku.color] = {};
+    trimmed[sku.color][sku.size] = nextCount;
+    remaining -= nextCount;
+  }
+
+  return trimmed;
+};
 
 const distributePiecesEvenly = (piecesObj, k = 1) => {
   const skus = flattenPieces(piecesObj);
@@ -212,16 +255,7 @@ export const createNextStageAssignments = async (orderId, currentStage, opts = {
   const order = await Order.findById(orderId).session(session);
   if (!order) return [];
 
-  // stage mapping - extend if necessary
-  const STAGE_SEQUENCE = {
-    'Cutting': 'Printing',
-    'Printing': 'Stitching',
-    'Stitching': 'Finishing',
-    'Finishing': 'Packing',
-    'Packing': 'Sale out'
-  };
-
-  const nextStage = STAGE_SEQUENCE[currentStage] || null;
+  const nextStage = getNextStage(order, currentStage);
   if (!nextStage) {
     console.log('[createNextStageAssignments] no nextStage for', currentStage);
     return [];
@@ -242,66 +276,74 @@ export const createNextStageAssignments = async (orderId, currentStage, opts = {
   const created = [];
 
   for (const sub of readySubOrders) {
-    const subId = sub._id;
+    const approvedCount = Math.max(0, Number(sub.approvedPieces) || 0);
+    const sourcePieces = approvedCount > 0
+      ? alignPiecesToCount(sub.pieces || {}, approvedCount)
+      : (sub.pieces || {});
 
-    // For each ready subOrder, split its pieces into SKUs (color+size)
-    const skus = flattenPiecesToSkus(sub.pieces || {});
+    const nextStageTotalPieces = flattenPiecesToSkus(sourcePieces).reduce((sum, sku) => sum + sku.count, 0);
 
-    for (const sku of skus) {
-      const skuPieces = { [sku.color]: { [sku.size]: sku.count } };
+    if (nextStageTotalPieces === 0) {
+      console.log('[createNextStageAssignments] skipping subOrder with no transferable pieces', {
+        subOrderId: String(sub._id),
+        currentStage,
+        approvedPieces: approvedCount
+      });
+      continue;
+    }
 
-      // Try to find an existing subOrder for this exact SKU at the next stage
-      let existingSub = await SubOrder.findOne({
-        order: orderId,
-        pieces: skuPieces,
-        currentStage: nextStage
-      }).session(session).lean();
-
-      if (!existingSub) {
-        // create a new subOrder for this SKU at nextStage
-        const newSub = new SubOrder({
-          order: orderId,
-          orderId: order.orderId,
-          name: `${nextStage}-${sku.color}-${sku.size}`,
-          pieces: skuPieces,
-          currentStage: nextStage,
+    // Keep the same subOrder throughout the workflow and carry forward the latest completed pieces.
+    await SubOrder.findByIdAndUpdate(
+      sub._id,
+      {
+        $set: {
+          pieces: sourcePieces,
           progress: 0,
-          assignedWorkers: 0,
-          priority: order.priority,
-          requiredKg: order.requiredKg
-        });
-        await newSub.save({ session });
-        existingSub = newSub.toObject ? newSub.toObject() : newSub;
-      }
+          assignedWorkers: 0
+        }
+      },
+      { session }
+    ).exec();
 
-      // Skip duplicate assignment creation (idempotent)
-      const existsAssign = await Assignment.exists({ order: orderId, subOrder: existingSub._id, stage: nextStage }).session(session);
-      if (existsAssign) continue;
+    let nextStageAssignment = await Assignment.findOne({
+      order: orderId,
+      subOrder: sub._id,
+      stage: nextStage
+    }).session(session);
 
-      // Create assignment for this SKU / subOrder
-      const aDoc = {
+    if (nextStageAssignment) {
+      nextStageAssignment.pieces = sourcePieces;
+      nextStageAssignment.totalPieces = nextStageTotalPieces;
+      nextStageAssignment.requiredRole = nextStage;
+      nextStageAssignment.status = nextStageAssignment.status === 'completed' ? nextStageAssignment.status : 'available';
+      await nextStageAssignment.save({ session });
+    } else {
+      const [createdA] = await Assignment.create([{
         order: orderId,
-        subOrder: existingSub._id,
+        subOrder: sub._id,
         stage: nextStage,
         status: 'available',
         createdAt: new Date(),
         requiredRole: nextStage,
-        pieces: skuPieces,
-        totalPieces: sku.count,
+        pieces: sourcePieces,
+        totalPieces: nextStageTotalPieces,
         priority: order.priority || null
-      };
+      }], { session });
 
-      const [createdA] = await Assignment.create([aDoc], { session });
-      const populated = await Assignment.findById(createdA._id).populate('order').populate('subOrder').session(session);
-      if (populated) {
-        created.push({ assignment: populated, subOrder: existingSub });
-        console.log('[createNextStageAssignments] created assignment', {
-          id: populated._id.toString(),
-          stage: populated.stage,
-          order: String(orderId)
-        });
-      }
-    } // end for each sku
+      nextStageAssignment = createdA;
+    }
+
+    const populated = await Assignment.findById(nextStageAssignment._id).populate('order').populate('subOrder').session(session);
+    if (populated) {
+      created.push({ assignment: populated, subOrder: populated.subOrder });
+      console.log('[createNextStageAssignments] prepared assignment', {
+        id: populated._id.toString(),
+        subOrderId: String(sub._id),
+        stage: populated.stage,
+        totalPieces: populated.totalPieces,
+        order: String(orderId)
+      });
+    }
   } // end for each ready suborder
 
   console.log(`[createNextStageAssignments] total created for nextStage=${nextStage}:`, created.length);
@@ -335,7 +377,7 @@ export const isStageCompleted = async (orderId, stage, opts = {}) => {
 
 export const createOrder = async (req, res) => {
   try {
-    const {
+      const {
       styleId,
       pieces = {},
       deadline,
@@ -351,6 +393,12 @@ export const createOrder = async (req, res) => {
     if (!style) return res.status(404).json({ error: 'Style not found' });
 
     const totalQuantity = computeTotalQuantity(pieces);
+    const stages = getOrderStages({}, style);
+    const firstStage = getFirstStage({}, style);
+
+    if (!firstStage) {
+      return res.status(400).json({ error: 'Style must have at least one stage' });
+    }
 
     const order = new Order({
       orderId: `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
@@ -358,6 +406,7 @@ export const createOrder = async (req, res) => {
       styleSnapshot: { name: style.name, sizes: style.sizes, colors: style.colors },
       pieces,
       totalQuantity,
+      stages: stages.map(normalizeStageLabel),
       deadline,
       priority,
       vendor,
@@ -367,9 +416,9 @@ export const createOrder = async (req, res) => {
 
     let created;
     if (distributionMode === 'byWorkers') {
-      created = await createAssignmentsForStage(order, 'Cutting', Number(workersCount) || 1, { session: null });
+      created = await createAssignmentsForStage(order, firstStage, Number(workersCount) || 1, { session: null });
     } else {
-      created = await createAssignmentsPerSku(order, 'Cutting', { session: null });
+      created = await createAssignmentsPerSku(order, firstStage, { session: null });
     }
 
     return res.status(201).json({

@@ -6,6 +6,8 @@ import {
   rejectSubOrder
 } from '../services/approvalServices';
 import { toast } from 'react-toastify';
+import PaginationControls from '../ui/PaginationControls';
+import { useClientPagination } from '../../hooks/useClientPagination';
 
 export const ApprovalManagement = () => {
   const [pendingApprovals, setPendingApprovals] = useState([]);
@@ -29,6 +31,15 @@ export const ApprovalManagement = () => {
   };
 
   useEffect(() => { loadPendingApprovals(); }, []);
+
+  const {
+    currentPage,
+    totalPages,
+    totalItems,
+    pageSize,
+    paginatedItems: paginatedApprovals,
+    handlePageChange
+  } = useClientPagination(pendingApprovals, 6);
 
   const handleApprove = async (subOrderId) => {
     setLoading(l => ({ ...l, action: true }));
@@ -71,6 +82,31 @@ export const ApprovalManagement = () => {
     setRejectReason('');
   };
 
+  const getSubOrderCode = (approval) => {
+    const val = approval?.subOrderCode || approval?.suborderCode || approval?.code;
+    return val ? String(val) : '—';
+  };
+
+  const computePiecesTotal = (pieces) => {
+    try {
+      let total = 0;
+      if (!pieces || typeof pieces !== 'object') return 0;
+      for (const color of Object.keys(pieces)) {
+        const sizes = pieces[color] || {};
+        if (typeof sizes === 'number') {
+          total += Number(sizes) || 0;
+        } else if (sizes && typeof sizes === 'object') {
+          for (const size of Object.keys(sizes)) {
+            total += Number(sizes[size]) || 0;
+          }
+        }
+      }
+      return total;
+    } catch (e) {
+      return 0;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -96,7 +132,7 @@ export const ApprovalManagement = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {pendingApprovals.map(approval => (
+            {paginatedApprovals.map(approval => (
               <div key={approval._id} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -110,6 +146,9 @@ export const ApprovalManagement = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
                       <div>
                         <span className="font-medium">Order ID:</span> {approval.orderId}
+                      </div>
+                      <div>
+                        <span className="font-medium">SubOrder ID:</span> {getSubOrderCode(approval)}
                       </div>
                       <div>
                         <span className="font-medium">Progress:</span> {approval.progress}%
@@ -145,6 +184,15 @@ export const ApprovalManagement = () => {
             ))}
           </div>
         )}
+
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+          itemLabel="approvals"
+        />
       </div>
 
       {/* Approval Modal */}
@@ -166,6 +214,10 @@ export const ApprovalManagement = () => {
                 <div>
                   <span className="text-gray-600">Order ID:</span>
                   <div className="font-medium">{selectedApproval.order?.orderId || selectedApproval.orderId}</div>
+                </div>
+                <div>
+                  <span className="text-gray-600">SubOrder ID:</span>
+                  <div className="font-medium">{getSubOrderCode(selectedApproval)}</div>
                 </div>
                 <div>
                   <span className="text-gray-600">Style:</span>
@@ -209,7 +261,9 @@ export const ApprovalManagement = () => {
               <h4 className="font-medium mb-3">Work Submission Details</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-3 bg-white rounded border">
-                  <div className="text-2xl font-bold text-blue-600">{selectedApproval.submittedPieces || 0}</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {computePiecesTotal(selectedApproval.pieces)}
+                  </div>
                   <div className="text-sm text-gray-600">Total Submitted</div>
                 </div>
                 <div className="text-center p-3 bg-white rounded border">
@@ -222,10 +276,12 @@ export const ApprovalManagement = () => {
                 </div>
                 <div className="text-center p-3 bg-white rounded border">
                   <div className="text-lg font-bold text-gray-600">
-                    {selectedApproval.faultyPieces > 0 ? 
-                      `${((selectedApproval.faultyPieces / selectedApproval.submittedPieces) * 100).toFixed(1)}%` : 
-                      '0%'
-                    }
+                    {(() => {
+                      const totalSubmitted = computePiecesTotal(selectedApproval.pieces);
+                      return selectedApproval.faultyPieces > 0 && totalSubmitted > 0
+                        ? `${((selectedApproval.faultyPieces / totalSubmitted) * 100).toFixed(1)}%`
+                        : '0%';
+                    })()}
                   </div>
                   <div className="text-sm text-gray-600">Damage Rate</div>
                 </div>

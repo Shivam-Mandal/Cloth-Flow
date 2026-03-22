@@ -20,6 +20,7 @@ import AssignedRouter from './routes/assignmentRoutes.js';
 import WorkerRouter from './routes/workerRoutes.js';
 import approvalRouter from './routes/approvalRoutes.js';
 import subOrderRouter from './routes/subOrderRoutes.js';
+import userRouter from './routes/userRoutes.js';
 dotenv.config();
 
 const app = express();
@@ -90,6 +91,7 @@ app.use('/api/assignments', AssignedRouter);
 app.use('/api/workers', WorkerRouter);
 app.use('/api/approvals', approvalRouter);
 app.use('/api/suborders', subOrderRouter);
+app.use('/api/users', userRouter);
 
 // --- Example API/test routes ---
 app.get('/api/admin/secret', verifyAccessToken, requireRole('admin'), (req, res) => {

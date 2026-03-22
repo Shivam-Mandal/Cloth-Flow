@@ -12,8 +12,9 @@ import {
   Users,
   BarChart3,
   Factory,
-  Group,
   CheckCircle,
+  Boxes,
+  UserCog,
   X
 } from 'lucide-react';
 
@@ -23,11 +24,12 @@ const Sidebar = ({ activeTab, onTabChange }) => {
     { id: 'overview', label: 'Overview', icon: LayoutDashboard, to: '/admin' },
     { id: 'approvals', label: 'Approvals', icon: CheckCircle, to: '/admin/approvals' },
     { id: 'approval-history', label: 'Approval History', icon: BarChart3, to: '/admin/approval-history' },
+    { id: 'inventory', label: 'Inventory', icon: Boxes, to: '/admin/inventory' },
     { id: 'style', label: 'Style Management', icon: Shirt, to: '/admin/styles' },
     { id: 'stock', label: 'Stock Management', icon: Package, to: '/admin/stock' },
     { id: 'orders', label: 'Order Management', icon: ShoppingCart, to: '/admin/orders' },
     { id: 'processes', label: 'Process Tracking', icon: Activity, to: '/admin/processes' },
-    { id: 'manage-worker', label: 'Worker Management', icon: Group, to: '/admin/manage-worker' },
+    { id: 'users', label: 'User Management', icon: UserCog, to: '/admin/users' },
     { id: 'workers', label: 'Worker Performance', icon: Users, to: '/admin/workers' },
     { id: 'reports', label: 'Reports', icon: BarChart3, to: '/admin/reports' }
   ];

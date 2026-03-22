@@ -18,6 +18,9 @@ import WorkerPendingApprovals from './components/worker/WorkerPendingApprovals';
 import WorkerCompletedWork from './components/worker/WorkerCompletedWork';
 import ApprovalHistory from './components/admin/ApprovalHistory';
 import WorkerApprovalHistory from './components/worker/WorkerApprovalHistory';
+import InventoryManagement from './components/admin/InventoryManagement';
+import UserManagement from './components/admin/UserManagement';
+import WorkerInventoryManagement from './components/worker/WorkerInventoryManagement';
 
 export default function App() {
   const { user, initialLoadDone } = useUser();
@@ -47,6 +50,8 @@ export default function App() {
             <Route index element={<Overview />} />
             <Route path="approvals" element={<ApprovalManagement />} />
             <Route path="approval-history" element={<ApprovalHistory />} />
+            <Route path="inventory" element={<InventoryManagement />} />
+            <Route path="users" element={<UserManagement />} />
             <Route path="styles" element={<StyleManagement />} />
             <Route path="stock" element={<StockManagement />} />
             <Route path="orders" element={<OrderManagement />} />
@@ -70,6 +75,7 @@ export default function App() {
             />
             <Route path="pending" element={<WorkerPendingApprovals />} />
             <Route path="completed" element={<WorkerCompletedWork />} />
+            <Route path="inventory" element={<WorkerInventoryManagement />} />
             <Route path="approval-history" element={<WorkerApprovalHistory />} />
           </Route>
         </Route>

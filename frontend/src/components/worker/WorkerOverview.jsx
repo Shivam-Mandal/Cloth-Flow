@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import AvailableTasksTable from "./AvailableTasksTable";
 import AssignedTasksTable from "./AssignedTasksTable";
 import { useUser } from "../context/UserContext";
-import { fetchWorkerPendingApprovals, fetchWorkerCompletedWork, fetchWorkerApprovalHistory } from "../services/approvalServices";
+import { fetchWorkerPendingApprovals, fetchWorkerCompletedWork } from "../services/approvalServices";
 import { fetchAssignedForMe } from "../services/assignmentServices";
-import { Clock, CheckCircle, DollarSign, TrendingUp, Target, Award, Activity } from "lucide-react";
+import { Clock, CheckCircle, DollarSign, Target, Award, Activity } from "lucide-react";
 import { toast } from "react-toastify";
 import { useSocket } from "../../hooks/useSocket";
 import { motion } from "framer-motion";
 import { StatsCard, Card, EmptyState, Spinner } from "../ui/UIComponents";
+import { subscribeWorkerDataRefresh } from "../../utils/workerRefresh";
 
 export default function WorkerOverview() {
   const { user } = useUser();
@@ -17,94 +18,144 @@ export default function WorkerOverview() {
   const [tab, setTab] = useState("available");
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [completedWork, setCompletedWork] = useState([]);
-  const [approvalHistory, setApprovalHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [todaysTasks, setTodaysTasks] = useState(0);
+  const lastRefreshRef = useRef({ assigned: 0, pending: 0, completed: 0 });
+  const inFlightRef = useRef({ assigned: false, pending: false, completed: false });
 
-  // Initialize Socket.IO connection
   useSocket();
 
-  // Listen for real-time approval updates
-  useEffect(() => {
-    const handleApprovalUpdate = (event) => {
-      const { detail } = event;
-      if (detail.type === 'APPROVAL_APPROVED') {
-        toast.success(`Work approved! +₹${detail.subOrder.amount} added to your account`);
-        // Refresh all data
-        loadTodaysTasks();
-        loadPendingApprovals();
-        loadCompletedWork();
-      }
-    };
-
-    window.addEventListener('approvalUpdate', handleApprovalUpdate);
-    return () => window.removeEventListener('approvalUpdate', handleApprovalUpdate);
+  const isFresh = useCallback((key, maxAgeMs) => {
+    return Date.now() - lastRefreshRef.current[key] < maxAgeMs;
   }, []);
 
-  const loadTodaysTasks = async () => {
+  const loadTodaysTasks = useCallback(async ({ force = false } = {}) => {
+    if (inFlightRef.current.assigned) return;
+    if (!force && isFresh("assigned", 30000)) return;
+
+    inFlightRef.current.assigned = true;
     try {
       const res = await fetchAssignedForMe();
       const list = Array.isArray(res) ? res : (res?.assignments ?? (res?.data ?? []));
       setTodaysTasks(list.length);
+      lastRefreshRef.current.assigned = Date.now();
     } catch (error) {
-      console.error('Error loading todays tasks:', error);
+      console.error("Error loading todays tasks:", error);
+    } finally {
+      inFlightRef.current.assigned = false;
     }
-  };
+  }, [isFresh]);
 
-  useEffect(() => {
-    loadTodaysTasks();
-    loadPendingApprovals();
-    loadCompletedWork();
-  }, []);
+  const loadPendingApprovals = useCallback(async ({ force = false, silent = false } = {}) => {
+    if (inFlightRef.current.pending) return;
+    if (!force && isFresh("pending", 45000)) return;
 
-  useEffect(() => {
-    if (tab === "approval") {
-      loadPendingApprovals();
-    } else if (tab === "added") {
-      loadCompletedWork();
-    }
-  }, [tab]);
-
-  // Real-time updates every 60 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadTodaysTasks();
-      loadPendingApprovals();
-      loadCompletedWork();
-    }, 60000); // 60 seconds
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadPendingApprovals = async () => {
+    inFlightRef.current.pending = true;
+    if (!silent) setLoading(true);
     try {
-      setLoading(true);
       const res = await fetchWorkerPendingApprovals();
       if (res.success) {
         setPendingApprovals(res.approvals || []);
       }
+      lastRefreshRef.current.pending = Date.now();
     } catch (error) {
-      console.error('Error loading pending approvals:', error);
-      toast.error('Failed to load pending approvals');
+      console.error("Error loading pending approvals:", error);
+      if (!silent) toast.error("Failed to load pending approvals");
     } finally {
-      setLoading(false);
+      inFlightRef.current.pending = false;
+      if (!silent) setLoading(false);
     }
-  };
+  }, [isFresh]);
 
-  const loadCompletedWork = async () => {
+  const loadCompletedWork = useCallback(async ({ force = false, silent = false } = {}) => {
+    if (inFlightRef.current.completed) return;
+    if (!force && isFresh("completed", 45000)) return;
+
+    inFlightRef.current.completed = true;
+    if (!silent) setLoading(true);
     try {
-      setLoading(true);
       const res = await fetchWorkerCompletedWork();
       if (res.success) {
         setCompletedWork(res.completedWork || []);
       }
+      lastRefreshRef.current.completed = Date.now();
     } catch (error) {
-      console.error('Error loading completed work:', error);
-      toast.error('Failed to load completed work');
+      console.error("Error loading completed work:", error);
+      if (!silent) toast.error("Failed to load completed work");
     } finally {
-      setLoading(false);
+      inFlightRef.current.completed = false;
+      if (!silent) setLoading(false);
     }
-  };
+  }, [isFresh]);
+
+  const refreshOverview = useCallback(async ({ force = false, silent = false } = {}) => {
+    if (!silent) setLoading(true);
+    try {
+      await Promise.allSettled([
+        loadTodaysTasks({ force }),
+        loadPendingApprovals({ force, silent: true }),
+        loadCompletedWork({ force, silent: true })
+      ]);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [loadCompletedWork, loadPendingApprovals, loadTodaysTasks]);
+
+  useEffect(() => {
+    const handleApprovalUpdate = (event) => {
+      const detail = event?.detail || {};
+      if (detail.type === "APPROVAL_APPROVED") {
+        const amount = detail?.subOrder?.amount || 0;
+        toast.success(`Work approved! +₹${amount} added to your account`);
+        refreshOverview({ force: true, silent: true });
+      }
+    };
+
+    window.addEventListener("approvalUpdate", handleApprovalUpdate);
+    return () => window.removeEventListener("approvalUpdate", handleApprovalUpdate);
+  }, [refreshOverview]);
+
+  useEffect(() => {
+    refreshOverview({ force: true });
+  }, [refreshOverview]);
+
+  useEffect(() => {
+    if (tab === "approval") {
+      loadPendingApprovals({ silent: false });
+    } else if (tab === "added") {
+      loadCompletedWork({ silent: false });
+    } else if (tab === "current") {
+      loadTodaysTasks();
+    }
+  }, [tab, loadCompletedWork, loadPendingApprovals, loadTodaysTasks]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeWorkerDataRefresh(({ scope, force }) => {
+      if (!scope || scope === "worker" || scope === "approvals") {
+        refreshOverview({ force: Boolean(force), silent: true });
+        return;
+      }
+
+      if (scope === "assignments") {
+        loadTodaysTasks({ force: Boolean(force) });
+      }
+    });
+
+    const revalidateVisibleState = () => {
+      if (document.visibilityState === "visible") {
+        refreshOverview({ silent: true });
+      }
+    };
+
+    window.addEventListener("focus", revalidateVisibleState);
+    document.addEventListener("visibilitychange", revalidateVisibleState);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener("focus", revalidateVisibleState);
+      document.removeEventListener("visibilitychange", revalidateVisibleState);
+    };
+  }, [loadTodaysTasks, refreshOverview]);
 
   const totalEarnings = completedWork.reduce((sum, work) => sum + (work.amount || 0), 0);
   const completionRate = todaysTasks > 0 ? Math.round((completedWork.length / todaysTasks) * 100) : 0;
@@ -118,8 +169,7 @@ export default function WorkerOverview() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between"
@@ -140,7 +190,6 @@ export default function WorkerOverview() {
         </div>
       </motion.div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
           title="Today's Tasks"
@@ -176,9 +225,7 @@ export default function WorkerOverview() {
         />
       </div>
 
-      {/* Main Content */}
       <Card className="p-6">
-        {/* Enhanced Tabs */}
         <div className="flex flex-wrap justify-center mb-6 gap-2">
           {tabs.map((tabItem) => {
             const Icon = tabItem.icon;
@@ -199,8 +246,7 @@ export default function WorkerOverview() {
           })}
         </div>
 
-        {/* Content Area */}
-        <motion.div 
+        <motion.div
           key={tab}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -232,7 +278,7 @@ export default function WorkerOverview() {
               ) : (
                 <div className="space-y-4">
                   {pendingApprovals.map((approval, index) => (
-                    <motion.div 
+                    <motion.div
                       key={approval._id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -242,7 +288,7 @@ export default function WorkerOverview() {
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900">{approval.name}</p>
                         <p className="text-sm text-gray-600 mt-1">
-                          Order: {approval.order?.orderId || 'N/A'}
+                          Order: {approval.order?.orderId || "N/A"}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           Submitted: {new Date(approval.updatedAt).toLocaleDateString()}
@@ -274,7 +320,7 @@ export default function WorkerOverview() {
               ) : (
                 <div className="space-y-4">
                   {completedWork.map((work, index) => (
-                    <motion.div 
+                    <motion.div
                       key={work._id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -284,7 +330,7 @@ export default function WorkerOverview() {
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900">{work.name}</p>
                         <p className="text-sm text-gray-600 mt-1">
-                          Order: {work.order?.orderId || 'N/A'}
+                          Order: {work.order?.orderId || "N/A"}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           Completed: {new Date(work.updatedAt).toLocaleDateString()}
@@ -295,7 +341,7 @@ export default function WorkerOverview() {
                       </div>
                     </motion.div>
                   ))}
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl"
@@ -319,4 +365,3 @@ export default function WorkerOverview() {
     </div>
   );
 }
-

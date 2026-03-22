@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useUser } from '../components/context/UserContext';
+import { emitWorkerDataRefresh } from '../utils/workerRefresh';
 
 export const useSocket = () => {
   const socketRef = useRef(null);
@@ -16,6 +17,12 @@ export const useSocket = () => {
 
     // Listen for worker-specific events
     socketRef.current.on(`worker-${user._id}`, (data) => {
+      emitWorkerDataRefresh({
+        scope: 'worker',
+        reason: 'socket-event',
+        type: data?.type || 'unknown'
+      });
+
       if (data.type === 'APPROVAL_APPROVED') {
         // Dispatch custom event for components to listen
         window.dispatchEvent(new CustomEvent('approvalUpdate', { detail: data }));

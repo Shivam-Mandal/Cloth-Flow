@@ -1,5 +1,5 @@
 // src/components/AssignedTasksTable.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { CheckCircle, Play, Pause } from 'lucide-react';
 import {
   fetchAssignedForMe,
@@ -7,6 +7,7 @@ import {
   completeAssignment
 } from '../services/assignmentServices';
 import { toast } from 'react-toastify';
+import { emitWorkerDataRefresh, subscribeWorkerDataRefresh } from '../../utils/workerRefresh';
 
 // local placeholder (put `placeholder.png` in your public/ folder)
 const exampleThumb = '/placeholder.png';
@@ -131,6 +132,20 @@ const getPiecesCount = (task) => {
   return '—';
 };
 
+const getSubOrderCode = (task) => {
+  const sub = task?.subOrder;
+  if (sub && typeof sub === 'object') {
+    return sub.subOrderCode || sub.code || sub.suborderCode || null;
+  }
+  return null;
+};
+
+const shortId = (val) => {
+  if (!val) return '—';
+  const s = String(val);
+  return s.length <= 6 ? s : s.slice(-6);
+};
+
 export const AssignedTasksTable = () => {
   const [mine, setMine] = useState([]);
   const [loading, setLoading] = useState({ fetch: false, action: false });
@@ -140,7 +155,8 @@ export const AssignedTasksTable = () => {
   const [modalLoading, setModalLoading] = useState(false);
   const [modalIndex, setModalIndex] = useState(0);
   const [completionModal, setCompletionModal] = useState({ open: false, assignment: null });
-  const [completionData, setCompletionData] = useState({ completedPieces: 0, damagedPieces: 0, damagedReason: '' });
+  const [completionData, setCompletionData] = useState({ completedPieces: '', damagedPieces: '', damagedReason: '' });
+  const lastRefreshRef = useRef(0);
   const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
   const CLOUDINARY_BASE = CLOUDINARY_CLOUD_NAME ? `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload` : '';
 
@@ -263,6 +279,7 @@ export const AssignedTasksTable = () => {
       const res = await fetchAssignedForMe();
       const list = Array.isArray(res) ? res : (res?.assignments ?? (res?.data ?? []));
       setMine(list);
+      lastRefreshRef.current = Date.now();
     } catch (e) {
       console.error('Failed to load my assignments', e);
       setError(e?.response?.data?.message || e.message || 'Failed to load assignments');
@@ -273,6 +290,34 @@ export const AssignedTasksTable = () => {
 
   useEffect(() => { loadMine(); }, []);
 
+  useEffect(() => {
+    const refreshIfStale = ({ force = false } = {}) => {
+      if (!force && Date.now() - lastRefreshRef.current < 20000) return;
+      loadMine();
+    };
+
+    const unsubscribe = subscribeWorkerDataRefresh(({ scope, force }) => {
+      if (!scope || scope === 'worker' || scope === 'assignments') {
+        refreshIfStale({ force: Boolean(force) });
+      }
+    });
+
+    const revalidateVisibleState = () => {
+      if (document.visibilityState === 'visible') {
+        refreshIfStale();
+      }
+    };
+
+    window.addEventListener('focus', revalidateVisibleState);
+    document.addEventListener('visibilitychange', revalidateVisibleState);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', revalidateVisibleState);
+      document.removeEventListener('visibilitychange', revalidateVisibleState);
+    };
+  }, []);
+
   const handleDeselect = async (assignmentId) => {
     if (!window.confirm('Are you sure you want to release this task? It will return to available tasks.')) return;
     setLoading(l => ({ ...l, action: true }));
@@ -281,6 +326,7 @@ export const AssignedTasksTable = () => {
       await releaseAssignment(assignmentId);
       toast.success('Released to available tasks');
       await loadMine();
+      emitWorkerDataRefresh({ scope: 'assignments', reason: 'release', force: true });
     } catch (e) {
       console.error('release failed', e);
       setError(e?.response?.data?.error || e?.response?.data?.message || e.message || 'Failed to release assignment');
@@ -292,7 +338,7 @@ export const AssignedTasksTable = () => {
   const handleComplete = async (assignmentId) => {
     const assignment = mine.find(a => (a._id || a.id) === assignmentId);
     if (!assignment) return;
-    setCompletionData({ completedPieces: assignment.totalPieces || 0, damagedPieces: 0, damagedReason: '' });
+    setCompletionData({ completedPieces: String(assignment.totalPieces ?? ''), damagedPieces: '', damagedReason: '' });
     setCompletionModal({ open: true, assignment });
   };
 
@@ -302,10 +348,16 @@ export const AssignedTasksTable = () => {
     setLoading(l => ({ ...l, action: true }));
     setError(null);
     try {
-      await completeAssignment(assignment._id || assignment.id, completionData);
+      const payload = {
+        completedPieces: Number(completionData.completedPieces || 0),
+        damagedPieces: Number(completionData.damagedPieces || 0),
+        damagedReason: completionData.damagedReason
+      };
+      await completeAssignment(assignment._id || assignment.id, payload);
       toast.success('Assignment completed');
       setCompletionModal({ open: false, assignment: null });
       await loadMine();
+      emitWorkerDataRefresh({ scope: 'worker', reason: 'complete-assignment', force: true });
     } catch (e) {
       console.error('complete failed', e);
       setError(e?.response?.data?.error || e?.response?.data?.message || e.message || 'Failed to complete assignment');
@@ -361,7 +413,12 @@ export const AssignedTasksTable = () => {
                         </div>
                         {/* <div className="text-xs text-gray-500 mt-1">{task.order?.orderId || task.orderId}</div> */}
                       </td>
-                      <td className="px-3 py-3 align-top text-sm">{ task.order?.orderId ?? task.orderId ?? (task.order?._id ?? '—')}</td>
+                      <td className="px-3 py-3 align-top text-sm">
+                        <div className="font-medium">{task.order?.orderId ?? task.orderId ?? '—'}</div>
+                        <div className="text-xs text-gray-500">
+                          SubOrder: {getSubOrderCode(task) || shortId(task?.subOrder?._id || task?.subOrder || task?._id)}
+                        </div>
+                      </td>
                       <td className="px-3 py-3 align-top text-sm">{getPiecesCount(task)}</td>
                       <td className="px-3 py-3 align-top text-sm">{task.completedPieces || 0}</td>
                       <td className="px-3 py-3 align-top text-sm">{task.damagedPieces || 0}</td>
@@ -422,7 +479,7 @@ export const AssignedTasksTable = () => {
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Complete Assignment</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Assignment: {completionModal.assignment._id || completionModal.assignment.id} — {completionModal.assignment.stage || completionModal.assignment.process}
+              Assignment: {getSubOrderCode(completionModal.assignment) || shortId(completionModal.assignment?.subOrder?._id || completionModal.assignment?.subOrder || completionModal.assignment?._id)} — {completionModal.assignment.stage || completionModal.assignment.process}
             </p>
             <p className="text-sm text-gray-600 mb-4">Total Pieces: {completionModal.assignment.totalPieces}</p>
             
@@ -432,9 +489,8 @@ export const AssignedTasksTable = () => {
                 <input
                   type="number"
                   min="0"
-                  max={completionModal.assignment.totalPieces}
                   value={completionData.completedPieces}
-                  onChange={(e) => setCompletionData(prev => ({ ...prev, completedPieces: parseInt(e.target.value) || 0 }))}
+                  onChange={(e) => setCompletionData(prev => ({ ...prev, completedPieces: e.target.value }))}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                 />
               </div>
@@ -444,9 +500,8 @@ export const AssignedTasksTable = () => {
                 <input
                   type="number"
                   min="0"
-                  max={completionModal.assignment.totalPieces - completionData.completedPieces}
                   value={completionData.damagedPieces}
-                  onChange={(e) => setCompletionData(prev => ({ ...prev, damagedPieces: parseInt(e.target.value) || 0 }))}
+                  onChange={(e) => setCompletionData(prev => ({ ...prev, damagedPieces: e.target.value }))}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                 />
               </div>
@@ -469,11 +524,11 @@ export const AssignedTasksTable = () => {
               >
                 Cancel
               </button>
-              <button
-                onClick={submitCompletion}
-                disabled={loading.action || (completionData.completedPieces + completionData.damagedPieces) !== completionModal.assignment.totalPieces}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
-              >
+                <button
+                  onClick={submitCompletion}
+                  disabled={loading.action || ((Number(completionData.completedPieces || 0) + Number(completionData.damagedPieces || 0)) < completionModal.assignment.totalPieces)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
+                >
                 Complete
               </button>
             </div>

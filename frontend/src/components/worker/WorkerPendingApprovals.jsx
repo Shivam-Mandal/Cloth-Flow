@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Clock, AlertCircle } from 'lucide-react';
 import { fetchAssignedForMe } from '../services/assignmentServices';
+import PaginationControls from '../ui/PaginationControls';
+import { useClientPagination } from '../../hooks/useClientPagination';
 
 export const WorkerPendingApprovals = () => {
   const [pendingWork, setPendingWork] = useState([]);
@@ -51,6 +53,15 @@ export const WorkerPendingApprovals = () => {
 
   useEffect(() => { loadPendingWork(); }, []);
 
+  const {
+    currentPage,
+    totalPages,
+    totalItems,
+    pageSize,
+    paginatedItems,
+    handlePageChange
+  } = useClientPagination(pendingWork, 6);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -77,7 +88,7 @@ export const WorkerPendingApprovals = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {pendingWork.map(item => (
+            {paginatedItems.map(item => (
               <div key={item.subOrder._id} className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-6 h-6 text-yellow-600 mt-1" />
@@ -114,6 +125,15 @@ export const WorkerPendingApprovals = () => {
             ))}
           </div>
         )}
+
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+          itemLabel="pending approvals"
+        />
       </div>
 
       <div className="flex justify-center">

@@ -2,18 +2,20 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLayout } from '../context/LayoutContext';
-import { LayoutDashboard, ClipboardList, Package, TrendingUp, Factory, Clock, CheckCircle, BarChart3, X } from "lucide-react";
+import { LayoutDashboard, TrendingUp, Factory, BarChart3, X, Boxes } from "lucide-react";
+import { useUser } from "../context/UserContext";
 
 export const WorkerSidebar = () => {
   const { sidebarOpen, closeSidebar, isMobile } = useLayout();
+  const { user } = useUser();
+  const workerType = String(user?.workerType || '').toLowerCase();
   const menuItems = [
     { id: "overview", label: "My Dashboard", icon: LayoutDashboard, path: "/worker/overview" },
-    { id: "assigned", label: "Assigned Tasks", icon: ClipboardList, path: "/worker/assigned" },
-    { id: "available", label: "Available Tasks", icon: Package, path: "/worker/available" },
-    { id: "pending", label: "Pending Approvals", icon: Clock, path: "/worker/pending" },
-    { id: "completed", label: "Completed Work", icon: CheckCircle, path: "/worker/completed" },
     { id: "approval-history", label: "Approval History", icon: BarChart3, path: "/worker/approval-history" },
     { id: "progress", label: "My Progress", icon: TrendingUp, path: "/worker/progress" },
+    ...(workerType === 'inventory'
+      ? [{ id: "inventory", label: "Inventory", icon: Boxes, path: "/worker/inventory" }]
+      : [])
   ];
 
   return (
