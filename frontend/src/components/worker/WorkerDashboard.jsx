@@ -21,7 +21,9 @@ const WorkerDashboard = () => {
       } min-w-0`}>
         <WorkerTopbar user={user} onLogout={logout} />
         <main className="flex-1 overflow-auto p-4 sm:p-6">
-          <Outlet />  
+          <div className="max-w-[1600px] mx-auto w-full">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

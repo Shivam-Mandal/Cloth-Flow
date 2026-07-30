@@ -171,7 +171,7 @@ export default function InventoryWorkspace({
 
   return (
     <div className="space-y-6">
-      <section className={`relative overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br ${accentBackground} p-6 sm:p-8 text-white shadow-xl`}>
+      <section className={`relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br ${accentBackground} p-6 sm:p-8 text-white shadow-xl`}>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(34,211,238,0.22),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(16,185,129,0.18),_transparent_30%)]" />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
@@ -193,7 +193,7 @@ export default function InventoryWorkspace({
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {[
           { label: 'Stored Suborders', value: summary.totalSubOrders, icon: ClipboardList, tone: 'from-cyan-500 to-blue-500' },
           { label: 'Packed Pieces', value: summary.totalPieces, icon: Package2, tone: 'from-sky-500 to-indigo-500' },
@@ -218,7 +218,7 @@ export default function InventoryWorkspace({
         })}
       </section>
 
-      <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-1 flex-col gap-3 sm:flex-row">
             <label className="relative flex-1">
@@ -259,12 +259,12 @@ export default function InventoryWorkspace({
       {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{String(error)}</div>}
 
       {loading ? (
-        <div className="rounded-[28px] border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" />
           <p className="mt-4 text-sm text-slate-500">Loading inventory records...</p>
         </div>
       ) : inventory.length === 0 ? (
-        <div className="rounded-[28px] border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
             <Boxes className="h-7 w-7" />
           </div>
@@ -272,20 +272,20 @@ export default function InventoryWorkspace({
           <p className="mt-2 text-sm text-slate-500">Final-stage approved suborders will appear here.</p>
         </div>
       ) : (
-        <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Image</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Order</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Style</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Color</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Pieces</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Location</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Updated</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Image</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Order</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Style</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Color</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Pieces</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Location</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Updated</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
@@ -307,18 +307,18 @@ export default function InventoryWorkspace({
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-700">
+                      <td className="px-4 py-3 text-sm whitespace-nowrap">
                         <div className="font-semibold text-slate-900">{item.order?.orderId || item.orderId || 'N/A'}</div>
                         <div className="text-xs text-slate-500">{item.subOrderCode || item.name || 'N/A'}</div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{item.order?.style?.name || item.name || 'N/A'}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{primaryColor}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ring-1 ${getStatusTone(item.inventoryStatus)}`}>
+                      <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{item.order?.style?.name || item.name || 'N/A'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{primaryColor}</td>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap">
+                        <span className={`whitespace-nowrap inline-block rounded-full px-3 py-1 text-xs font-semibold capitalize ring-1 ${getStatusTone(item.inventoryStatus)}`}>
                           {prettify(item.inventoryStatus)}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-700">
+                      <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">
                         <div>{item.totalPackedPieces ?? 0} total</div>
                         <div className="text-xs text-slate-500">{item.availablePieces ?? 0} available</div>
                       </td>
@@ -367,7 +367,7 @@ export default function InventoryWorkspace({
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-            <div className="relative max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[30px] bg-white shadow-2xl">
+            <div className="relative max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
               <button
                 type="button"
                 onClick={() => setSelectedItem(null)}
@@ -406,7 +406,7 @@ export default function InventoryWorkspace({
                     </div>
                   </div>
 
-                  <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+                  <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
                       { label: 'Total Pieces', value: item.totalPackedPieces ?? 0 },
                       { label: 'Approved', value: item.totalCompletedPieces ?? 0 },
@@ -420,7 +420,7 @@ export default function InventoryWorkspace({
                     ))}
                   </div>
 
-                  <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="rounded-2xl border border-slate-200 p-4">
                       <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                         <UserRound className="h-4 w-4 text-cyan-600" />

@@ -10,8 +10,11 @@ export const useSocket = () => {
   useEffect(() => {
     if (!user?._id) return;
 
+    const socketUrl = (import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000')
+      .replace(/\/api\/?$/, '');
+
     // Connect to Socket.IO server
-    socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+    socketRef.current = io(socketUrl, {
       withCredentials: true
     });
 

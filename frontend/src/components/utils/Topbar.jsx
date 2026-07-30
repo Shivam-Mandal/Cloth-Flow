@@ -1,7 +1,7 @@
 // src/utils/Topbar.jsx
 import React, { useState } from 'react';
 import { Bell, Search, LogOut, User as UserIcon, Settings, ChevronDown, Menu } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+// motion removed
 import { useLayout } from '../context/LayoutContext';
 
 const Topbar = ({ user = {}, onLogout }) => {
@@ -60,19 +60,19 @@ const Topbar = ({ user = {}, onLogout }) => {
               aria-label="Notifications"
             >
               <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center animate-pulse">
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center">
                 {notifications.length}
               </span>
             </button>
             
             {/* Notifications Dropdown */}
-            <AnimatePresence>
+
               {showNotifications && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
+                <div
+
+
+
+
                   className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
                 >
                   <div className="p-4 border-b border-gray-100">
@@ -91,9 +91,9 @@ const Topbar = ({ user = {}, onLogout }) => {
                       View all notifications
                     </button>
                   </div>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
+
           </div>
 
           {/* User Menu */}
@@ -117,13 +117,13 @@ const Topbar = ({ user = {}, onLogout }) => {
             </button>
             
             {/* User Dropdown */}
-            <AnimatePresence>
+
               {showUserMenu && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
+                <div
+
+
+
+
                   className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
                 >
                   <div className="p-3 border-b border-gray-100">
@@ -152,9 +152,9 @@ const Topbar = ({ user = {}, onLogout }) => {
                       <span>Sign out</span>
                     </button>
                   </div>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
+
           </div>
         </div>
       </div>

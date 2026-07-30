@@ -2,6 +2,7 @@
 import mongoose from 'mongoose';
 
 const StepSchema = new mongoose.Schema({
+  stageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Stage' },
   label: { type: String, required: true },
   price: { type: Number, default: 0 }
 }, { _id: false });

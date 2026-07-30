@@ -10,7 +10,7 @@ import { toast } from 'react-toastify';
 import { emitWorkerDataRefresh, subscribeWorkerDataRefresh } from '../../utils/workerRefresh';
 
 // local placeholder (put `placeholder.png` in your public/ folder)
-const exampleThumb = '/placeholder.png';
+const exampleThumb = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100%25' height='100%25' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%239ca3af'%3ENo Photo%3C/text%3E%3C/svg%3E";
 
 // Cloudinary config — match StyleManagement
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
@@ -389,14 +389,14 @@ export const AssignedTasksTable = () => {
         <table className="min-w-full divide-y divide-gray-200">
           <thead>
             <tr className="text-left text-sm text-gray-600">
-              <th className="px-3 py-2">photo</th>
-              <th className="px-3 py-2">sku id / chunk</th>
-              <th className="px-3 py-2">total pieces</th>
-              <th className="px-3 py-2">completed</th>
-              <th className="px-3 py-2">damaged</th>
-              <th className="px-3 py-2">status</th>
-              <th className="px-3 py-2">deadline</th>
-              <th className="px-3 py-2">actions</th>
+              <th className="px-3 py-2">Photo</th>
+              <th className="px-3 py-2">SKU / Chunk</th>
+              <th className="px-3 py-2">Total Pieces</th>
+              <th className="px-3 py-2">Completed</th>
+              <th className="px-3 py-2">Damaged</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Deadline</th>
+              <th className="px-3 py-2">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
@@ -448,8 +448,8 @@ export const AssignedTasksTable = () => {
       </div>
       {/* Image modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60" onClick={() => setModalOpen(false)}>
-          <div className="relative max-w-3xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black bg-opacity-60" onClick={() => setModalOpen(false)}>
+          <div className="relative max-w-3xl w-full cursor-default mx-4" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setModalOpen(false)} aria-label="Close" className="absolute top-2 right-2 text-white bg-gray-800 bg-opacity-50 rounded-full p-2">×</button>
 
             {modalLoading ? (

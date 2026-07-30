@@ -58,11 +58,11 @@
 //         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
 //           <div className="flex items-center space-x-3">
 //             <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-//               <span className="text-green-600 font-bold">$</span>
+//               <span className="text-green-600 font-bold">₹</span>
 //             </div>
 //             <div>
 //               <p className="text-sm font-medium text-gray-600">Total Value</p>
-//               <p className="text-2xl font-bold text-gray-900">${totalValue.toLocaleString()}</p>
+//               <p className="text-2xl font-bold text-gray-900">₹{totalValue.toLocaleString()}</p>
 //             </div>
 //           </div>
 //         </div>
@@ -164,9 +164,9 @@
 //                   </td>
 //                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{stock.size}</td>
 //                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{stock.quantity}</td>
-//                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${stock.unitPrice}</td>
+//                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹{stock.unitPrice}</td>
 //                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-//                     ${(stock.quantity * stock.unitPrice).toLocaleString()}
+//                     ₹{(stock.quantity * stock.unitPrice).toLocaleString()}
 //                   </td>
 //                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
 //                     {new Date(stock.dateAdded).toLocaleDateString()}
@@ -228,7 +228,7 @@
 //                 />
 //               </div>
 //               <div>
-//                 <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price ($)</label>
+//                 <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price (₹)</label>
 //                 <input
 //                   type="number"
 //                   step="0.01"
@@ -409,11 +409,11 @@ export const StockManagement = () => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-              <span className="text-green-600 font-bold">$</span>
+              <span className="text-green-600 font-bold">₹</span>
             </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Total Value</p>
-              <p className="text-2xl font-bold text-gray-900">${totalValue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">₹{totalValue.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -434,22 +434,22 @@ export const StockManagement = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-            <div className="flex items-center space-x-4">
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row gap-4 w-full">
+              <div className="relative w-full sm:w-64">
                 <input
                   type="text"
                   placeholder="Search by color or vendor..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              <div className="relative">
+              <div className="relative w-full sm:w-48">
                 <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <select
                   value={selectedVendor}
                   onChange={(e) => setSelectedVendor(e.target.value)}
-                  className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+                  className="w-full pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
                 >
                   <option value="all">All Vendors</option>
                   {vendors.map((vendor) => (
@@ -512,9 +512,9 @@ export const StockManagement = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{stock.sizeMm}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{stock.quantityKg}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${stock.unitPrice}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹{stock.unitPrice}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ${(Number(stock.quantityKg) * Number(stock.unitPrice)).toLocaleString()}
+                      ₹{(Number(stock.quantityKg) * Number(stock.unitPrice)).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {stock.dateAdded ? new Date(stock.dateAdded).toLocaleDateString() : '—'}
@@ -592,7 +592,7 @@ export const StockManagement = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price ($)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price (₹)</label>
                 <input
                   type="number"
                   step="0.01"

@@ -163,7 +163,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Lock, User, Factory, Shield, Zap, Users, BarChart3 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useUser } from "../context/UserContext";
-import { motion } from "framer-motion";
+// motion removed
 
 export const LoginForm = () => {
   const { login } = useUser();
@@ -208,7 +208,7 @@ export const LoginForm = () => {
 
   const demoCredentials = [
     { role: "Admin", email: "admin@company.com", password: "admin123", icon: Shield },
-    { role: "Worker", email: "worker@company.com", password: "worker123", icon: Users },
+    { role: "Worker", email: "testworker@clothflow.com", password: "password123", icon: Users },
   ];
 
   const features = [
@@ -230,11 +230,7 @@ export const LoginForm = () => {
         </div>
         
         <div className="relative z-10 flex flex-col justify-center px-12 py-16 text-white">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
+          <div>
             <div className="flex items-center mb-8">
               <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-4">
                 <Factory className="w-7 h-7 text-white" />
@@ -259,11 +255,8 @@ export const LoginForm = () => {
               {features.map((feature, index) => {
                 const Icon = feature.icon;
                 return (
-                  <motion.div
+                  <div
                     key={index}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
                     className="flex items-center space-x-4"
                   >
                     <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-lg flex items-center justify-center">
@@ -273,22 +266,17 @@ export const LoginForm = () => {
                       <h3 className="font-semibold text-white">{feature.title}</h3>
                       <p className="text-blue-200 text-sm">{feature.desc}</p>
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
 
       {/* Right Panel - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="w-full max-w-md"
-        >
+        <div className="w-full max-w-md">
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <div className="text-center mb-8">
               <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-lg">
@@ -312,7 +300,7 @@ export const LoginForm = () => {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                    className="w-full pl-10 pr-4 py-2.5 sm:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 focus:bg-white"
                     placeholder="Enter your email"
                     required
                   />
@@ -331,7 +319,7 @@ export const LoginForm = () => {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                    className="w-full pl-10 pr-4 py-2.5 sm:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 focus:bg-white"
                     placeholder="Enter your password"
                     required
                   />
@@ -339,22 +327,20 @@ export const LoginForm = () => {
               </div>
 
               {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
+                <div
                   aria-live="assertive"
                   className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"
                   role="alert"
                 >
                   {error}
-                </motion.div>
+                </div>
               )}
 
               <button
                 type="submit"
                 disabled={loading}
                 aria-busy={loading}
-                className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                className="w-full py-2.5 sm:py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shadow"
               >
                 {loading ? (
                   <div className="flex items-center justify-center">
@@ -381,11 +367,11 @@ export const LoginForm = () => {
                         setPassword(cred.password);
                         setError("");
                       }}
-                      className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors duration-200 border border-gray-200 hover:border-gray-300"
+                      className="w-full flex items-center justify-between p-3 sm:p-4 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 hover:border-gray-300"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <Icon className="w-4 h-4 text-blue-600" />
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
                         </div>
                         <div className="text-left">
                           <div className="text-sm font-medium text-gray-700">{cred.role}</div>
@@ -399,7 +385,7 @@ export const LoginForm = () => {
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

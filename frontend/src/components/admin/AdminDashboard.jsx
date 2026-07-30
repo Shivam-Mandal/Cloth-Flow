@@ -5,7 +5,7 @@ import Sidebar from '../utils/Sidebar';
 import Topbar from '../utils/Topbar';
 import { useUser } from '../context/UserContext';
 import { useLayout } from '../context/LayoutContext';
-import { motion } from 'framer-motion';
+// motion removed
 import { ShoppingCart, Package, Users, CheckCircle, Clock, BarChart3, Check, X, TrendingUp, TrendingDown } from 'lucide-react';
 import { fetchPendingApprovals, fetchApprovalHistory } from '../services/approvalServices';
 import { getActiveWorkersCount } from '../services/workerService';
@@ -53,10 +53,10 @@ export const Overview = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+      <div 
+
+
+
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div>
@@ -66,10 +66,10 @@ export const Overview = () => {
         <div className="text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg whitespace-nowrap">
           Last updated: {new Date().toLocaleString()}
         </div>
-      </motion.div>
+      </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatCard
           title="Active Orders"
           value="24"
@@ -108,13 +108,12 @@ export const Overview = () => {
       </div>
 
       {/* Approval Sections */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         {/* Pending Approvals */}
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300"
+        <div 
+
+
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-lg"
         >
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center">
@@ -144,12 +143,11 @@ export const Overview = () => {
           ) : (
             <div className="space-y-4 max-h-80 overflow-y-auto">
               {pendingApprovals.slice(0, 5).map((approval, index) => (
-                <motion.div 
+                <div 
                   key={approval._id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors duration-200"
+
+
+                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100"
                 >
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900">{approval.name}</p>
@@ -166,7 +164,7 @@ export const Overview = () => {
                       Pending
                     </span>
                   </div>
-                </motion.div>
+                </div>
               ))}
               {pendingApprovals.length > 5 && (
                 <div className="text-center pt-4">
@@ -177,14 +175,11 @@ export const Overview = () => {
               )}
             </div>
           )}
-        </motion.div>
+        </div>
 
         {/* Recent Approval History */}
-        <motion.div 
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300"
+        <div 
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-lg"
         >
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center">
@@ -214,12 +209,11 @@ export const Overview = () => {
           ) : (
             <div className="space-y-4 max-h-80 overflow-y-auto">
               {recentHistory.map((item, index) => (
-                <motion.div 
+                <div 
                   key={item._id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors duration-200"
+
+
+                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100"
                 >
                   <div className="flex items-center space-x-4">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
@@ -253,11 +247,11 @@ export const Overview = () => {
                       {item.action}
                     </span>
                   </div>
-                </motion.div>
+                </div>
               ))}
             </div>
           )}
-        </motion.div>
+        </div>
       </div>
     </div>
   );
@@ -273,29 +267,26 @@ const StatCard = ({ title, value, changeText, icon, trend = 'up', color = 'blue'
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 group"
+    <div
+      className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg group"
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600 mb-2">{title}</p>
-          <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
-          <div className={`text-sm font-medium ${
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2 truncate">{title}</p>
+          <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-0.5 sm:mb-1 truncate">{value}</p>
+          <div className={`text-xs sm:text-sm font-medium truncate ${
             trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-600'
           }`}>
             {changeText}
           </div>
         </div>
         {icon && (
-          <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${colorClasses[color]} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-            <div className="text-white">{icon}</div>
+          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-r ${colorClasses[color]} flex items-center justify-center shadow-lg flex-shrink-0`}>
+            <div className="text-white scale-90 sm:scale-100">{icon}</div>
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 };
 
@@ -322,12 +313,14 @@ export default function AdminDashboard() {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar />
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${
+      <div className={`flex-1 flex flex-col ${
         sidebarOpen ? 'lg:ml-0' : 'ml-0'
       } min-w-0`}>
         <Topbar user={user} onLogout={logout} />
         <main className="flex-1 overflow-auto p-4 sm:p-6">
-          <Outlet />
+          <div className="max-w-[1600px] mx-auto w-full">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

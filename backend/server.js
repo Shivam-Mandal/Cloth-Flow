@@ -21,18 +21,37 @@ import WorkerRouter from './routes/workerRoutes.js';
 import approvalRouter from './routes/approvalRoutes.js';
 import subOrderRouter from './routes/subOrderRoutes.js';
 import userRouter from './routes/userRoutes.js';
+import stageRouter from './routes/stageRoutes.js';
 dotenv.config();
 
 const app = express();
 const server = createServer(app);
+
+const allowedOrigins = [
+  'https://cloth-flow.onrender.com',
+  'https://cloth-flow-production.onrender.com',
+  'https://cloth-flow.netlify.app',
+  'https://cloth-flow.vercel.app',
+  'http://localhost:5173'
+];
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+
+  try {
+    const { hostname, protocol } = new URL(origin);
+    return protocol === 'http:' && ['localhost', '127.0.0.1'].includes(hostname);
+  } catch {
+    return false;
+  }
+};
+
 const io = new Server(server, {
   cors: {
-    origin: [
-      'https://cloth-flow.onrender.com',
-      'http://localhost:5173',
-      'https://cloth-flow-production.onrender.com',
-      'https://cloth-flow.netlify.app'
-    ],
+    origin: (origin, callback) => {
+      callback(null, isAllowedOrigin(origin));
+    },
     credentials: true
   }
 });
@@ -53,23 +72,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan('combined'));
 
-// --- CORS Setup ---
-const allowedOrigins = [
-  'https://cloth-flow.onrender.com',
-  'http://localhost:5173',
-  'https://cloth-flow-production.onrender.com',
-  'https://cloth-flow.netlify.app',
-  'https://cloth-flow.vercel.app'
-];
-
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // allow server-to-server / same-origin requests
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    callback(null, isAllowedOrigin(origin));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'],
@@ -92,6 +97,7 @@ app.use('/api/workers', WorkerRouter);
 app.use('/api/approvals', approvalRouter);
 app.use('/api/suborders', subOrderRouter);
 app.use('/api/users', userRouter);
+app.use('/api/stages', stageRouter);
 
 // --- Example API/test routes ---
 app.get('/api/admin/secret', verifyAccessToken, requireRole('admin'), (req, res) => {
@@ -103,11 +109,11 @@ app.get('/', (req, res) => {
 
 // --- Serve static files and client-side routing fallback ---
 // Serve Vite's dist folder (ensure you run `npm run build` so dist exists)
-app.use(express.static(path.join(__dirname, '..frontend/dist')));
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // Catch-all for client-side routes — use regex /.*/ to avoid path-to-regexp errors
 app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(__dirname, '..frontend/dist', 'index.html'));
+  res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
 });
 
 // --- Error Handling Middleware (last) ---

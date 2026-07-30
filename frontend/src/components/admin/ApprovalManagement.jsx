@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle, XCircle, Eye, User, Package, DollarSign } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, User, Package, IndianRupee, X } from 'lucide-react';
 import {
   fetchPendingApprovals,
   approveSubOrder,
@@ -15,6 +15,7 @@ export const ApprovalManagement = () => {
   const [error, setError] = useState(null);
   const [selectedApproval, setSelectedApproval] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [showRejectionForm, setShowRejectionForm] = useState(false);
 
   const loadPendingApprovals = async () => {
     setLoading(l => ({ ...l, fetch: true }));
@@ -80,6 +81,7 @@ export const ApprovalManagement = () => {
   const openApprovalModal = (approval) => {
     setSelectedApproval(approval);
     setRejectReason('');
+    setShowRejectionForm(false);
   };
 
   const getSubOrderCode = (approval) => {
@@ -134,7 +136,7 @@ export const ApprovalManagement = () => {
           <div className="space-y-4">
             {paginatedApprovals.map(approval => (
               <div key={approval._id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="font-semibold text-lg">{approval.name}</h3>
@@ -143,7 +145,7 @@ export const ApprovalManagement = () => {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
                       <div>
                         <span className="font-medium">Order ID:</span> {approval.orderId}
                       </div>
@@ -170,10 +172,10 @@ export const ApprovalManagement = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full sm:w-auto">
                     <button
                       onClick={() => openApprovalModal(approval)}
-                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center gap-2"
+                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center justify-center gap-2 w-full sm:w-auto cursor-pointer"
                     >
                       <Eye className="w-4 h-4" />
                       Review
@@ -198,7 +200,14 @@ export const ApprovalManagement = () => {
       {/* Approval Modal */}
       {selectedApproval && (
         <div className="fixed inset-0 bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 shadow-2xl">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto relative">
+            <button
+              onClick={() => setSelectedApproval(null)}
+              className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+              title="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
             <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
               <Eye className="w-5 h-5" />
               Work Review & Approval
@@ -210,7 +219,7 @@ export const ApprovalManagement = () => {
                 <Package className="w-4 h-4" />
                 Order Information
               </h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <span className="text-gray-600">Order ID:</span>
                   <div className="font-medium">{selectedApproval.order?.orderId || selectedApproval.orderId}</div>
@@ -259,7 +268,7 @@ export const ApprovalManagement = () => {
             {/* Work Submission Details */}
             <div className="bg-green-50 p-4 rounded-lg mb-6">
               <h4 className="font-medium mb-3">Work Submission Details</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-3 bg-white rounded border">
                   <div className="text-2xl font-bold text-blue-600">
                     {computePiecesTotal(selectedApproval.pieces)}
@@ -291,21 +300,21 @@ export const ApprovalManagement = () => {
             {/* Payment Calculation */}
             <div className="bg-yellow-50 p-4 rounded-lg mb-6">
               <h4 className="font-medium mb-3 flex items-center gap-2">
-                <DollarSign className="w-4 h-4" />
+                <IndianRupee className="w-4 h-4" />
                 Payment Calculation (Auto-Calculated)
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-gray-600">Price per Piece ({selectedApproval.currentStage}):</span>
-                  <div className="font-bold text-lg">${selectedApproval.pricePerPiece || 0}</div>
+                  <div className="font-bold text-lg">₹{selectedApproval.pricePerPiece || 0}</div>
                 </div>
                 <div>
                   <span className="text-gray-600">Calculation:</span>
-                  <div className="font-medium">{selectedApproval.approvedPieces || 0} × ${selectedApproval.pricePerPiece || 0}</div>
+                  <div className="font-medium">{selectedApproval.approvedPieces || 0} × ₹{selectedApproval.pricePerPiece || 0}</div>
                 </div>
                 <div>
                   <span className="text-gray-600">Total Payment:</span>
-                  <div className="font-bold text-xl text-green-600">${selectedApproval.calculatedPayment || 0}</div>
+                  <div className="font-bold text-xl text-green-600">₹{selectedApproval.calculatedPayment || 0}</div>
                 </div>
               </div>
               <div className="mt-3 p-3 bg-white rounded border border-yellow-200">
@@ -317,44 +326,78 @@ export const ApprovalManagement = () => {
 
             {/* Action Buttons */}
             <div className="border-t pt-6">
-              <div className="flex gap-4">
-                <button
-                  onClick={() => handleApprove(selectedApproval._id)}
-                  disabled={loading.action}
-                  className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  {loading.action ? 'Processing...' : 'Approve & Process Payment'}
-                </button>
+              {!showRejectionForm ? (
+                <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-4">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleApprove(selectedApproval._id)}
+                      disabled={loading.action}
+                      className="bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2 font-medium shadow-sm transition-colors w-full sm:w-auto cursor-pointer"
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                      {loading.action ? 'Processing...' : 'Approve & Process Payment'}
+                    </button>
 
-                <div className="flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowRejectionForm(true)}
+                      disabled={loading.action}
+                      className="border border-red-200 hover:border-red-300 text-red-600 bg-red-50/50 hover:bg-red-50 py-3 px-6 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2 font-medium transition-colors w-full sm:w-auto cursor-pointer"
+                    >
+                      <XCircle className="w-5 h-5" />
+                      Reject Work...
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedApproval(null)}
+                    disabled={loading.action}
+                    className="px-6 py-3 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50 transition-colors w-full sm:w-auto text-center cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-red-50/30 border border-red-100 rounded-xl p-4 sm:p-5 space-y-4">
+                  <div className="flex items-center gap-2 text-red-800 font-semibold text-base">
+                    <XCircle className="w-5 h-5 text-red-600" />
+                    Provide Rejection Details
+                  </div>
+                  
                   <textarea
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
-                    placeholder="Reason for rejection (required)..."
-                    className="w-full border border-gray-300 rounded-lg p-3 mb-3 resize-none"
-                    rows="2"
+                    placeholder="Describe why the work is being rejected (e.g. faulty stitches, wrong size)..."
+                    className="w-full border border-gray-300 focus:border-red-400 focus:ring-1 focus:ring-red-400 rounded-lg p-3 outline-none resize-none bg-white transition-shadow shadow-sm"
+                    rows="3"
                   />
-                  <button
-                    onClick={() => handleReject(selectedApproval._id)}
-                    disabled={loading.action || !rejectReason.trim()}
-                    className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
-                  >
-                    <XCircle className="w-4 h-4" />
-                    Reject Work
-                  </button>
-                </div>
-              </div>
-            </div>
 
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setSelectedApproval(null)}
-                disabled={loading.action}
-                className="px-6 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 disabled:opacity-50"
-              >
-                Cancel
-              </button>
+                  <div className="flex flex-col sm:flex-row justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRejectionForm(false);
+                        setRejectReason('');
+                      }}
+                      disabled={loading.action}
+                      className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg disabled:opacity-50 transition-colors order-2 sm:order-1 text-center cursor-pointer"
+                    >
+                      Back to Options
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleReject(selectedApproval._id)}
+                      disabled={loading.action || !rejectReason.trim()}
+                      className="px-5 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2 order-1 sm:order-2 text-center cursor-pointer"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      {loading.action ? 'Processing...' : 'Confirm Rejection'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

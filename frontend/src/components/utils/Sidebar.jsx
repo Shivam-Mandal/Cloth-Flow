@@ -1,7 +1,7 @@
 // src/utils/Sidebar.jsx
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+// motion removed
 import { useLayout } from '../context/LayoutContext';
 import {
   LayoutDashboard,
@@ -37,26 +37,26 @@ const Sidebar = ({ activeTab, onTabChange }) => {
   return (
     <>
       {/* Mobile Overlay */}
-      <AnimatePresence>
+
         {isMobile && sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <div
+
+
+
             onClick={closeSidebar}
             className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           />
         )}
-      </AnimatePresence>
+
 
       {/* Sidebar */}
-      <AnimatePresence>
+
         {sidebarOpen && (
-          <motion.aside
-            initial={{ x: isMobile ? -280 : 0, opacity: isMobile ? 0 : 1 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: isMobile ? -280 : 0, opacity: isMobile ? 0 : 1 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
+          <aside
+
+
+
+
             className={`${
               isMobile ? 'fixed' : 'relative'
             } w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm z-50 h-full`}
@@ -65,7 +65,7 @@ const Sidebar = ({ activeTab, onTabChange }) => {
             {isMobile && (
               <button
                 onClick={closeSidebar}
-                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors lg:hidden"
+                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg lg:hidden"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -89,20 +89,20 @@ const Sidebar = ({ activeTab, onTabChange }) => {
                 {menuItems.map((item, index) => {
                   const Icon = item.icon;
                   return (
-                    <motion.li
+                    <li
                       key={item.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.05 }}
+
+
+
                     >
                       <NavLink
                         to={item.to}
                         end={item.to === '/admin'}
                         className={({ isActive }) =>
-                          `group relative w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 ${
+                          `group relative w-full flex items-center justify-between px-4 py-3 rounded-xl ${
                             isActive
-                              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg transform scale-[1.02]'
-                              : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 hover:transform hover:scale-[1.01]'
+                              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'
+                              : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                           }`
                         }
                         onClick={() => {
@@ -111,14 +111,14 @@ const Sidebar = ({ activeTab, onTabChange }) => {
                         }}
                       >
                         <div className="flex items-center space-x-3">
-                          <Icon className="w-5 h-5 transition-transform group-hover:scale-110" />
+                          <Icon className="w-5 h-5" />
                           <span className="font-medium">{item.label}</span>
                         </div>
                         
                         {/* Active indicator */}
-                        <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-white rounded-r-full opacity-0 group-[.active]:opacity-100 transition-opacity" />
+                        <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-white rounded-r-full opacity-0 group-[.active]:opacity-100" />
                       </NavLink>
-                    </motion.li>
+                    </li>
                   );
                 })}
               </ul>
@@ -131,9 +131,8 @@ const Sidebar = ({ activeTab, onTabChange }) => {
                 <p className="text-xs text-gray-400 mt-1">© 2024 ClothFlow</p>
               </div>
             </div>
-          </motion.aside>
+          </aside>
         )}
-      </AnimatePresence>
     </>
   );
 };

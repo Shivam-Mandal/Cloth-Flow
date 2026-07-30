@@ -1,6 +1,6 @@
 // src/components/ui/UIComponents.jsx
 import React from 'react';
-import { motion } from 'framer-motion';
+// motion removed
 import { Loader2, AlertCircle, CheckCircle, Info, X } from 'lucide-react';
 
 // Button Component
@@ -13,13 +13,13 @@ export const Button = ({
   className = '', 
   ...props 
 }) => {
-  const baseClasses = 'inline-flex items-center justify-center font-semibold rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseClasses = 'inline-flex items-center justify-center font-semibold rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2';
   
   const variants = {
-    primary: 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 focus:ring-blue-500',
+    primary: 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl focus:ring-blue-500',
     secondary: 'bg-gray-100 hover:bg-gray-200 text-gray-700 focus:ring-gray-500',
-    success: 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 focus:ring-green-500',
-    danger: 'bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 focus:ring-red-500',
+    success: 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl focus:ring-green-500',
+    danger: 'bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl focus:ring-red-500',
     outline: 'border-2 border-gray-300 hover:border-gray-400 text-gray-700 hover:bg-gray-50 focus:ring-gray-500',
   };
   
@@ -46,7 +46,7 @@ export const Button = ({
 export const Card = ({ children, className = '', hover = true, ...props }) => {
   return (
     <div 
-      className={`bg-white rounded-2xl shadow-sm border border-gray-100 ${hover ? 'hover:shadow-lg' : ''} transition-all duration-300 ${className}`}
+      className={`bg-white rounded-2xl shadow-sm border border-gray-100 ${hover ? 'hover:shadow-lg' : ''} ${className}`}
       {...props}
     >
       {children}
@@ -90,7 +90,7 @@ export const Input = ({ label, error, className = '', ...props }) => {
         </label>
       )}
       <input
-        className={`w-full px-4 py-3 border rounded-xl transition-all duration-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+        className={`w-full px-4 py-3 border rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
           error ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
         } ${className}`}
         {...props}
@@ -124,10 +124,7 @@ export const Alert = ({ children, variant = 'info', onClose, className = '' }) =
   const Icon = icons[variant];
   
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
+    <div
       className={`p-4 border rounded-xl flex items-start space-x-3 ${variants[variant]} ${className}`}
     >
       <Icon className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -140,7 +137,7 @@ export const Alert = ({ children, variant = 'info', onClose, className = '' }) =
           <X className="w-4 h-4" />
         </button>
       )}
-    </motion.div>
+    </div>
   );
 };
 
@@ -169,18 +166,15 @@ export const StatsCard = ({ title, value, change, icon, color = 'blue', trend = 
   };
   
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -5 }}
-      className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300"
+    <div
+      className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg"
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600 mb-2">{title}</p>
-          <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2 truncate">{title}</p>
+          <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-0.5 sm:mb-1 truncate">{value}</p>
           {change && (
-            <p className={`text-sm font-medium ${
+            <p className={`text-xs sm:text-sm font-medium truncate ${
               trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-600'
             }`}>
               {change}
@@ -188,12 +182,12 @@ export const StatsCard = ({ title, value, change, icon, color = 'blue', trend = 
           )}
         </div>
         {icon && (
-          <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${colors[color]} flex items-center justify-center shadow-lg`}>
-            <div className="text-white">{icon}</div>
+          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-r ${colors[color]} flex items-center justify-center shadow-lg flex-shrink-0`}>
+            <div className="text-white scale-90 sm:scale-100">{icon}</div>
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 };
 

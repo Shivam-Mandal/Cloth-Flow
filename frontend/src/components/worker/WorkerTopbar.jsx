@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, LogOut, User as UserIcon, Clock, Settings, ChevronDown, Target, Award, Menu } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+// motion removed
 import { useLayout } from '../context/LayoutContext';
 
 export const WorkerTopbar = ({ user, onLogout }) => {
@@ -33,7 +33,7 @@ export const WorkerTopbar = ({ user, onLogout }) => {
         <div className="flex items-center space-x-4 sm:space-x-6">
           <button 
             onClick={toggleSidebar}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
             aria-label="Toggle sidebar"
           >
             <Menu className="w-5 h-5" />
@@ -72,22 +72,18 @@ export const WorkerTopbar = ({ user, onLogout }) => {
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200"
+              className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
             >
               <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center animate-pulse">
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center">
                 {notifications.length}
               </span>
             </button>
             
             {/* Notifications Dropdown */}
-            <AnimatePresence>
+
               {showNotifications && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
+                <div
                   className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
                 >
                   <div className="p-4 border-b border-gray-100">
@@ -106,16 +102,16 @@ export const WorkerTopbar = ({ user, onLogout }) => {
                       View all notifications
                     </button>
                   </div>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
+
           </div>
 
           {/* User Menu */}
           <div className="relative">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center space-x-3 p-2 hover:bg-gray-100 rounded-xl transition-all duration-200"
+              className="flex items-center space-x-3 p-2 hover:bg-gray-100 rounded-xl"
             >
               <div className="w-9 h-9 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
                 <UserIcon className="w-5 h-5 text-white" />
@@ -128,13 +124,9 @@ export const WorkerTopbar = ({ user, onLogout }) => {
             </button>
             
             {/* User Dropdown */}
-            <AnimatePresence>
+
               {showUserMenu && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
+                <div
                   className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
                 >
                   <div className="p-3 border-b border-gray-100">
@@ -163,9 +155,9 @@ export const WorkerTopbar = ({ user, onLogout }) => {
                       <span>Sign out</span>
                     </button>
                   </div>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
+
           </div>
         </div>
       </div>

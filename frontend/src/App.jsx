@@ -1,5 +1,6 @@
 // src/App.jsx
 import React from 'react';
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginForm } from './components/auth/LoginForm';
 import AdminDashboard, { Overview } from './components/admin/AdminDashboard';
@@ -14,6 +15,7 @@ import WorkerDashboard from './components/worker/WorkerDashboard';
 import AssignedTasks from './components/worker/AssignedTasks';
 import AvailableTasks from './components/worker/AvailableTasks';
 import WorkerOverview from './components/worker/WorkerOverview'; // default import
+import { WorkProgress } from './components/worker/WorkProgress';
 import WorkerPendingApprovals from './components/worker/WorkerPendingApprovals';
 import WorkerCompletedWork from './components/worker/WorkerCompletedWork';
 import ApprovalHistory from './components/admin/ApprovalHistory';
@@ -21,6 +23,9 @@ import WorkerApprovalHistory from './components/worker/WorkerApprovalHistory';
 import InventoryManagement from './components/admin/InventoryManagement';
 import UserManagement from './components/admin/UserManagement';
 import WorkerInventoryManagement from './components/worker/WorkerInventoryManagement';
+import { ProcessTracking } from './components/admin/ProcessTracking';
+import { WorkerPerformance } from './components/admin/WorkerPerformance';
+import { Reports } from './components/admin/Reports';
 
 export default function App() {
   const { user, initialLoadDone } = useUser();
@@ -34,56 +39,63 @@ export default function App() {
   }
 
   return (
-    <LayoutProvider>
-      <BrowserRouter>
-        <Routes>
-        {/* Public */}
-        <Route path="/login" element={<LoginForm />} />
-        <Route
-          path="/"
-          element={user ? <Navigate to={`/${user.role}`} replace /> : <Navigate to="/login" replace />}
-        />
 
-        {/* Admin area - all routes under /admin are protected */}
-        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-          <Route path="/admin" element={<AdminDashboard />}>
-            <Route index element={<Overview />} />
-            <Route path="approvals" element={<ApprovalManagement />} />
-            <Route path="approval-history" element={<ApprovalHistory />} />
-            <Route path="inventory" element={<InventoryManagement />} />
-            <Route path="users" element={<UserManagement />} />
-            <Route path="styles" element={<StyleManagement />} />
-            <Route path="stock" element={<StockManagement />} />
-            <Route path="orders" element={<OrderManagement />} />
+      <LayoutProvider>
+        <BrowserRouter>
+          <Routes>
+          {/* Public */}
+          <Route path="/login" element={<LoginForm />} />
+          <Route
+            path="/"
+            element={user ? <Navigate to={`/${user.role}`} replace /> : <Navigate to="/login" replace />}
+          />
+
+          {/* Admin area - all routes under /admin are protected */}
+          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route path="/admin" element={<AdminDashboard />}>
+              <Route index element={<Overview />} />
+              <Route path="approvals" element={<ApprovalManagement />} />
+              <Route path="approval-history" element={<ApprovalHistory />} />
+              <Route path="inventory" element={<InventoryManagement />} />
+              <Route path="users" element={<UserManagement />} />
+              <Route path="styles" element={<StyleManagement />} />
+              <Route path="stock" element={<StockManagement />} />
+              <Route path="orders" element={<OrderManagement />} />
+              <Route path="processes" element={<ProcessTracking />} />
+              <Route path="workers" element={<WorkerPerformance />} />
+              <Route path="reports" element={<Reports />} />
+            </Route>
           </Route>
-        </Route>
 
-        {/* Worker area */}
-        <Route element={<ProtectedRoute allowedRoles={['worker']} />}>
-          <Route path="/worker" element={<WorkerDashboard />}>
-            <Route
-              index
-              element={<WorkerOverview />} /* WorkerOverview will derive workerId/workerCategory */
-            />
-            <Route
-              path="assigned"
-              element={<AssignedTasks workerId={user?._id} workerCategory={user?.workerType || user?.worker_type} />}
-            />
-            <Route
-              path="available"
-              element={<AvailableTasks workerId={user?._id} workerCategory={user?.workerType || user?.worker_type} />}
-            />
-            <Route path="pending" element={<WorkerPendingApprovals />} />
-            <Route path="completed" element={<WorkerCompletedWork />} />
-            <Route path="inventory" element={<WorkerInventoryManagement />} />
-            <Route path="approval-history" element={<WorkerApprovalHistory />} />
+          {/* Worker area */}
+          <Route element={<ProtectedRoute allowedRoles={['worker']} />}>
+            <Route path="/worker" element={<WorkerDashboard />}>
+              <Route
+                index
+                element={<WorkerOverview />} /* WorkerOverview will derive workerId/workerCategory */
+              />
+              <Route path="overview" element={<WorkerOverview />} />
+              <Route path="progress" element={<WorkProgress />} />
+              <Route
+                path="assigned"
+                element={<AssignedTasks workerId={user?._id} workerCategory={user?.workerType || user?.worker_type} />}
+              />
+              <Route
+                path="available"
+                element={<AvailableTasks workerId={user?._id} workerCategory={user?.workerType || user?.worker_type} />}
+              />
+              <Route path="pending" element={<WorkerPendingApprovals />} />
+              <Route path="completed" element={<WorkerCompletedWork />} />
+              <Route path="inventory" element={<WorkerInventoryManagement />} />
+              <Route path="approval-history" element={<WorkerApprovalHistory />} />
+            </Route>
           </Route>
-        </Route>
 
-        {/* fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </LayoutProvider>
+          {/* fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </LayoutProvider>
+
   );
 }

@@ -26,51 +26,51 @@ export const WorkProgress = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Progress</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Progress</h1>
           <p className="text-gray-600 mt-1">Track your performance and achievements</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <Target className="w-8 h-8 text-blue-600" />
+            <Target className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-gray-600">This Week</p>
-              <p className="text-2xl font-bold text-gray-900">{totalPieces}</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">This Week</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalPieces}</p>
               <p className="text-xs text-gray-500">pieces completed</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <Clock className="w-8 h-8 text-green-600" />
+            <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-green-600 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-gray-600">Hours Worked</p>
-              <p className="text-2xl font-bold text-gray-900">{totalHours}h</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Hours Worked</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalHours}h</p>
               <p className="text-xs text-gray-500">this week</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <TrendingUp className="w-8 h-8 text-purple-600" />
+            <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-gray-600">Efficiency</p>
-              <p className="text-2xl font-bold text-gray-900">92%</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Efficiency</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">92%</p>
               <p className="text-xs text-green-600">+5% from last week</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <Award className="w-8 h-8 text-orange-600" />
+            <Award className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-gray-600">Quality Score</p>
-              <p className="text-2xl font-bold text-gray-900">9.6/10</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Quality Score</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">9.6/10</p>
               <p className="text-xs text-green-600">Excellent</p>
             </div>
           </div>

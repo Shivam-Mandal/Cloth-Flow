@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, Download, Calendar, TrendingUp, DollarSign, Package } from 'lucide-react';
+import { BarChart3, Download, Calendar, TrendingUp, IndianRupee, Package } from 'lucide-react';
 
 export const Reports = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('week');
@@ -9,7 +9,7 @@ export const Reports = () => {
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'orders', label: 'Order Reports', icon: Package },
     { id: 'workers', label: 'Worker Reports', icon: TrendingUp },
-    { id: 'financial', label: 'Financial', icon: DollarSign }
+    { id: 'financial', label: 'Financial', icon: IndianRupee }
   ];
 
   const periods = [
@@ -126,20 +126,20 @@ export const Reports = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total Revenue</span>
-                <span className="text-xl font-bold text-green-600">$45,670</span>
+                <span className="text-xl font-bold text-green-600">₹45,670</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Material Costs</span>
-                <span className="text-xl font-bold text-red-600">$12,340</span>
+                <span className="text-xl font-bold text-red-600">₹12,340</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Labor Costs</span>
-                <span className="text-xl font-bold text-orange-600">$18,920</span>
+                <span className="text-xl font-bold text-orange-600">₹18,920</span>
               </div>
               <div className="border-t pt-4">
                 <div className="flex justify-between items-center">
                   <span className="font-medium text-gray-700">Net Profit</span>
-                  <span className="text-2xl font-bold text-blue-600">$14,410</span>
+                  <span className="text-2xl font-bold text-blue-600">₹14,410</span>
                 </div>
               </div>
             </div>

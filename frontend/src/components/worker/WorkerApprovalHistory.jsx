@@ -69,49 +69,49 @@ export const WorkerApprovalHistory = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Approval History</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Approval History</h1>
           <p className="text-gray-600 mt-1">Track your submissions and approval status</p>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <Clock className="w-8 h-8 text-blue-600" />
+            <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-gray-600">Submissions</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalSubmissions}</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Submissions</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.totalSubmissions}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <CheckCircle className="w-8 h-8 text-green-600" />
+            <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-600 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-gray-600">Approved</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.approvedCount}</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Approved</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.approvedCount}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <XCircle className="w-8 h-8 text-red-600" />
+            <XCircle className="w-6 h-6 sm:w-8 sm:h-8 text-red-600 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-gray-600">Rejected</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.rejectedCount}</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Rejected</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.rejectedCount}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <TrendingUp className="w-8 h-8 text-purple-600" />
+            <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Earnings</p>
-              <p className="text-2xl font-bold text-gray-900">₹{stats.totalEarnings.toFixed(2)}</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Total Earnings</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">₹{stats.totalEarnings.toFixed(2)}</p>
             </div>
           </div>
         </div>

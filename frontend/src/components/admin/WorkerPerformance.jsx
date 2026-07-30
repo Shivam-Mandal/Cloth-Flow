@@ -79,7 +79,7 @@ export const WorkerPerformance = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
             <Users className="w-8 h-8 text-blue-600" />
@@ -197,7 +197,7 @@ export const WorkerPerformance = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{worker.activeTasks}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ${worker.salary.toLocaleString()}
+                    ₹{worker.salary.toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(worker.status)}`}>

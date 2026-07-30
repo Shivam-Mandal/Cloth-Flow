@@ -4,10 +4,10 @@ import AssignedTasksTable from "./AssignedTasksTable";
 import { useUser } from "../context/UserContext";
 import { fetchWorkerPendingApprovals, fetchWorkerCompletedWork } from "../services/approvalServices";
 import { fetchAssignedForMe } from "../services/assignmentServices";
-import { Clock, CheckCircle, DollarSign, Target, Award, Activity } from "lucide-react";
+import { Clock, CheckCircle, IndianRupee, Target, Award, Activity } from "lucide-react";
 import { toast } from "react-toastify";
 import { useSocket } from "../../hooks/useSocket";
-import { motion } from "framer-motion";
+// motion removed
 import { StatsCard, Card, EmptyState, Spinner } from "../ui/UIComponents";
 import { subscribeWorkerDataRefresh } from "../../utils/workerRefresh";
 
@@ -169,14 +169,12 @@ export default function WorkerOverview() {
 
   return (
     <div className="space-y-8">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
+      <div
         className="flex items-center justify-between"
       >
         <div>
-          <h1 className="text-4xl font-bold text-gray-900">My Dashboard</h1>
-          <p className="text-gray-600 mt-2">Track your tasks and earnings</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">My Dashboard</h1>
+          <p className="text-sm text-gray-600 mt-1 sm:mt-2">Track your tasks and earnings</p>
         </div>
         <div className="text-right">
           <div className="text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg">
@@ -188,9 +186,9 @@ export default function WorkerOverview() {
             })}
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatsCard
           title="Today's Tasks"
           value={todaysTasks}
@@ -219,7 +217,7 @@ export default function WorkerOverview() {
           title="Total Earnings"
           value={`₹${totalEarnings.toLocaleString()}`}
           change="This month"
-          icon={<DollarSign className="w-6 h-6" />}
+          icon={<IndianRupee className="w-6 h-6" />}
           color="purple"
           trend="up"
         />
@@ -233,10 +231,10 @@ export default function WorkerOverview() {
               <button
                 key={tabItem.id}
                 onClick={() => setTab(tabItem.id)}
-                className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                className={`flex items-center space-x-1.5 sm:space-x-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl text-xs sm:text-sm font-medium ${
                   tab === tabItem.id
-                    ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg transform scale-105"
-                    : "bg-gray-50 hover:bg-gray-100 text-gray-700 hover:scale-105"
+                    ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg"
+                    : "bg-gray-50 hover:bg-gray-100 text-gray-700"
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -246,11 +244,7 @@ export default function WorkerOverview() {
           })}
         </div>
 
-        <motion.div
-          key={tab}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+        <div
           className="bg-gray-50 rounded-2xl p-6"
         >
           {tab === "available" && (
@@ -278,12 +272,9 @@ export default function WorkerOverview() {
               ) : (
                 <div className="space-y-4">
                   {pendingApprovals.map((approval, index) => (
-                    <motion.div
+                    <div
                       key={approval._id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.1 }}
-                      className="flex items-center justify-between p-4 bg-white border border-orange-200 rounded-xl hover:shadow-md transition-all duration-200"
+                      className="flex items-center justify-between p-4 bg-white border border-orange-200 rounded-xl hover:shadow-md"
                     >
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900">{approval.name}</p>
@@ -297,7 +288,7 @@ export default function WorkerOverview() {
                       <div className="text-right">
                         <p className="text-lg font-bold text-green-600">₹{approval.amount || 0}</p>
                       </div>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -320,12 +311,9 @@ export default function WorkerOverview() {
               ) : (
                 <div className="space-y-4">
                   {completedWork.map((work, index) => (
-                    <motion.div
+                    <div
                       key={work._id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.1 }}
-                      className="flex items-center justify-between p-4 bg-white border border-green-200 rounded-xl hover:shadow-md transition-all duration-200"
+                      className="flex items-center justify-between p-4 bg-white border border-green-200 rounded-xl hover:shadow-md"
                     >
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900">{work.name}</p>
@@ -339,11 +327,9 @@ export default function WorkerOverview() {
                       <div className="text-right">
                         <p className="text-lg font-bold text-green-600">+₹{work.amount || 0}</p>
                       </div>
-                    </motion.div>
+                    </div>
                   ))}
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                  <div
                     className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl"
                   >
                     <div className="flex items-center justify-between">
@@ -355,12 +341,12 @@ export default function WorkerOverview() {
                       </div>
                       <span className="text-2xl font-bold text-blue-600">₹{totalEarnings.toLocaleString()}</span>
                     </div>
-                  </motion.div>
+                  </div>
                 </div>
               )}
             </div>
           )}
-        </motion.div>
+        </div>
       </Card>
     </div>
   );

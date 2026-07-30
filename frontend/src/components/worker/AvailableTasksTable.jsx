@@ -13,7 +13,7 @@ import { toast } from 'react-toastify';
 import { emitWorkerDataRefresh, subscribeWorkerDataRefresh } from '../../utils/workerRefresh';
 
 // local thumbnail fallback — put placeholder.png in your public/ folder
-const exampleThumb = '/placeholder.png';
+const exampleThumb = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100%25' height='100%25' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%239ca3af'%3ENo Photo%3C/text%3E%3C/svg%3E";
 
 // Cloudinary config — match StyleManagement
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
@@ -565,7 +565,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Tasks {workerCategory ? `— ${workerCategory}` : ''}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Tasks {workerCategory ? `— ${workerCategory}` : ''}</h1>
           <p className="text-sm text-gray-600 mt-1">{workerLoading ? 'Determining worker type…' : (workerCategory ? `Showing tasks for ${workerCategory}` : 'Showing all tasks')}</p>
         </div>
         <div className="text-sm text-gray-600">{loading ? 'Loading…' : `${assignments.length} chunk(s) available`}</div>
@@ -630,10 +630,10 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
       {/* Gallery modal (simple lightbox) */}
       {galleryOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+          className="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black bg-opacity-60"
           onClick={closeGallery}
         >
-          <div className="relative max-w-3xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="relative max-w-3xl w-full cursor-default mx-4" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={closeGallery}
               aria-label="Close"
