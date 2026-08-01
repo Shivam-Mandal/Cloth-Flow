@@ -19,10 +19,9 @@ export const createStyle = async (stylePayload) => {
   return res.data.data;
 };
 
-// For StyleContext compatibility (stub since backend lacks PUT /styles/:id)
-export const updateStyle = async () => {
-  console.warn("updateStyle is not supported by the backend");
-  return { success: false, message: "Update style not supported by backend" };
+export const updateStyle = async (id, stylePayload) => {
+  const res = await api.patch(`/styles/${id}`, stylePayload);
+  return res.data.data;
 };
 
 // For StyleContext compatibility (stub since backend lacks PATCH /styles/:id/steps)

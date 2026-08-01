@@ -3,12 +3,10 @@ import mongoose from 'mongoose';
 import Assignment from '../models/Assignment.js';
 import Order from '../models/Order.js';
 import SubOrder from '../models/SubOrderSchema.js';
-import { createNextStageAssignments } from './orderController.js';
 import { WorkerModel } from '../models/Worker.js';
 import ApprovalHistory from '../models/ApprovalHistory.js';
-import { isLastStage } from '../utils/workflow.js';
+import { isLastStage, normalizeStageKey } from '../utils/workflow.js';
 
-console.log('Loaded assignmentController from', typeof import.meta !== 'undefined' ? import.meta.url : __filename);
 
 /**
  * Helper function to log approval history for submission
@@ -145,8 +143,15 @@ export const pickAssignment = async (req, res) => {
       return res.status(400).json({ error: 'Invalid assignment id' });
     }
 
-    const workerId = req.body.workerId || req.user?.id;
-    if (!workerId) return res.status(400).json({ error: 'workerId required' });
+    const workerId = req.user?.id || req.user?._id;
+    if (!workerId || req.user?.role !== 'worker') {
+      return res.status(403).json({ error: 'Only workers can claim assignments' });
+    }
+
+    const worker = await WorkerModel.findById(workerId).select('workerType').lean();
+    if (!worker?.workerType) {
+      return res.status(403).json({ error: 'Worker type is required to claim assignments' });
+    }
 
     // Prevent multiple assigned tasks (simple guard)
     const active = await Assignment.countDocuments({ worker: workerId, status: 'assigned' }).exec();
@@ -154,7 +159,15 @@ export const pickAssignment = async (req, res) => {
       return res.status(409).json({ error: 'Finish your current assignment before picking another.' });
     }
 
-    // Try claiming with 'worker' field
+    const assignment = await Assignment.findById(id).select('stage status').lean();
+    if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
+    if (assignment.status !== 'available') {
+      return res.status(409).json({ error: 'Assignment already taken or not available' });
+    }
+    if (normalizeStageKey(assignment.stage) !== normalizeStageKey(worker.workerType)) {
+      return res.status(403).json({ error: 'Assignment is not permitted for this worker type' });
+    }
+
     let updated = await Assignment.findOneAndUpdate(
       { _id: id, status: 'available' },
       { $set: { status: 'assigned', worker: workerId, assignedAt: new Date() } },
@@ -166,21 +179,6 @@ export const pickAssignment = async (req, res) => {
         // Include all style fields
       }
     }).populate('subOrder').exec();
-
-    // fallback to 'assignedTo' if schema uses that
-    if (!updated) {
-      updated = await Assignment.findOneAndUpdate(
-        { _id: id, status: 'available' },
-        { $set: { status: 'assigned', assignedTo: workerId, assignedAt: new Date() } },
-        { new: true, runValidators: true }
-      ).populate({
-        path: 'order',
-        populate: {
-          path: 'style'
-          // Include all style fields
-        }
-      }).populate('subOrder').exec();
-    }
 
     if (!updated) {
       return res.status(409).json({ error: 'Assignment already taken or not found' });
@@ -279,11 +277,16 @@ export const completeAssignment = async (req, res) => {
       }
 
       // validate piece counts
-      const completedPieces = req.body.completedPieces || 0;
-      const damagedPieces = req.body.damagedPieces || 0;
+      const completedPieces = Number(req.body.completedPieces ?? 0);
+      const damagedPieces = Number(req.body.damagedPieces ?? 0);
+      if (!Number.isFinite(completedPieces) || !Number.isFinite(damagedPieces) || completedPieces < 0 || damagedPieces < 0) {
+        const e = new Error('Completed and damaged pieces must be non-negative numbers');
+        e.status = 400;
+        throw e;
+      }
       const totalReported = completedPieces + damagedPieces;
-      if (totalReported < assignment.totalPieces) {
-        const e = new Error(`Completed pieces (${completedPieces}) + damaged pieces (${damagedPieces}) must be at least total pieces (${assignment.totalPieces})`);
+      if (totalReported !== assignment.totalPieces) {
+        const e = new Error(`Completed pieces (${completedPieces}) + damaged pieces (${damagedPieces}) must equal total pieces (${assignment.totalPieces})`);
         e.status = 400;
         throw e;
       }
@@ -323,7 +326,6 @@ export const completeAssignment = async (req, res) => {
 
       // if this completes the subOrder for the stage, create next-stage assignments
       if (progress === 100) {
-        console.log('[completeAssignment] subOrder finished for stage=', stage, '; setting to pending approval');
         const orderId = assignment.order?._id || assignment.order;
         
         // Calculate total pieces from all completed assignments for this stage
@@ -376,12 +378,6 @@ export const completeAssignment = async (req, res) => {
         // Log submission to approval history
         const updatedSubOrder = await SubOrder.findById(subOrderId).session(session);
         await logApprovalHistoryForSubmission(updatedSubOrder, workerId);
-        
-        if (!isFinalStage) {
-          // Move the completed quantity to the next stage immediately while admin reviews it.
-          const created = await createNextStageAssignments(orderId, stage, { session });
-          console.log('[completeAssignment] created next-stage assignments count:', (created || []).length);
-        }
       }
 
       // fetch updated subOrder within the transaction and expose it
@@ -420,9 +416,12 @@ export const releaseAssignment = async (req, res) => {
     const { id } = req.params;
     const workerId = req.user?.id;
     if (!workerId) return res.status(401).json({ error: 'Unauthorized' });
+    const isAdmin = req.user?.role === 'admin';
 
     const updated = await Assignment.findOneAndUpdate(
-      { _id: id, worker: workerId, status: 'assigned' },
+      isAdmin
+        ? { _id: id, status: 'assigned' }
+        : { _id: id, worker: workerId, status: 'assigned' },
       { $set: { status: 'available', worker: null, assignedAt: null } },
       { new: true }
     ).populate('subOrder').exec();

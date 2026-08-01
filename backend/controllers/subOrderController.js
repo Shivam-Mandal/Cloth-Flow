@@ -20,7 +20,8 @@ export const submitSubOrder = async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { completedPieces, damagedPieces } = req.body;
+    const completedPieces = Number(req.body.completedPieces ?? 0);
+    const damagedPieces = Number(req.body.damagedPieces ?? 0);
     const workerId = req.user?._id;
 
     if (!workerId) {
@@ -29,6 +30,10 @@ export const submitSubOrder = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid suborder ID' });
+    }
+
+    if (!Number.isFinite(completedPieces) || !Number.isFinite(damagedPieces) || completedPieces < 0 || damagedPieces < 0) {
+      return res.status(400).json({ error: 'Completed and damaged pieces must be non-negative numbers' });
     }
 
     await session.withTransaction(async () => {
@@ -42,7 +47,24 @@ export const submitSubOrder = async (req, res) => {
         throw new Error('SubOrder must be in progress to submit');
       }
 
+      const ownedAssignment = await Assignment.findOne({
+        subOrder: id,
+        worker: workerId,
+        status: { $in: ['assigned', 'in_progress'] }
+      }).session(session);
+
+      if (!ownedAssignment) {
+        const err = new Error('No active assignment found for this worker and suborder');
+        err.status = 403;
+        throw err;
+      }
+
       const totalPieces = completedPieces + damagedPieces;
+      if (totalPieces !== ownedAssignment.totalPieces) {
+        const err = new Error('Submitted pieces must equal assigned pieces');
+        err.status = 400;
+        throw err;
+      }
 
       // Update suborder with submission details for admin approval
       subOrder.submittedPieces = totalPieces;
@@ -55,7 +77,7 @@ export const submitSubOrder = async (req, res) => {
 
       // Update related assignments
       await Assignment.updateMany(
-        { subOrder: id },
+        { subOrder: id, worker: workerId, status: { $in: ['assigned', 'in_progress'] } },
         { 
           completedPieces,
           damagedPieces,
@@ -79,7 +101,7 @@ export const submitSubOrder = async (req, res) => {
 
   } catch (error) {
     console.error('submitSubOrder error:', error);
-    res.status(500).json({ error: error.message || 'Server error' });
+    res.status(error.status || 500).json({ error: error.message || 'Server error' });
   } finally {
     session.endSession();
   }

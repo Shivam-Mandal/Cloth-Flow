@@ -246,7 +246,6 @@ const createAssignmentsForStage = async (orderDoc, stage, workersCount = 1, opts
  */
 export const createNextStageAssignments = async (orderId, currentStage, opts = {}) => {
   const session = opts.session || null;
-  console.log('[createNextStageAssignments] orderId:', orderId, 'currentStage:', currentStage);
 
   if (!orderId) return [];
   if (typeof orderId === 'object' && orderId._id) orderId = orderId._id;
@@ -257,7 +256,6 @@ export const createNextStageAssignments = async (orderId, currentStage, opts = {
 
   const nextStage = getNextStage(order, currentStage);
   if (!nextStage) {
-    console.log('[createNextStageAssignments] no nextStage for', currentStage);
     return [];
   }
 
@@ -269,7 +267,6 @@ export const createNextStageAssignments = async (orderId, currentStage, opts = {
   }).session(session).lean();
 
   if (!readySubOrders || readySubOrders.length === 0) {
-    console.log('[createNextStageAssignments] no ready subOrders for', orderId, currentStage);
     return [];
   }
 
@@ -284,11 +281,6 @@ export const createNextStageAssignments = async (orderId, currentStage, opts = {
     const nextStageTotalPieces = flattenPiecesToSkus(sourcePieces).reduce((sum, sku) => sum + sku.count, 0);
 
     if (nextStageTotalPieces === 0) {
-      console.log('[createNextStageAssignments] skipping subOrder with no transferable pieces', {
-        subOrderId: String(sub._id),
-        currentStage,
-        approvedPieces: approvedCount
-      });
       continue;
     }
 
@@ -336,17 +328,9 @@ export const createNextStageAssignments = async (orderId, currentStage, opts = {
     const populated = await Assignment.findById(nextStageAssignment._id).populate('order').populate('subOrder').session(session);
     if (populated) {
       created.push({ assignment: populated, subOrder: populated.subOrder });
-      console.log('[createNextStageAssignments] prepared assignment', {
-        id: populated._id.toString(),
-        subOrderId: String(sub._id),
-        stage: populated.stage,
-        totalPieces: populated.totalPieces,
-        order: String(orderId)
-      });
     }
   } // end for each ready suborder
 
-  console.log(`[createNextStageAssignments] total created for nextStage=${nextStage}:`, created.length);
   return created;
 };
 
@@ -437,7 +421,35 @@ export const createOrder = async (req, res) => {
 
 export const getOrders = async (req, res) => {
   try {
-    const orders = await Order.find().populate('style', 'name').sort({ createdAt: -1 }).lean();
+    const { page, limit, q = '', sortBy = 'createdAt', sortDir = 'desc' } = req.query;
+    const query = {};
+    const sortFields = new Set(['createdAt', 'priority', 'deadline', 'totalQuantity', 'orderId']);
+    const safeSortBy = sortFields.has(sortBy) ? sortBy : 'createdAt';
+    const sort = { [safeSortBy]: sortDir === 'asc' ? 1 : -1 };
+
+    if (q) {
+      const escaped = String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.$or = [
+        { orderId: new RegExp(escaped, 'i') },
+        { vendor: new RegExp(escaped, 'i') }
+      ];
+    }
+
+    if (page || limit) {
+      const pageNumber = Math.max(1, Number(page) || 1);
+      const limitNumber = Math.min(100, Math.max(1, Number(limit) || 20));
+      const [orders, total] = await Promise.all([
+        Order.find(query).populate('style', 'name').sort(sort).skip((pageNumber - 1) * limitNumber).limit(limitNumber).lean(),
+        Order.countDocuments(query)
+      ]);
+      return res.json({
+        success: true,
+        data: orders,
+        meta: { page: pageNumber, limit: limitNumber, total, totalPages: Math.ceil(total / limitNumber) }
+      });
+    }
+
+    const orders = await Order.find(query).populate('style', 'name').sort(sort).lean();
     res.json(orders);
   } catch (err) {
     console.error('getOrders error:', err);

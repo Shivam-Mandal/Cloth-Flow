@@ -99,6 +99,9 @@ SubOrderSchema.pre('save', function (next) {
 });
 
 SubOrderSchema.index({ order: 1, orderId: 1 });
+SubOrderSchema.index({ status: 1, updatedAt: -1 });
+SubOrderSchema.index({ inventoryStatus: 1, updatedAt: -1 });
+SubOrderSchema.index({ completedBy: 1, updatedAt: -1 });
 
 export const SubOrder = mongoose.model('SubOrder', SubOrderSchema);
 export default SubOrder;

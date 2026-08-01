@@ -9,9 +9,30 @@ const api = axios.create({
   },
 });
 
+const getCookie = (name) => {
+  if (typeof document === 'undefined') return null;
+  const value = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith(`${name}=`))
+    ?.split('=')[1];
+  return value ? decodeURIComponent(value) : null;
+};
+
+const attachCsrfToken = (config = {}) => {
+  const method = String(config.method || 'get').toLowerCase();
+  if (['post', 'put', 'patch', 'delete'].includes(method)) {
+    const csrfToken = getCookie('csrfToken');
+    if (csrfToken) {
+      config.headers = config.headers || {};
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
+  return config;
+};
+
 // Request interceptor - tokens handled via cookies
 api.interceptors.request.use(
-  (config) => config,
+  attachCsrfToken,
   (error) => Promise.reject(error)
 );
 
@@ -28,11 +49,11 @@ api.interceptors.response.use(
         await axios.post(
           `${api.defaults.baseURL}/auth/refresh-token`,
           {},
-          { withCredentials: true }
+          attachCsrfToken({ withCredentials: true })
         );
         
         return api(originalRequest);
-      } catch (refreshError) {
+      } catch {
         // Only redirect if not already on login page
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login';

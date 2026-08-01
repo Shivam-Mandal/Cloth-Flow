@@ -15,7 +15,7 @@ const OrderSchema = new mongoose.Schema({
   stages: { type: [String], default: [] },
   priority: { type: String, enum: ['Low', 'Normal', 'High'], default: 'Normal' },
   deadline: { type: Date },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'admin' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
 }, {
   timestamps: true
 });

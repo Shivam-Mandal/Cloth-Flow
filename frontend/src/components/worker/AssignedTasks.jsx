@@ -4,8 +4,7 @@ import { CheckCircle, Clock, Play, Pause } from 'lucide-react';
 import {
   fetchAssignedForMe,
   releaseAssignment,
-  completeAssignment,
-  patchAssignment
+  completeAssignment
 } from '../services/assignmentServices.jsx'; // keep your existing import path
 import { emitWorkerDataRefresh, subscribeWorkerDataRefresh } from '../../utils/workerRefresh';
 import PaginationControls from '../ui/PaginationControls';
@@ -111,23 +110,6 @@ export const AssignedTasks = () => {
     }
   };
 
-  // (kept for compatibility in case you still use it elsewhere)
-  const handleTogglePause = async (assignment) => {
-    setLoading(l => ({ ...l, action: true }));
-    setError(null);
-    try {
-      const nextStatus = assignment.status === 'in_progress' ? 'paused' : 'in_progress';
-      await patchAssignment(assignment._id || assignment.id, { status: nextStatus });
-      await loadMine();
-      emitWorkerDataRefresh({ scope: 'assignments', reason: 'patch-assignment', force: true });
-    } catch (e) {
-      console.error('toggle pause failed', e);
-      setError(e?.response?.data?.error || e?.response?.data?.message || e.message || 'Failed to update status');
-    } finally {
-      setLoading(l => ({ ...l, action: false }));
-    }
-  };
-
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed': return <CheckCircle className="w-5 h-5 text-green-600" />;
@@ -192,7 +174,6 @@ export const AssignedTasks = () => {
         ) : (
           <div className="space-y-3">
             {paginatedItems.map(task => {
-              const progress = ((task.completedPieces || 0) / (task.totalPieces || 1)) * 100;
               const timeRemaining = getTimeRemaining(task.order?.deadline || task.deadline);
 
               // Consider the task (or its parent order) completed if any common flag says so

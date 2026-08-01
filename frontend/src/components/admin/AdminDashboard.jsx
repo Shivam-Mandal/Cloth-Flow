@@ -294,8 +294,6 @@ export default function AdminDashboard() {
   const { user, loading, initialLoadDone, logout } = useUser();
   const { sidebarOpen } = useLayout();
   
-  console.log('[AdminDashboard] render', { user, loading, initialLoadDone });
-  
   // Show loading only until first fetch is done
   if (!initialLoadDone) {
     return (

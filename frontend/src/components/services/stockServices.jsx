@@ -9,7 +9,6 @@ const stockService = {
 
   createStock: async (stock) => {
     const res = await api.post('/stocks/', stock);
-    console.log(res.data.data) // POST new stock
     return res.data?.data ?? null;
   },
 

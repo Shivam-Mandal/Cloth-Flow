@@ -13,7 +13,14 @@ export const getWorker = async (req, res) => {
 
     // If worker ID is provided, fetch that particular worker
     if (id) {
-      const worker = await WorkerModel.findById(id).select("-password");
+      const isAdmin = req.user?.role === 'admin';
+      const isSelf = req.user?.role === 'worker' && String(req.user?.id || req.user?._id) === String(id);
+
+      if (!isAdmin && !isSelf) {
+        return res.status(403).json({ success: false, message: "Forbidden" });
+      }
+
+      const worker = await WorkerModel.findById(id).select("-password -refreshToken");
       if (!worker) {
         return res.status(404).json({ success: false, message: "Worker not found" });
       }
@@ -21,7 +28,7 @@ export const getWorker = async (req, res) => {
     }
 
     // Otherwise fetch all workers
-    const workers = await WorkerModel.find().select("-password");
+    const workers = await WorkerModel.find().select("-password -refreshToken");
     res.status(200).json({ success: true, workers });
 
   } catch (error) {

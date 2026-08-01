@@ -48,7 +48,6 @@ export const OrderManagement = () => {
     const fetchStyles = async () => {
       try {
         const data = await styleService.fetchStyles();
-        console.log('fetchstyle data', data);
         setStyles(data || []);
         
         // Create a map of styleId to photo/image
@@ -60,7 +59,6 @@ export const OrderManagement = () => {
             photos[styleId] = (style.photos && style.photos[0]) || style.photo || style.image || style.imageUrl || null;
           }
         });
-        console.log('style photo map', photos);
         setPhotoMap(photos);
       } catch (err) {
         console.error("Failed to fetch styles:", err);
@@ -137,10 +135,7 @@ export const OrderManagement = () => {
         vendor: selectedVendor || undefined,
       };
 
-      console.log("Creating order payload:", payload);
-
       const data = await orderService.createOrder(payload);
-      console.log("Raw createOrder response:", data);
 
       let created = null;
       if (!data) {
@@ -174,7 +169,6 @@ export const OrderManagement = () => {
     } catch (err) {
       console.error("Error creating order (catch):", err);
       const serverResponse = err?.response?.data;
-      console.log("err.response?.data:", serverResponse);
       const serverMsg =
         serverResponse?.message ||
         serverResponse?.error ||
@@ -312,10 +306,8 @@ export const OrderManagement = () => {
               ) : (
                 paginatedOrders.map((orderRaw) => {
                   const order = normalizeOrder(orderRaw);
-                  console.log('rendering order', order)
                   const styleId = order.style._id;
                   const styleImage = photoMap[styleId];
-                  console.log('Style image',styleImage)
                   return (
                     <tr key={order.orderId || order._id || order.id} className="hover:bg-gray-50 transition-colors">
                       

@@ -1,6 +1,9 @@
 // controllers/stockController.js
 import { Stock } from '../models/Stock.js';
 
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const STOCK_SORT_FIELDS = new Set(['vendor', 'quantityKg', 'unitPrice', 'sizeMm', 'dateAdded', 'createdAt', 'updatedAt']);
+
 /**
  * GET /api/stocks
  * Query params (optional):
@@ -28,22 +31,25 @@ export const getAllStocks = async (req, res) => {
     const query = {};
 
     if (q) {
-      const rx = new RegExp(q, 'i');
+      const rx = new RegExp(escapeRegex(q), 'i');
       query.$or = [
         { vendor: rx },
         { 'color.name': rx }
       ];
     }
 
-    if (vendor) query.vendor = new RegExp(vendor, 'i');
-    if (color) query['color.name'] = new RegExp(color, 'i');
+    if (vendor) query.vendor = new RegExp(escapeRegex(vendor), 'i');
+    if (color) query['color.name'] = new RegExp(escapeRegex(color), 'i');
 
-    const skip = (Math.max(1, Number(page)) - 1) * Number(limit);
+    const pageNumber = Math.max(1, Number(page) || 1);
+    const limitNumber = Math.min(100, Math.max(1, Number(limit) || 20));
+    const skip = (pageNumber - 1) * limitNumber;
+    const safeSortBy = STOCK_SORT_FIELDS.has(sortBy) ? sortBy : 'dateAdded';
 
     const stocks = await Stock.find(query)
-      .sort({ [sortBy]: sortDir === 'asc' ? 1 : -1 })
+      .sort({ [safeSortBy]: sortDir === 'asc' ? 1 : -1 })
       .skip(skip)
-      .limit(Number(limit));
+      .limit(limitNumber);
 
     // aggregate totals for the current filtered set (not just page)
     const agg = await Stock.aggregate([
@@ -62,8 +68,8 @@ export const getAllStocks = async (req, res) => {
       totalStockKg: agg[0]?.totalKg || 0,
       totalValue: agg[0]?.totalValue || 0,
       itemCount: agg[0]?.count || 0,
-      page: Number(page),
-      limit: Number(limit)
+      page: pageNumber,
+      limit: limitNumber
     };
 
     return res.json({ success: true, data: stocks, meta });

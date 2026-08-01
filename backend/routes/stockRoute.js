@@ -1,7 +1,10 @@
 // routes/stocks.js
 import express from 'express';
 import * as stockController from '../controllers/stockController.js';
+import { requireInventoryAccess, verifyAccessToken } from '../middlewares/authMiddleware.js';
 const router = express.Router();
+
+router.use(verifyAccessToken, requireInventoryAccess);
 
 router.get('/', stockController.getAllStocks);
 router.get('/vendors', stockController.getVendors);

@@ -128,7 +128,7 @@ const Topbar = ({ user = {}, onLogout }) => {
                 >
                   <div className="p-3 border-b border-gray-100">
                     <p className="font-medium text-gray-900">{user?.name || 'Admin'}</p>
-                    <p className="text-sm text-gray-500">{user?.email || 'admin@company.com'}</p>
+                    <p className="text-sm text-gray-500">{user?.email || 'Signed in user'}</p>
                   </div>
                   <div className="py-2">
                     <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">

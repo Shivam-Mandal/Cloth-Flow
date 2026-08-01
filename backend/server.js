@@ -10,38 +10,48 @@ import { styleRouter } from './routes/styleRoutes.js';
 import { stockRouter } from './routes/stockRoute.js';
 import orderRouter from './routes/order.js';
 import cors from 'cors';
-import { verifyAccessToken, requireRole } from './middlewares/authMiddleware.js';
 import { errorHandler } from './middlewares/errorHandlerMiddleware.js';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { csrfProtection } from './middlewares/csrfMiddleware.js';
+import { rejectUnsafeKeys } from './middlewares/sanitizeMiddleware.js';
 import AssignedRouter from './routes/assignmentRoutes.js';
 import WorkerRouter from './routes/workerRoutes.js';
 import approvalRouter from './routes/approvalRoutes.js';
 import subOrderRouter from './routes/subOrderRoutes.js';
 import userRouter from './routes/userRoutes.js';
 import stageRouter from './routes/stageRoutes.js';
-dotenv.config();
+import uploadRouter from './routes/uploadRoutes.js';
+dotenv.config({ path: new URL('./.env', import.meta.url), quiet: true });
 
 const app = express();
 const server = createServer(app);
+server.requestTimeout = Number(process.env.REQUEST_TIMEOUT_MS || 30000);
+server.headersTimeout = Number(process.env.HEADERS_TIMEOUT_MS || 35000);
 
-const allowedOrigins = [
+const defaultAllowedOrigins = [
   'https://cloth-flow.onrender.com',
   'https://cloth-flow-production.onrender.com',
   'https://cloth-flow.netlify.app',
   'https://cloth-flow.vercel.app',
   'http://localhost:5173'
 ];
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const effectiveAllowedOrigins = allowedOrigins.length > 0 ? allowedOrigins : defaultAllowedOrigins;
+const isProd = process.env.NODE_ENV === 'production';
 
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
-  if (allowedOrigins.includes(origin)) return true;
+  if (effectiveAllowedOrigins.includes(origin)) return true;
 
   try {
     const { hostname, protocol } = new URL(origin);
-    return protocol === 'http:' && ['localhost', '127.0.0.1'].includes(hostname);
+    return !isProd && protocol === 'http:' && ['localhost', '127.0.0.1'].includes(hostname);
   } catch {
     return false;
   }
@@ -74,12 +84,15 @@ app.use(morgan('combined'));
 
 app.use(cors({
   origin: function (origin, callback) {
-    callback(null, isAllowedOrigin(origin));
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
 }));
+app.use(csrfProtection);
+app.use(rejectUnsafeKeys);
 
 // Handle Private Network Access for localhost requests from HTTPS origins
 app.use((req, res, next) => {
@@ -98,13 +111,13 @@ app.use('/api/approvals', approvalRouter);
 app.use('/api/suborders', subOrderRouter);
 app.use('/api/users', userRouter);
 app.use('/api/stages', stageRouter);
+app.use('/api/uploads', uploadRouter);
 
-// --- Example API/test routes ---
-app.get('/api/admin/secret', verifyAccessToken, requireRole('admin'), (req, res) => {
-  res.json({ secret: 'admin-only data' });
-});
 app.get('/', (req, res) => {
   res.send('Welcome to the API');
+});
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ success: true, status: 'ok' });
 });
 
 // --- Serve static files and client-side routing fallback ---
@@ -120,16 +133,6 @@ app.get(/.*/, (req, res) => {
 app.use(errorHandler);
 
 
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err && err.stack ? err.stack : err);
-  const isDev = process.env.NODE_ENV !== 'production';
-  res.status(err.status || 500).json({
-    message: err.message || 'Internal Server Error',
-    ...(isDev ? { stack: err.stack } : {})
-  });
-});
-
-
 // --- Connect to Database and Start Server ---
 connectDB()
   .then(() => {
@@ -141,3 +144,14 @@ connectDB()
     console.error('Database connection failed:', error);
     process.exit(1);
   });
+
+const shutdown = (signal) => {
+  console.log(`${signal} received, shutting down gracefully`);
+  server.close(() => {
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 10000).unref();
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

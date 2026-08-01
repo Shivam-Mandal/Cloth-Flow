@@ -9,8 +9,9 @@ const ApprovalHistorySchema = new mongoose.Schema({
     enum: ['submitted', 'approved', 'rejected'],
     required: true
   },
-  actor: { type: mongoose.Schema.Types.ObjectId, ref: 'Worker', required: true }, // Worker who submitted or Admin who approved/rejected
   actorRole: { type: String, enum: ['worker', 'admin'], required: true },
+  actorModel: { type: String, enum: ['Worker', 'Admin'], required: true },
+  actor: { type: mongoose.Schema.Types.ObjectId, refPath: 'actorModel', required: true },
   amount: { type: Number, default: 0 }, // Payment amount for approved actions
   reason: { type: String, default: '' }, // Reason for rejection
   previousStatus: { type: String },
@@ -29,6 +30,13 @@ const ApprovalHistorySchema = new mongoose.Schema({
 ApprovalHistorySchema.index({ subOrder: 1, createdAt: -1 });
 ApprovalHistorySchema.index({ actor: 1, createdAt: -1 });
 ApprovalHistorySchema.index({ action: 1, createdAt: -1 });
+
+ApprovalHistorySchema.pre('validate', function (next) {
+  if (!this.actorModel && this.actorRole) {
+    this.actorModel = this.actorRole === 'admin' ? 'Admin' : 'Worker';
+  }
+  next();
+});
 
 export const ApprovalHistory = mongoose.model('ApprovalHistory', ApprovalHistorySchema);
 export default ApprovalHistory;

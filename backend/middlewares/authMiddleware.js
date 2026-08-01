@@ -1,27 +1,29 @@
 // backend/middlewares/authMiddleware.js
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ path: new URL('../.env', import.meta.url), quiet: true });
 
 import {WorkerModel} from '../models/Worker.js';
 import {AdminModel} from '../models/Admin.js';
+import { isInventoryWorkerType } from '../utils/workflow.js';
 
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.ACCESS_TOKEN_SECRET || 'secret';
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.ACCESS_TOKEN_SECRET;
+
+if (!JWT_ACCESS_SECRET) {
+  throw new Error('JWT access secret is required');
+}
 
 /**
  * verifyAccessToken - verifies JWT from cookie or Authorization header and attaches user to req.user
  */
 export const verifyAccessToken = async (req, res, next) => {
   try {
-    console.log('verifyAccessToken called. headers.authorization=', req.headers.authorization, 'cookies=', req.cookies);
-
     const token =
       req.cookies?.accessToken ||
       (req.headers.authorization && req.headers.authorization.split(' ')[1]) ||
       null;
 
     if (!token) {
-      console.log('No token provided');
       return res.status(401).json({ success: false, message: 'No access token provided' });
     }
 
@@ -29,8 +31,7 @@ export const verifyAccessToken = async (req, res, next) => {
     try {
       decoded = jwt.verify(token, JWT_ACCESS_SECRET);
     } catch (err) {
-      console.error('Token verify failed:', err.message);
-      return res.status(401).json({ success: false, message: 'Invalid or expired token', error: err.message });
+      return res.status(401).json({ success: false, message: 'Invalid or expired token' });
     }
 
     // Normalize id fields so controllers that expect either id or _id will work
@@ -38,7 +39,6 @@ export const verifyAccessToken = async (req, res, next) => {
     const role = decoded?.role || decoded?.roles || null;
 
     if (!userId) {
-      console.log('Decoded token missing id field:', decoded);
       return res.status(401).json({ success: false, message: 'Unauthorized: invalid token payload' });
     }
 
@@ -62,7 +62,6 @@ export const verifyAccessToken = async (req, res, next) => {
         }
       } catch (err) {
         console.warn('Could not fetch workerType from DB:', err.message);
-        // don't fail the request only because workerType can't be fetched — controllers can still act on id/role
       }
     }
 
@@ -84,11 +83,10 @@ export const verifyAccessToken = async (req, res, next) => {
       }
     }
 
-    console.log('verifyAccessToken success. attached req.user:', { id: req.user.id, _id: req.user._id, role: req.user.role, workerType: req.user.workerType });
     return next();
   } catch (err) {
     console.error('verifyAccessToken error:', err);
-    return res.status(500).json({ success: false, message: 'Server error in token verification', error: err.message });
+    return res.status(500).json({ success: false, message: 'Server error in token verification' });
   }
 };
 
@@ -114,7 +112,6 @@ export const requireRole = (allowed) => {
         : allowedRoles.includes(userRole);
 
       if (!hasRole) {
-        console.log(`requireRole: userRole=${userRole} not permitted for allowedRoles=${JSON.stringify(allowedRoles)}`);
         return res.status(403).json({ success: false, message: 'Forbidden: insufficient permissions' });
       }
 
@@ -124,4 +121,13 @@ export const requireRole = (allowed) => {
       return res.status(500).json({ success: false, message: 'Server error in authorization' });
     }
   };
+};
+
+export const requireInventoryAccess = (req, res, next) => {
+  if (!req.user) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+  if (req.user.role === 'admin') return next();
+  if (req.user.role === 'worker' && isInventoryWorkerType(req.user.workerType)) return next();
+
+  return res.status(403).json({ success: false, message: 'Inventory permission required' });
 };

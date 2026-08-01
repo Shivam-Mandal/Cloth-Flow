@@ -366,7 +366,6 @@ export const AssignedTasksTable = () => {
     }
   };
 
-  console.log('[AssignedTasksTable] render - mine=', mine);
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed': return <CheckCircle className="w-5 h-5 text-green-600" />;

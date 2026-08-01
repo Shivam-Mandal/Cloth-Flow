@@ -1,11 +1,8 @@
 // controllers/approvalController.js
 import mongoose from 'mongoose';
 import SubOrder from '../models/SubOrderSchema.js';
-import { createNextStageAssignments } from './orderController.js';
 import ApprovalHistory from '../models/ApprovalHistory.js';
-import { isLastStage } from '../utils/workflow.js';
-
-console.log('Loaded approvalController from', typeof import.meta !== 'undefined' ? import.meta.url : __filename);
+import { approveWorkflowStage, calculateStageEarnings, rejectWorkflowStage } from '../services/workflowService.js';
 
 const generateSubOrderCode = () => {
   const time = Date.now().toString(36).toUpperCase().slice(-4);
@@ -97,15 +94,7 @@ export const getPendingApprovals = async (req, res) => {
 
     // Add calculated payment info for admin review
     const enrichedApprovals = pendingSubOrders.map(subOrder => {
-      let calculatedPayment = 0;
-      if (subOrder.order?.style?.steps && subOrder.approvedPieces > 0) {
-        const currentStageStep = subOrder.order.style.steps.find(
-          step => step.label.toLowerCase() === subOrder.currentStage.toLowerCase()
-        );
-        if (currentStageStep && currentStageStep.price) {
-          calculatedPayment = subOrder.approvedPieces * currentStageStep.price;
-        }
-      }
+      const { amount: calculatedPayment } = calculateStageEarnings(subOrder);
       
       return {
         ...subOrder,
@@ -239,66 +228,17 @@ export const approveSubOrder = async (req, res) => {
         throw new Error('SubOrder is not pending approval');
       }
 
-      // Auto-calculate payment based on approved pieces and style pricing
-      let calculatedPayment = 0;
-      if (subOrder.order?.style?.steps && subOrder.approvedPieces > 0) {
-        const currentStageStep = subOrder.order.style.steps.find(
-          step => step.label.toLowerCase() === subOrder.currentStage.toLowerCase()
-        );
-        if (currentStageStep && currentStageStep.price) {
-          calculatedPayment = subOrder.approvedPieces * currentStageStep.price;
-        }
-      }
-
-      // Update suborder status
-      const finalStage = isLastStage(subOrder.order, subOrder.currentStage);
-
-      subOrder.status = finalStage ? 'completed' : 'approved';
-      subOrder.approvedBy = adminId;
-      subOrder.approvedAt = new Date();
-      subOrder.amount = calculatedPayment;
-      subOrder.workerEarnings = calculatedPayment;
-      await subOrder.save({ session });
-
-      // Add payment to worker account
-      if (calculatedPayment > 0 && subOrder.completedBy) {
-        await mongoose.model('Worker').findByIdAndUpdate(
-          subOrder.completedBy,
-          { $inc: { accountBalance: calculatedPayment } },
-          { session }
-        );
-      }
-
-      // Emit real-time update to worker
-      const io = req.app.get('io');
-      if (io && subOrder.completedBy) {
-        io.emit(`worker-${subOrder.completedBy}`, {
-          type: 'APPROVAL_APPROVED',
-          subOrder: {
-            _id: subOrder._id,
-            name: subOrder.name,
-            currentStage: subOrder.currentStage,
-            amount: calculatedPayment,
-            status: 'approved'
-          }
-        });
-      }
+      const { amount: calculatedPayment } = await approveWorkflowStage(subOrder, {
+        adminId,
+        session,
+        io: req.app.get('io')
+      });
 
       // Log approval to history
       await logApprovalHistory(subOrder, 'approved', adminId, 'admin', {
         amount: calculatedPayment,
         previousStatus: 'pending_approval'
       });
-
-      // Create next stage assignments
-      const orderId = subOrder.order._id;
-      const currentStage = subOrder.currentStage;
-      console.log('[approveSubOrder] creating next-stage assignments for stage:', currentStage);
-
-      if (!finalStage) {
-        const created = await createNextStageAssignments(orderId, currentStage, { session });
-        console.log('[approveSubOrder] created next-stage assignments count:', (created || []).length);
-      }
     });
 
     res.json({ success: true, message: 'SubOrder approved and payment calculated automatically' });
@@ -320,6 +260,7 @@ export const rejectSubOrder = async (req, res) => {
   try {
     const { subOrderId } = req.params;
     const { reason } = req.body;
+    const adminId = req.user?._id;
 
     if (!mongoose.Types.ObjectId.isValid(subOrderId)) {
       return res.status(400).json({ error: 'Invalid subOrderId' });
@@ -335,10 +276,7 @@ export const rejectSubOrder = async (req, res) => {
         throw new Error('SubOrder is not pending approval');
       }
 
-      // Reset suborder status to in_progress so worker can continue
-      subOrder.status = 'in_progress';
-      subOrder.progress = 0; // Reset progress so assignments can be completed again
-      await subOrder.save({ session });
+      await rejectWorkflowStage(subOrder, { session });
 
       // Log rejection to history
       await logApprovalHistory(subOrder, 'rejected', adminId, 'admin', {
@@ -346,12 +284,6 @@ export const rejectSubOrder = async (req, res) => {
         previousStatus: 'pending_approval'
       });
 
-      // Reset related assignments to available status
-      await mongoose.model('Assignment').updateMany(
-        { subOrder: subOrderId, status: 'completed' },
-        { status: 'available', worker: null, assignedAt: null, completedAt: null, completedBy: null },
-        { session }
-      );
     });
 
     res.json({ success: true, message: 'SubOrder rejected and sent back to worker' });

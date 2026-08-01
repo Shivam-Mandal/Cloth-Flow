@@ -3,7 +3,6 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types';
 import { Plus } from 'lucide-react';
 import {
-  fetchAvailableAssignments,
   fetchAvailableForMe,
   claimAssignment,
   fetchAssignedForMe
@@ -83,7 +82,7 @@ const collectImageCandidates = (obj, seen = new Set()) => {
       return;
     }
     if (typeof v === 'string') {
-      if (/^https?:\/\//i.test(v) || /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(v) || /^[\w\-\/]+[\w\-]$/.test(v)) {
+      if (/^https?:\/\//i.test(v) || /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(v) || /^[\w/-]+[\w-]$/.test(v)) {
         out.push(v);
       }
     }
@@ -172,7 +171,7 @@ const extractSkuColorSize = (chunk, orderKey) => {
         pieces: Number(p.count ?? p.qty ?? p.quantity ?? chunk.totalPieces ?? 0)
       };
     }
-  } catch (e) {
+  } catch {
     // fallthrough
   }
   const fallbackSku = chunk.sku ?? chunk.skuId ?? orderKey ?? '—';
@@ -219,7 +218,6 @@ const TaskRow = React.memo(({
   }), [candidates]);
 
   const firstThumb = thumbs[0] || exampleThumb;
-  const thumbCount = thumbs.length;
   const { sku, color, size, pieces } = useMemo(() => extractSkuColorSize(chunk, orderKey), [chunk, orderKey]);
   const subOrderCode = useMemo(() => getSubOrderCode(chunk), [chunk]);
   const subOrderShort = subOrderCode || shortId(chunk?.subOrder?._id || chunk?.subOrder || chunk?._id);
@@ -237,7 +235,7 @@ const TaskRow = React.memo(({
         im.onerror = () => { /* noop */ };
         im.src = url || exampleThumb;
         imgs.push(im);
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -315,7 +313,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
   const [workerLoading, setWorkerLoading] = useState(!initialWorkerCategory && Boolean(workerId));
 
   const [activeAssigned, setActiveAssigned] = useState(null);
-  const [assignedLoading, setAssignedLoading] = useState(true);
+  const [, setAssignedLoading] = useState(true);
 
   const mountedRef = useRef(true);
   const lastRefreshRef = useRef(0);
@@ -355,12 +353,12 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
     try {
       let data = null;
       if (workerCategory) {
-        try { data = await fetchAvailableForMe({ category: workerCategory }, { signal }); } catch (e) { data = null; }
+        try { data = await fetchAvailableForMe({ category: workerCategory }, { signal }); } catch { data = null; }
       }
       if (!data) {
-        try { data = await fetchAvailableForMe({}, { signal }); } catch (e) { data = null; }
+        try { data = await fetchAvailableForMe({}, { signal }); } catch { data = null; }
       }
-      if (!data) data = await fetchAvailableAssignments({ signal });
+      if (!data) data = [];
 
       const arr = Array.isArray(data) ? data : (data?.assignments || data?.tasks || data?.data || []);
 
@@ -440,7 +438,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
       try {
         const res = await fetch(u, { method: 'HEAD' });
         return res && res.ok ? u : null;
-      } catch (e) {
+      } catch {
         return null;
       }
     }));
@@ -469,7 +467,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
     let final = [];
     try {
       final = await verifyUrls(candidates);
-    } catch (e) {
+    } catch {
       final = [];
     }
 
@@ -529,7 +527,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
 
     setClaimingId(chunkId);
     try {
-      await claimAssignment(chunkId, workerId);
+      await claimAssignment(chunkId);
       toast.success('Claimed successfully');
       setAssignments(prev => prev.filter(p => p._id !== chunkId));
       await loadAssignedForMe();

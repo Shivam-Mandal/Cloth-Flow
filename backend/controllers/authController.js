@@ -3,13 +3,18 @@ import { WorkerModel } from "../models/Worker.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { setCsrfCookie } from "../middlewares/csrfMiddleware.js";
 
-dotenv.config();
+dotenv.config({ path: new URL('../.env', import.meta.url), quiet: true });
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const ACCESS_EXP = process.env.ACCESS_TOKEN_EXPIRESIn || '15m';
 const REFRESH_EXP = process.env.REFRESH_TOKEN_EXPIRESIn || '7d';
+
+if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET) {
+  throw new Error('JWT access and refresh secrets are required');
+}
 
 // Sign JWT
 function createAccessToken(payload) {
@@ -21,40 +26,10 @@ function createRefreshToken(payload) {
 
 // Signup
 export const signup = async (req, res) => {
-  try {
-    const { name, email, password, role, phone, dob, address, profileImageUrl,workerType } = req.body;
-
-    if (!name || !email || !password || !role)
-      return res.status(400).json({ success: false, message: "Missing required fields" });
-
-    const existingAdmin = await AdminModel.findOne({ email: email.toLowerCase() });
-    const existingWorker = await WorkerModel.findOne({ email: email.toLowerCase() });
-    if (existingAdmin || existingWorker)
-      return res.status(409).json({ success: false, message: "Email already in use" });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    let newUser;
-    if (role === "admin") {
-      newUser = new AdminModel({ name, email: email.toLowerCase(), password: hashedPassword, phone, profileImageUrl });
-    } else {
-      newUser = new WorkerModel({ name, email: email.toLowerCase(), password: hashedPassword, phone, dob, address, profileImageUrl,workerType });
-    }
-
-    await newUser.save();
-
-    // const token = signToken({ id: newUser._id, email: newUser.email, role });
-
-
-
-    return res.status(201).json({
-      success: true,
-      message: `${role} registered successfully`,
-      user: { id: newUser._id, name: newUser.name, email: newUser.email, role },
-    });
-  } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
-  }
+  return res.status(403).json({
+    success: false,
+    message: 'Public signup is disabled. Users must be created by an authorized admin.'
+  });
 };
 
 // Login
@@ -89,6 +64,7 @@ export const login = async (req, res) => {
     await user.save();
 
     const isProd = process.env.NODE_ENV === 'production';
+    const csrfToken = setCsrfCookie(res);
 
     // access token cookie
     res.cookie("accessToken", accessToken, {
@@ -113,6 +89,7 @@ export const login = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Login successful",
+      csrfToken,
       // token,
       // user: { id: user._id, name: user.name, email: user.email, role },
     });
@@ -138,6 +115,7 @@ export const logout = async (req, res) => {
 
     res.clearCookie('accessToken', cookieOptions);
     res.clearCookie('refreshToken', cookieOptions);
+    res.clearCookie('csrfToken', { path: '/', secure: isProd, sameSite: isProd ? 'none' : 'lax' });
     
     return res.status(200).json({ success: true, message: 'Logged out' });
   } catch (err) {
@@ -150,7 +128,6 @@ export const logout = async (req, res) => {
 export const refreshTokenHandler = async (req, res) => {
   try {
     const refreshToken = req.cookies?.refreshToken;
-    console.log("Refresh token from cookie:", refreshToken);
     if (!refreshToken) return res.status(401).json({ success: false, message: "No refresh token provided" });
 
     let user = await AdminModel.findOne({ refreshToken });
@@ -172,6 +149,7 @@ export const refreshTokenHandler = async (req, res) => {
       await user.save();   // <--- important: await
 
       const isProd = process.env.NODE_ENV === 'production';
+      const csrfToken = setCsrfCookie(res);
 
       res.cookie("accessToken", newAccessToken, {
         httpOnly: true,
@@ -189,7 +167,7 @@ export const refreshTokenHandler = async (req, res) => {
         path: "/",
       });
 
-      return res.status(200).json({ success: true, message: "Token refreshed" });
+      return res.status(200).json({ success: true, message: "Token refreshed", csrfToken });
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -201,7 +179,6 @@ export const me = async (req, res) => {
   try {
      if (!req.user?.id) return res.status(401).json({ success: false, message: 'Not authenticated' });
     const userId = req.user.id;
-    console.log("me handler userId:", userId);
     let user = await AdminModel.findById(userId).select('-password -refreshToken');
     if (!user) {
       user = await WorkerModel.findById(userId).select('-password -refreshToken');

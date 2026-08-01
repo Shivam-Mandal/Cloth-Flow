@@ -3,7 +3,6 @@
   import PropTypes from 'prop-types';
   import { Package, AlertCircle, Plus, Filter } from 'lucide-react';
   import {
-    fetchAvailableAssignments,
     fetchAvailableForMe,
     claimAssignment,
     fetchAssignedForMe
@@ -15,8 +14,6 @@
   import { useClientPagination } from '../../hooks/useClientPagination';
 
   export const AvailableTasks = ({ workerId, workerCategory: initialWorkerCategory = null }) => {
-    console.log('[AvailableTasks] render - workerId=', workerId, 'initialWorkerCategory=', initialWorkerCategory);
-
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedProcess, setSelectedProcess] = useState('all');
@@ -28,24 +25,20 @@
     const [workerLoading, setWorkerLoading] = useState(!initialWorkerCategory && Boolean(workerId));
 
     const [activeAssigned, setActiveAssigned] = useState(null);
-    const [assignedLoading, setAssignedLoading] = useState(true);
+    const [, setAssignedLoading] = useState(true);
     const lastRefreshRef = useRef(0);
 
     const normalize = (s) => (s === null || s === undefined ? '' : String(s).trim().toLowerCase());
 
     // load worker profile
     const loadWorker = async () => {
-      console.log('loadWorker called. initialWorkerCategory=', initialWorkerCategory, 'workerId=', workerId);
-
       if (initialWorkerCategory) {
-        console.log('loadWorker: using initialWorkerCategory prop ->', initialWorkerCategory);
         setWorkerCategory(initialWorkerCategory);
         setWorkerLoading(false);
         return;
       }
 
       if (!workerId) {
-        console.log('loadWorker: no workerId provided, skipping getWorker fetch');
         setWorkerCategory(null);
         setWorkerLoading(false);
         return;
@@ -54,15 +47,12 @@
       try {
         setWorkerLoading(true);
         const w = await getWorker(workerId);
-        console.log('loadWorker: raw response from getWorker ->', w);
         const workerObj = w?.data || w?.worker || w;
         const wt = workerObj?.workerType || workerObj?.category || workerObj?.type || workerObj?.worker_type || null;
 
         if (wt) {
-          console.log('loadWorker: resolved workerType ->', wt);
           setWorkerCategory(wt);
         } else {
-          console.log('loadWorker: workerType not found; keys:', Object.keys(workerObj || {}));
           setWorkerCategory(null);
         }
       } catch (err) {
@@ -78,7 +68,6 @@
     const load = async () => {
       // If we're still resolving worker info, skip fetch (avoid setting loading stuck)
       if (workerLoading) {
-        console.log('load: workerLoading true — skipping fetch for now');
         // ensure UI doesn't show permanent loading
         setLoading(false);
         return;
@@ -91,7 +80,6 @@
 
         if (workerCategory) {
           try {
-            console.log('load: calling fetchAvailableForMe with category=', workerCategory);
             data = await fetchAvailableForMe({ category: workerCategory });
           } catch (err) {
             console.warn('fetchAvailableForMe(category) failed, will try server-side no-category fallback', err);
@@ -101,21 +89,18 @@
 
         if (!data) {
           try {
-            console.log('load: calling fetchAvailableForMe() without category to let server infer user from JWT');
             data = await fetchAvailableForMe();
           } catch (err) {
-            console.warn('fetchAvailableForMe() (no category) failed, falling back to fetchAvailableAssignments', err);
+            console.warn('fetchAvailableForMe() failed', err);
             data = null;
           }
         }
 
         if (!data) {
-          console.log('load: calling fetchAvailableAssignments() as last resort');
-          data = await fetchAvailableAssignments();
+          data = [];
         }
 
         const arr = Array.isArray(data) ? data : (data?.assignments || data?.tasks || data?.data || []);
-        console.log('load: fetched assignments count=', arr.length);
 
         const wanted = normalize(workerCategory);
         const filteredByCategory = wanted
@@ -150,7 +135,6 @@
         const data = await fetchAssignedForMe({ status: 'assigned' });
         const assigned = Array.isArray(data) ? data : (data?.assignments || data?.tasks || data?.data || []);
         setActiveAssigned(assigned.length > 0 ? assigned[0] : null);
-        console.log('loadAssignedForMe: found assigned count=', assigned.length);
       } catch (err) {
         console.error('Failed to load assigned for me', err);
         setActiveAssigned(null);
@@ -163,7 +147,6 @@
     useEffect(() => {
       let mounted = true;
       const bootstrap = async () => {
-        console.log('bootstrap start');
         await loadWorker();
         if (!mounted) return;
         await load();
@@ -292,8 +275,7 @@
 
       setClaimingId(chunkId);
       try {
-        const updated = await claimAssignment(chunkId, workerId);
-        console.log('Claimed assignment:', updated);
+        await claimAssignment(chunkId);
         toast.success('Claimed successfully');
         setAssignments(prev => prev.filter(p => p._id !== chunkId));
         await loadAssignedForMe();
