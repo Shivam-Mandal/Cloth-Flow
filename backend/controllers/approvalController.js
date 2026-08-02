@@ -124,11 +124,7 @@ export const getPackingInventory = async (req, res) => {
     const { q = '', status = '' } = req.query;
 
     const inventoryQuery = {
-      $or: [
-        {
-          inventoryStatus: { $ne: 'not_ready' }
-        }
-      ]
+      inventoryStatus: { $in: INVENTORY_STATUSES }
     };
 
     const packedSubOrders = await SubOrder.find(inventoryQuery)
@@ -145,9 +141,23 @@ export const getPackingInventory = async (req, res) => {
 
     const searchNeedle = String(q).trim().toLowerCase();
 
-    const inventory = packedSubOrders
-      .map((subOrder) => {
+    const enrichedInventory = await Promise.all(
+      packedSubOrders.map(async (subOrder) => {
         const totalPlannedPieces = computePiecesTotal(subOrder.pieces);
+        const {
+          completedPieces,
+          damagedPieces,
+          submittedPieces
+        } = await calculateStageEarningsFromAssignments(subOrder);
+        const totalPackedPieces =
+          submittedPieces ||
+          (Number(subOrder.submittedPieces) || 0) ||
+          totalPlannedPieces;
+        const totalCompletedPieces = completedPieces || Number(subOrder.approvedPieces) || 0;
+        const totalDamagedPieces = damagedPieces || Number(subOrder.faultyPieces) || 0;
+        const availablePieces = ['packed', 'ready_for_sale'].includes(subOrder.inventoryStatus)
+          ? totalCompletedPieces
+          : 0;
         const photos = subOrder.order?.style?.photos || [];
         const image =
           photos[0] ||
@@ -159,17 +169,20 @@ export const getPackingInventory = async (req, res) => {
         return {
           ...subOrder,
           totalPlannedPieces,
-          totalPackedPieces: Number(subOrder.submittedPieces) || totalPlannedPieces,
-          totalCompletedPieces: Number(subOrder.approvedPieces) || 0,
-          totalDamagedPieces: Number(subOrder.faultyPieces) || 0,
+          totalPackedPieces,
+          totalCompletedPieces,
+          totalDamagedPieces,
           damageRate:
-            totalPlannedPieces > 0
-              ? Number((((Number(subOrder.faultyPieces) || 0) / totalPlannedPieces) * 100).toFixed(1))
+            totalPackedPieces > 0
+              ? Number(((totalDamagedPieces / totalPackedPieces) * 100).toFixed(1))
               : 0,
-          availablePieces: Math.max(0, (Number(subOrder.approvedPieces) || 0) - (Number(subOrder.faultyPieces) || 0)),
+          availablePieces,
           image
         };
       })
+    );
+
+    const inventory = enrichedInventory
       .filter((item) => (status && status !== 'all' ? item.inventoryStatus === status : true))
       .filter((item) => {
         if (!searchNeedle) return true;

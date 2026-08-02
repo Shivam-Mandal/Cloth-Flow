@@ -151,6 +151,21 @@ export default function InventoryWorkspace({
     }));
   };
 
+  const openInventoryItem = (item) => {
+    if (!item?._id) return;
+    setEditorState((prev) => ({
+      ...prev,
+      [item._id]: {
+        inventoryStatus: item.inventoryStatus || 'packed',
+        inventoryLocation: item.inventoryLocation || '',
+        inventoryNotes: item.inventoryNotes || '',
+        saleReference: item.saleReference || '',
+        ...(prev[item._id] || {})
+      }
+    }));
+    setSelectedItem(item);
+  };
+
   const handleSave = async (id) => {
     const payload = editorState[id];
     if (!payload) return;
@@ -159,6 +174,11 @@ export default function InventoryWorkspace({
     try {
       await updateInventory(id, payload);
       await loadInventory();
+      setSelectedItem((current) => (
+        current?._id === id
+          ? { ...current, ...payload, inventoryUpdatedAt: new Date().toISOString() }
+          : current
+      ));
     } catch (e) {
       console.error('Failed to update inventory', e);
       setError(e?.response?.data?.message || e.message || 'Failed to update inventory');
@@ -295,7 +315,7 @@ export default function InventoryWorkspace({
                   return (
                     <tr
                       key={item._id}
-                      onClick={() => setSelectedItem(item)}
+                      onClick={() => openInventoryItem(item)}
                       className="cursor-pointer transition hover:bg-slate-50"
                     >
                       <td className="px-4 py-3">
@@ -329,8 +349,9 @@ export default function InventoryWorkspace({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedItem(item);
+                            openInventoryItem(item);
                           }}
+                          aria-label={`View ${item.subOrderCode || item.order?.orderId || 'inventory item'}`}
                           className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                         >
                           <Eye className="h-4 w-4" />
@@ -366,7 +387,7 @@ export default function InventoryWorkspace({
         };
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div className="relative max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
               <button
                 type="button"
@@ -391,7 +412,7 @@ export default function InventoryWorkspace({
                   <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-2xl font-semibold text-slate-900">{item.name}</h2>
+                        <h2 className="text-2xl font-semibold text-slate-900">{item.name || item.order?.style?.name || item.subOrderCode || 'Inventory Item'}</h2>
                         <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ring-1 ${getStatusTone(item.inventoryStatus)}`}>
                           {prettify(item.inventoryStatus)}
                         </span>
