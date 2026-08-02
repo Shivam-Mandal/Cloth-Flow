@@ -5,6 +5,7 @@ const CSRF_HEADER = 'x-csrf-token';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const EXEMPT_PATHS = new Set([
   '/api/auth/login',
+  '/api/auth/logout',
   '/api/auth/refresh-token',
   '/api/auth/csrf-token'
 ]);

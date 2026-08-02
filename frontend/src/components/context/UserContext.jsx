@@ -74,12 +74,15 @@ export const UserProvider = ({ children }) => {
     setLoading(true);
     try {
       const result = await authService.logout();
-      if (result.success) {
-        setUser(null);
-        setOrders([]); // clear orders on logout
-      }
       return result;
+    } catch (err) {
+      return {
+        success: false,
+        message: err?.response?.data?.message || err?.message || "Logout failed",
+      };
     } finally {
+      setUser(null);
+      setOrders([]); // clear orders on logout
       setLoading(false);
     }
   };
