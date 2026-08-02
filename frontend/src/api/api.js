@@ -1,8 +1,18 @@
 // api.js
 import axios from 'axios';
 
+const resolveBaseURL = () => {
+  const configuredUrl = import.meta.env.VITE_API_URL;
+
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app')) {
+    return '/api';
+  }
+
+  return configuredUrl || 'https://cloth-flow-production.onrender.com/api';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://cloth-flow-production.onrender.com/api',
+  baseURL: resolveBaseURL(),
   withCredentials: true, 
   headers: {
     'Content-Type': 'application/json',
