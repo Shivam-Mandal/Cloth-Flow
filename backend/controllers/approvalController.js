@@ -4,6 +4,8 @@ import SubOrder from '../models/SubOrderSchema.js';
 import ApprovalHistory from '../models/ApprovalHistory.js';
 import { approveWorkflowStage, calculateStageEarningsFromAssignments, rejectWorkflowStage } from '../services/workflowService.js';
 
+const INVENTORY_STATUSES = ['packed', 'ready_for_sale', 'reserved', 'dispatched', 'sold'];
+
 const generateSubOrderCode = () => {
   const time = Date.now().toString(36).toUpperCase().slice(-4);
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
