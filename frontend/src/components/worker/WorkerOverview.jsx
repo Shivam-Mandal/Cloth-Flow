@@ -286,7 +286,7 @@ export default function WorkerOverview() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-green-600">₹{approval.amount || 0}</p>
+                        <p className="text-lg font-bold text-green-600">₹{approval.calculatedPayment ?? approval.amount ?? 0}</p>
                       </div>
                     </div>
                   ))}

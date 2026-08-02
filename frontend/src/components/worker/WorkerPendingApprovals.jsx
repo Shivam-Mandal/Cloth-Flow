@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Clock, AlertCircle } from 'lucide-react';
-import { fetchAssignedForMe } from '../services/assignmentServices';
+import { fetchWorkerPendingApprovals } from '../services/approvalServices';
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
 
@@ -13,36 +13,8 @@ export const WorkerPendingApprovals = () => {
     setLoading(true);
     setError(null);
     try {
-      // Get all assigned work and filter for completed assignments where suborder is pending approval
-      const res = await fetchAssignedForMe();
-      const assignments = Array.isArray(res) ? res : (res?.assignments ?? []);
-
-      // Filter for completed assignments
-      const completedAssignments = assignments.filter(a => a.status === 'completed');
-
-      // Group by suborder and check status
-      const subOrderMap = new Map();
-
-      for (const assignment of completedAssignments) {
-        if (assignment.subOrder) {
-          const subOrderId = assignment.subOrder._id || assignment.subOrder;
-          if (!subOrderMap.has(subOrderId)) {
-            subOrderMap.set(subOrderId, {
-              subOrder: assignment.subOrder,
-              assignments: [],
-              order: assignment.order
-            });
-          }
-          subOrderMap.get(subOrderId).assignments.push(assignment);
-        }
-      }
-
-      // Filter suborders that are pending approval
-      const pendingSubOrders = Array.from(subOrderMap.values()).filter(
-        item => item.subOrder.status === 'pending_approval'
-      );
-
-      setPendingWork(pendingSubOrders);
+      const res = await fetchWorkerPendingApprovals();
+      setPendingWork(res.approvals || []);
     } catch (e) {
       console.error('Failed to load pending approvals', e);
       setError(e?.response?.data?.message || e.message || 'Failed to load pending approvals');
@@ -89,29 +61,30 @@ export const WorkerPendingApprovals = () => {
         ) : (
           <div className="space-y-4">
             {paginatedItems.map(item => (
-              <div key={item.subOrder._id} className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
+              <div key={item._id} className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-6 h-6 text-yellow-600 mt-1" />
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h4 className="font-semibold text-lg">{item.subOrder.name}</h4>
+                      <h4 className="font-semibold text-lg">{item.name}</h4>
                       <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
                         Awaiting Approval
                       </span>
+                      <span className="ml-auto text-lg font-bold text-green-600">₹{item.calculatedPayment ?? item.amount ?? 0}</span>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
                       <div>
-                        <span className="font-medium">Order ID:</span> {item.subOrder.orderId}
+                        <span className="font-medium">Order ID:</span> {item.order?.orderId || item.orderId}
                       </div>
                       <div>
-                        <span className="font-medium">Stage:</span> {item.subOrder.currentStage}
+                        <span className="font-medium">Stage:</span> {item.currentStage}
                       </div>
                       <div>
-                        <span className="font-medium">Assignments:</span> {item.assignments.length}
+                        <span className="font-medium">Completed:</span> {item.approvedPieces || 0}
                       </div>
                       <div>
-                        <span className="font-medium">Submitted:</span> {new Date(item.subOrder.updatedAt).toLocaleDateString()}
+                        <span className="font-medium">Submitted:</span> {new Date(item.updatedAt).toLocaleDateString()}
                       </div>
                     </div>
 

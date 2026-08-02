@@ -417,11 +417,35 @@ export const getWorkerPendingApprovals = async (req, res) => {
       completedBy: workerId,
       status: 'pending_approval'
     })
-      .populate('order')
+      .populate({
+        path: 'order',
+        populate: {
+          path: 'style'
+        }
+      })
       .sort({ updatedAt: -1 })
       .lean();
 
-    res.json({ success: true, approvals: pendingSubOrders });
+    const approvals = await Promise.all(pendingSubOrders.map(async (subOrder) => {
+      const {
+        amount: calculatedPayment,
+        pricePerPiece,
+        completedPieces,
+        damagedPieces,
+        submittedPieces
+      } = await calculateStageEarningsFromAssignments(subOrder);
+
+      return {
+        ...subOrder,
+        submittedPieces,
+        approvedPieces: completedPieces,
+        faultyPieces: damagedPieces,
+        calculatedPayment,
+        pricePerPiece
+      };
+    }));
+
+    res.json({ success: true, approvals });
   } catch (error) {
     console.error('getWorkerPendingApprovals error:', error);
     res.status(500).json({ error: error.message || 'Server error' });
