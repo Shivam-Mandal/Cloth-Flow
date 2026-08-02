@@ -32,8 +32,8 @@ export const submitSubOrder = async (req, res) => {
       return res.status(400).json({ error: 'Invalid suborder ID' });
     }
 
-    if (!Number.isFinite(completedPieces) || !Number.isFinite(damagedPieces) || completedPieces < 0 || damagedPieces < 0) {
-      return res.status(400).json({ error: 'Completed and damaged pieces must be non-negative numbers' });
+    if (!Number.isInteger(completedPieces) || !Number.isInteger(damagedPieces) || completedPieces < 0 || damagedPieces < 0) {
+      return res.status(400).json({ error: 'Completed and damaged pieces must be non-negative whole numbers' });
     }
 
     await session.withTransaction(async () => {
@@ -59,9 +59,21 @@ export const submitSubOrder = async (req, res) => {
         throw err;
       }
 
+      const assignedPieces = Number(ownedAssignment.totalPieces ?? 0);
+      if (!Number.isInteger(assignedPieces) || assignedPieces < 0) {
+        const err = new Error('Assignment total pieces is invalid');
+        err.status = 400;
+        throw err;
+      }
+
       const totalPieces = completedPieces + damagedPieces;
-      if (totalPieces !== ownedAssignment.totalPieces) {
-        const err = new Error('Submitted pieces must equal assigned pieces');
+      if (totalPieces > assignedPieces) {
+        const err = new Error(`Submitted pieces (${totalPieces}) cannot exceed assigned pieces (${assignedPieces})`);
+        err.status = 400;
+        throw err;
+      }
+      if (totalPieces !== assignedPieces) {
+        const err = new Error(`Submitted pieces (${totalPieces}) must equal assigned pieces (${assignedPieces})`);
         err.status = 400;
         throw err;
       }
