@@ -279,14 +279,25 @@ export const completeAssignment = async (req, res) => {
       // validate piece counts
       const completedPieces = Number(req.body.completedPieces ?? 0);
       const damagedPieces = Number(req.body.damagedPieces ?? 0);
-      if (!Number.isFinite(completedPieces) || !Number.isFinite(damagedPieces) || completedPieces < 0 || damagedPieces < 0) {
-        const e = new Error('Completed and damaged pieces must be non-negative numbers');
+      const totalPieces = Number(assignment.totalPieces ?? 0);
+      if (!Number.isInteger(completedPieces) || !Number.isInteger(damagedPieces) || completedPieces < 0 || damagedPieces < 0) {
+        const e = new Error('Completed and damaged pieces must be non-negative whole numbers');
+        e.status = 400;
+        throw e;
+      }
+      if (!Number.isInteger(totalPieces) || totalPieces < 0) {
+        const e = new Error('Assignment total pieces is invalid');
         e.status = 400;
         throw e;
       }
       const totalReported = completedPieces + damagedPieces;
-      if (totalReported !== assignment.totalPieces) {
-        const e = new Error(`Completed pieces (${completedPieces}) + damaged pieces (${damagedPieces}) must equal total pieces (${assignment.totalPieces})`);
+      if (totalReported > totalPieces) {
+        const e = new Error(`Completed pieces (${completedPieces}) + damaged pieces (${damagedPieces}) cannot exceed total pieces (${totalPieces})`);
+        e.status = 400;
+        throw e;
+      }
+      if (totalReported !== totalPieces) {
+        const e = new Error(`Completed pieces (${completedPieces}) + damaged pieces (${damagedPieces}) must equal total pieces (${totalPieces})`);
         e.status = 400;
         throw e;
       }

@@ -345,12 +345,19 @@ export const AssignedTasksTable = () => {
   const submitCompletion = async () => {
     const { assignment } = completionModal;
     if (!assignment) return;
+    const completedPieces = Number(completionData.completedPieces || 0);
+    const damagedPieces = Number(completionData.damagedPieces || 0);
+    const totalPieces = Number(assignment.totalPieces || 0);
+    if (!Number.isInteger(completedPieces) || !Number.isInteger(damagedPieces) || completedPieces < 0 || damagedPieces < 0 || completedPieces + damagedPieces !== totalPieces) {
+      setError(`Completed pieces and damaged pieces must add up exactly to ${totalPieces}.`);
+      return;
+    }
     setLoading(l => ({ ...l, action: true }));
     setError(null);
     try {
       const payload = {
-        completedPieces: Number(completionData.completedPieces || 0),
-        damagedPieces: Number(completionData.damagedPieces || 0),
+        completedPieces,
+        damagedPieces,
         damagedReason: completionData.damagedReason
       };
       await completeAssignment(assignment._id || assignment.id, payload);
@@ -525,7 +532,7 @@ export const AssignedTasksTable = () => {
               </button>
                 <button
                   onClick={submitCompletion}
-                  disabled={loading.action || ((Number(completionData.completedPieces || 0) + Number(completionData.damagedPieces || 0)) < completionModal.assignment.totalPieces)}
+                  disabled={loading.action || ((Number(completionData.completedPieces || 0) + Number(completionData.damagedPieces || 0)) !== Number(completionModal.assignment.totalPieces || 0))}
                   className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
                 >
                 Complete
