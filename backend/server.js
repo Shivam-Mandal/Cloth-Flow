@@ -69,7 +69,12 @@ const io = new Server(server, {
 // Make io available globally
 app.set('io', io);
 
-const PORT = process.env.PORT || 5000;
+const parsePort = (value, fallback) => {
+  const port = Number.parseInt(value, 10);
+  return Number.isInteger(port) && port > 0 && port <= 65535 ? port : fallback;
+};
+
+const PORT = parsePort(process.env.PORT, 5000);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -144,6 +149,18 @@ connectDB()
     console.error('Database connection failed:', error);
     process.exit(1);
   });
+
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(
+      `Port ${PORT} is already in use. Stop the process using it or set PORT to another value in backend/.env.`
+    );
+    process.exit(1);
+  }
+
+  console.error('Server failed to start:', error);
+  process.exit(1);
+});
 
 const shutdown = (signal) => {
   console.log(`${signal} received, shutting down gracefully`);

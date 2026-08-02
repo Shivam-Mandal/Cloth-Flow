@@ -269,25 +269,107 @@
 // };
 
 
-// src/components/StockManagement.jsx
 import React, { useState, useEffect } from 'react';
-import { Plus, Package, Edit3, Trash2, Filter } from 'lucide-react';
+import {
+  Plus,
+  Package,
+  Edit3,
+  Trash2,
+  Filter,
+  Search,
+  IndianRupee,
+  Hash,
+  Palette,
+  Store,
+  Ruler,
+  Scale,
+  CalendarDays,
+  Save
+} from 'lucide-react';
 import stockService from '../services/stockServices';
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
 
+const emptyStockForm = {
+  vendor: '',
+  color: { name: 'Red', hex: '#ff0000' },
+  quantityKg: '',
+  unitPrice: '',
+  sizeMm: ''
+};
+
+const namedColors = {
+  black: '#000000',
+  blue: '#0000ff',
+  brown: '#8b4513',
+  cyan: '#00ffff',
+  gray: '#808080',
+  green: '#008000',
+  grey: '#808080',
+  indigo: '#4f46e5',
+  lime: '#00ff00',
+  magenta: '#ff00ff',
+  maroon: '#800000',
+  navy: '#000080',
+  orange: '#ffa500',
+  pink: '#ffc0cb',
+  purple: '#800080',
+  red: '#ff0000',
+  violet: '#8a2be2',
+  white: '#ffffff',
+  yellow: '#ffff00'
+};
+
+const normalizeHex = (value) => {
+  const color = String(value || '').trim();
+  if (/^#[0-9a-f]{6}$/i.test(color)) return color.toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(color)) {
+    return `#${color.slice(1).split('').map((char) => char + char).join('')}`.toLowerCase();
+  }
+  return null;
+};
+
+const detectColorHex = (value) => {
+  const color = String(value || '').trim().toLowerCase();
+  if (!color) return null;
+  const hex = normalizeHex(color);
+  if (hex) return hex;
+  if (namedColors[color]) return namedColors[color];
+
+  if (typeof document !== 'undefined') {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (context) {
+      context.fillStyle = '#000000';
+      context.fillStyle = color;
+      const detected = context.fillStyle;
+      return detected !== '#000000' || color === 'black' ? normalizeHex(detected) : null;
+    }
+  }
+
+  return null;
+};
+
+const getStockId = (stock) => stock?.id ?? stock?._id;
+
+const getColorLabel = (color) => {
+  if (typeof color === 'string') return color;
+  return color?.name || 'Custom';
+};
+
+const getColorHex = (color) => {
+  if (typeof color === 'string') return detectColorHex(color) || '#ffffff';
+  return normalizeHex(color?.hex) || detectColorHex(color?.name) || '#ffffff';
+};
+
 export const StockManagement = () => {
   const [stocks, setStocks] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingStock, setEditingStock] = useState(null);
+  const [savingStock, setSavingStock] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedVendor, setSelectedVendor] = useState('all');
-  const [newStock, setNewStock] = useState({
-    vendor: '',
-    color: { name: 'Custom', hex: '#ff0000' },
-    quantityKg: '',
-    unitPrice: '',
-    sizeMm: ''
-  });
+  const [newStock, setNewStock] = useState(emptyStockForm);
 
   // Fetch stocks on mount
   useEffect(() => {
@@ -305,8 +387,9 @@ export const StockManagement = () => {
   const vendors = Array.from(new Set(stocks.map((s) => s.vendor).filter(Boolean)));
 
   const filteredStocks = stocks.filter((stock) => {
+    const colorName = getColorLabel(stock.color).toLowerCase();
     const matchesSearch =
-      (stock.color?.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      colorName.includes(searchTerm.toLowerCase()) ||
       (stock.vendor ?? '').toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesVendor = selectedVendor === 'all' || stock.vendor === selectedVendor;
@@ -331,43 +414,104 @@ export const StockManagement = () => {
 
   const totalQuantity = stocks.reduce((sum, stock) => sum + (Number(stock.quantityKg) || 0), 0);
 
-  // Add stock
-  const handleAddStock = async (e) => {
+  const openAddStock = () => {
+    setEditingStock(null);
+    setNewStock(emptyStockForm);
+    setShowAddForm(true);
+  };
+
+  const openEditStock = (stock) => {
+    setEditingStock(stock);
+    setNewStock({
+      vendor: stock.vendor || '',
+      color: {
+        name: getColorLabel(stock.color),
+        hex: getColorHex(stock.color)
+      },
+      quantityKg: stock.quantityKg ?? '',
+      unitPrice: stock.unitPrice ?? '',
+      sizeMm: stock.sizeMm ?? ''
+    });
+    setShowAddForm(true);
+  };
+
+  const closeStockForm = () => {
+    setShowAddForm(false);
+    setEditingStock(null);
+    setNewStock(emptyStockForm);
+  };
+
+  const updateColorName = (value) => {
+    const detectedHex = detectColorHex(value);
+    setNewStock((prev) => ({
+      ...prev,
+      color: {
+        name: value,
+        hex: detectedHex || prev.color.hex
+      }
+    }));
+  };
+
+  const updateColorHex = (value) => {
+    setNewStock((prev) => ({
+      ...prev,
+      color: {
+        name: prev.color.name || 'Custom',
+        hex: value
+      }
+    }));
+  };
+
+  const buildPayload = () => ({
+    vendor: newStock.vendor.trim(),
+    color: {
+      name: newStock.color.name.trim() || 'Custom',
+      hex: normalizeHex(newStock.color.hex) || '#ff0000'
+    },
+    quantityKg: Number(newStock.quantityKg),
+    unitPrice: Number(newStock.unitPrice),
+    sizeMm: newStock.sizeMm !== '' ? Number(newStock.sizeMm) : null
+  });
+
+  const handleSaveStock = async (e) => {
     e.preventDefault();
 
-    const payload = {
-      vendor: newStock.vendor.trim(),
-      color: { name: newStock.color.name || 'Custom', hex: newStock.color.hex },
-      quantityKg: Number(newStock.quantityKg),
-      unitPrice: Number(newStock.unitPrice),
-      sizeMm: newStock.sizeMm !== '' ? Number(newStock.sizeMm) : null
-    };
+    const payload = buildPayload();
 
     try {
-      const created = await stockService.createStock(payload); // created is the object
-      if (!created) throw new Error('No created stock returned from API');
+      setSavingStock(true);
 
-      // Ensure created has consistent fields (optional normalization)
-      const normalized = {
-        ...created,
-        quantityKg: Number(created.quantityKg) || payload.quantityKg,
-        unitPrice: Number(created.unitPrice) || payload.unitPrice,
-        color: created.color ?? payload.color,
-      };
+      if (editingStock) {
+        const stockId = getStockId(editingStock);
+        const updated = await stockService.updateStock(stockId, payload);
+        if (!updated) throw new Error('No updated stock returned from API');
+        setStocks((prev) => prev.map((stock) => (getStockId(stock) === stockId ? { ...stock, ...updated } : stock)));
+      } else {
+        const created = await stockService.createStock(payload);
+        if (!created) throw new Error('No created stock returned from API');
+        setStocks((prev) => [...prev, {
+          ...created,
+          quantityKg: Number(created.quantityKg) || payload.quantityKg,
+          unitPrice: Number(created.unitPrice) || payload.unitPrice,
+          color: created.color ?? payload.color,
+        }]);
+      }
 
-      setStocks((prev) => [...prev, normalized]);
-      setShowAddForm(false);
-      setNewStock({
-        vendor: '',
-        color: { name: 'Custom', hex: '#ff0000' },
-        quantityKg: '',
-        unitPrice: '',
-        sizeMm: ''
-      });
+      closeStockForm();
     } catch (err) {
-      console.error('Failed to add stock', err);
+      console.error(editingStock ? 'Failed to update stock' : 'Failed to add stock', err);
+    } finally {
+      setSavingStock(false);
     }
   };
+
+  const getDisplayStock = (stock) => ({
+    ...stock,
+    color: {
+      name: getColorLabel(stock.color),
+      hex: getColorHex(stock.color)
+    },
+  });
 
   // Delete stock
   const handleDeleteStock = async (id) => {
@@ -388,7 +532,7 @@ export const StockManagement = () => {
           <p className="text-gray-600 mt-1">Manage raw cloth inventory</p>
         </div>
         <button
-          onClick={() => setShowAddForm(true)}
+          onClick={openAddStock}
           className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
@@ -399,7 +543,9 @@ export const StockManagement = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <Package className="w-8 h-8 text-blue-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+              <Package className="w-6 h-6" />
+            </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Total Stock</p>
               <p className="text-2xl font-bold text-gray-900">{totalQuantity} kg</p>
@@ -408,8 +554,8 @@ export const StockManagement = () => {
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-              <span className="text-green-600 font-bold">₹</span>
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-green-600">
+              <IndianRupee className="h-5 w-5" />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Total Value</p>
@@ -419,8 +565,8 @@ export const StockManagement = () => {
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-              <span className="text-purple-600 font-bold">#</span>
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600">
+              <Hash className="h-5 w-5" />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Stock Items</p>
@@ -436,6 +582,7 @@ export const StockManagement = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div className="flex flex-col sm:flex-row gap-4 w-full">
               <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search by color or vendor..."
@@ -468,25 +615,25 @@ export const StockManagement = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Vendor
+                  <span className="inline-flex items-center gap-2"><Store className="h-3.5 w-3.5" /> Vendor</span>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Color
+                  <span className="inline-flex items-center gap-2"><Palette className="h-3.5 w-3.5" /> Color</span>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Size (mm)
+                  <span className="inline-flex items-center gap-2"><Ruler className="h-3.5 w-3.5" /> Size (mm)</span>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Quantity (kg)
+                  <span className="inline-flex items-center gap-2"><Scale className="h-3.5 w-3.5" /> Quantity (kg)</span>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Unit Price
+                  <span className="inline-flex items-center gap-2"><IndianRupee className="h-3.5 w-3.5" /> Unit Price</span>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total Value
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date Added
+                  <span className="inline-flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5" /> Date Added</span>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -495,38 +642,46 @@ export const StockManagement = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {paginatedStocks.map((stock) => {
-                const keyId = stock.id ?? stock._id;
+                const displayStock = getDisplayStock(stock);
+                const keyId = getStockId(displayStock);
                 return (
                   <tr key={keyId} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {stock.vendor}
+                      {displayStock.vendor}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-3">
                         <div
                           className="w-4 h-4 rounded-full border border-gray-300"
-                          style={{ backgroundColor: stock.color?.hex ?? stock.color ?? '#fff' }}
+                          style={{ backgroundColor: displayStock.color.hex }}
                         ></div>
-                        <span className="text-sm text-gray-900">{stock.color?.name ?? 'Custom'}</span>
+                        <span className="text-sm text-gray-900">{displayStock.color.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{stock.sizeMm}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{stock.quantityKg}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹{stock.unitPrice}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{displayStock.sizeMm}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{displayStock.quantityKg}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹{displayStock.unitPrice}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ₹{(Number(stock.quantityKg) * Number(stock.unitPrice)).toLocaleString()}
+                      ₹{(Number(displayStock.quantityKg) * Number(displayStock.unitPrice)).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {stock.dateAdded ? new Date(stock.dateAdded).toLocaleDateString() : '—'}
+                      {displayStock.dateAdded ? new Date(displayStock.dateAdded).toLocaleDateString() : '—'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex space-x-2">
-                        <button className="p-1 text-blue-600 hover:text-blue-800 transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => openEditStock(displayStock)}
+                          className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                          aria-label={`Edit ${displayStock.vendor} stock`}
+                        >
                           <Edit3 className="w-4 h-4" />
                         </button>
                         <button
+                          type="button"
                           className="p-1 text-red-600 hover:text-red-800 transition-colors"
                           onClick={() => handleDeleteStock(keyId)}
+                          aria-label={`Delete ${displayStock.vendor} stock`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -551,82 +706,125 @@ export const StockManagement = () => {
         </div>
       </div>
 
-      {/* Add Stock Form */}
+      {/* Stock Form */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Add New Stock</h2>
-            <form className="space-y-4" onSubmit={handleAddStock}>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter vendor name"
-                  value={newStock.vendor}
-                  onChange={(e) => setNewStock({ ...newStock, vendor: e.target.value })}
-                  required
-                />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                {editingStock ? <Edit3 className="h-5 w-5" /> : <Package className="h-5 w-5" />}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-gray-900">{editingStock ? 'Edit Stock' : 'Add New Stock'}</h2>
+                <p className="text-sm text-gray-500">{editingStock ? 'Update raw cloth inventory details' : 'Add raw cloth inventory details'}</p>
+              </div>
+            </div>
+            <form className="space-y-4" onSubmit={handleSaveStock}>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Vendor</label>
+                <div className="relative">
+                  <Store className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
-                    type="color"
-                    value={newStock.color.hex}
-                    onChange={(e) => setNewStock({ ...newStock, color: { ...newStock.color, hex: e.target.value, name: 'Custom' } })}
-                    className="w-10 h-10 p-0 border-none rounded cursor-pointer"
+                    type="text"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 pl-10 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter vendor name"
+                    value={newStock.vendor}
+                    onChange={(e) => setNewStock({ ...newStock, vendor: e.target.value })}
+                    required
                   />
-                  <p className="text-gray-500">choose color</p>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity (kg)</label>
-                <input
-                  type="number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter quantity"
-                  value={newStock.quantityKg}
-                  onChange={(e) => setNewStock({ ...newStock, quantityKg: e.target.value })}
-                  required
-                />
+                <label className="mb-1 block text-sm font-medium text-gray-700">Color</label>
+                <div className="grid grid-cols-[1fr_auto] gap-3">
+                  <div className="relative">
+                    <Palette className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pl-10 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                      placeholder="Type color name or hex"
+                      value={newStock.color.name}
+                      onChange={(e) => updateColorName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <input
+                    type="color"
+                    value={normalizeHex(newStock.color.hex) || '#ff0000'}
+                    onChange={(e) => updateColorHex(e.target.value)}
+                    className="h-10 w-12 cursor-pointer rounded-lg border border-gray-300 bg-white p-1"
+                    aria-label="Choose stock color"
+                  />
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                  <span className="h-3 w-3 rounded-full border border-gray-300" style={{ backgroundColor: normalizeHex(newStock.color.hex) || '#ff0000' }} />
+                  <span>{normalizeHex(newStock.color.hex) || '#ff0000'}</span>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price (₹)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter unit price"
-                  value={newStock.unitPrice}
-                  onChange={(e) => setNewStock({ ...newStock, unitPrice: e.target.value })}
-                  required
-                />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Quantity (kg)</label>
+                  <div className="relative">
+                    <Scale className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pl-10 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter quantity"
+                      value={newStock.quantityKg}
+                      onChange={(e) => setNewStock({ ...newStock, quantityKg: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Unit Price (₹)</label>
+                  <div className="relative">
+                    <IndianRupee className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pl-10 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter unit price"
+                      value={newStock.unitPrice}
+                      onChange={(e) => setNewStock({ ...newStock, unitPrice: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Size (mm)</label>
+                  <div className="relative">
+                    <Ruler className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pl-10 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter size"
+                      value={newStock.sizeMm}
+                      onChange={(e) => setNewStock({ ...newStock, sizeMm: e.target.value })}
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Size (mm)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter size"
-                  value={newStock.sizeMm}
-                  onChange={(e) => setNewStock({ ...newStock, sizeMm: e.target.value })}
-                />
-              </div>
-              <div className="flex space-x-3 pt-4">
+              <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row">
                 <button
                   type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={closeStockForm}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={savingStock}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Add Stock
+                  {editingStock ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {savingStock ? 'Saving...' : editingStock ? 'Save Changes' : 'Add Stock'}
                 </button>
               </div>
             </form>

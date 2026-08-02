@@ -21,6 +21,52 @@ const computeTotalQuantity = (pieces = {}) => {
   return total;
 };
 
+const clampProgress = (value) => {
+  const progress = Number(value);
+  if (!Number.isFinite(progress)) return 0;
+  return Math.max(0, Math.min(100, Math.round(progress)));
+};
+
+const enrichOrdersWithProgress = async (orders = []) => {
+  if (!orders.length) return orders;
+
+  const orderIds = orders.map((order) => order._id).filter(Boolean);
+  const subOrders = await SubOrder.find({ order: { $in: orderIds } })
+    .select('order currentStage progress assignedWorkers status')
+    .lean();
+
+  const subOrdersByOrder = subOrders.reduce((map, subOrder) => {
+    const key = String(subOrder.order);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(subOrder);
+    return map;
+  }, new Map());
+
+  return orders.map((order) => {
+    const orderSubOrders = subOrdersByOrder.get(String(order._id)) || [];
+    if (!orderSubOrders.length) {
+      return {
+        ...order,
+        currentStage: order.currentStage || 'Pending',
+        progress: clampProgress(order.progress),
+        assignedWorkers: Number(order.assignedWorkers) || 0
+      };
+    }
+
+    const totalProgress = orderSubOrders.reduce((sum, subOrder) => sum + clampProgress(subOrder.progress), 0);
+    const progress = clampProgress(totalProgress / orderSubOrders.length);
+    const activeSubOrder = orderSubOrders.find((subOrder) => clampProgress(subOrder.progress) < 100) || orderSubOrders[orderSubOrders.length - 1];
+    const assignedWorkers = orderSubOrders.reduce((sum, subOrder) => sum + (Number(subOrder.assignedWorkers) || 0), 0);
+
+    return {
+      ...order,
+      currentStage: activeSubOrder?.currentStage || 'Pending',
+      progress,
+      assignedWorkers
+    };
+  });
+};
+
 const flattenPiecesToSkus = (pieces = {}) => {
   const skus = [];
   for (const color of Object.keys(pieces || {})) {
@@ -367,6 +413,7 @@ export const createOrder = async (req, res) => {
       deadline,
       priority,
       vendor,
+      requiredKg,
       distributionMode = 'perSku',
       workersCount = 1
     } = req.body;
@@ -391,6 +438,7 @@ export const createOrder = async (req, res) => {
       pieces,
       totalQuantity,
       stages: stages.map(normalizeStageLabel),
+      requiredKg: requiredKg != null && requiredKg !== '' ? Number(requiredKg) : undefined,
       deadline,
       priority,
       vendor,
@@ -444,13 +492,13 @@ export const getOrders = async (req, res) => {
       ]);
       return res.json({
         success: true,
-        data: orders,
+        data: await enrichOrdersWithProgress(orders),
         meta: { page: pageNumber, limit: limitNumber, total, totalPages: Math.ceil(total / limitNumber) }
       });
     }
 
     const orders = await Order.find(query).populate('style', 'name').sort(sort).lean();
-    res.json(orders);
+    res.json(await enrichOrdersWithProgress(orders));
   } catch (err) {
     console.error('getOrders error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -483,7 +531,7 @@ export const updateOrder = async (req, res) => {
       order.totalQuantity = computeTotalQuantity(up.pieces);
     }
 
-    ['priority', 'deadline'].forEach(k => {
+    ['priority', 'deadline', 'vendor', 'requiredKg'].forEach(k => {
       if (up[k] !== undefined) order[k] = up[k];
     });
 

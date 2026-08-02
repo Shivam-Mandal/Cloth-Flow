@@ -31,6 +31,7 @@ import {
   Wand2,
   PaintRoller,
   Package,
+  Tag,
   Info
 } from 'lucide-react';
 import * as styleService from '../services/styleServices'; // <-- ensure this file exists
@@ -49,7 +50,7 @@ const defaultSteps = [
   'Packing'
 ];
 
-const stepIcons = [Scissors, Printer, Wand2, PaintRoller, Package];
+const stepIcons = [Scissors, Printer, Wand2, PaintRoller, Package, Tag];
 
 const sortStages = (stages) =>
   [...stages].sort((a, b) => {
@@ -1169,36 +1170,40 @@ export default function StyleManagement() {
                 </section>
               </div>
 
-              <section className="mt-5 rounded-md border border-slate-200 p-4 sm:p-5">
-                <div className="flex items-center gap-2">
-                  <Scissors className="h-5 w-5 text-violet-600" />
-                  <h3 className="text-sm font-extrabold text-slate-900">Production Workflow</h3>
+              <section className="mt-5 rounded-md border border-slate-200 p-3 sm:p-4">
+                <div className="flex items-center gap-2 px-1">
+                  <Scissors className="h-4 w-4 text-violet-600" />
+                  <h3 className="text-xs font-extrabold text-slate-900 sm:text-sm">Production Workflow</h3>
                 </div>
                 {(detailsStyle.steps || []).length ? (
-                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                    {(detailsStyle.steps || []).map((step, index) => {
-                      const rawStageId = step.stageId?._id || step.stageId;
-                      const StageIcon = stepIcons[index % stepIcons.length] || Scissors;
-                      return (
-                        <div key={`${detailsStyle._id}-detail-step-${step.label}-${index}`} className="rounded-md border border-slate-200 p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex min-w-0 items-start gap-3">
-                              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-violet-50 text-violet-700">
-                                <StageIcon className="h-5 w-5" />
-                                <span className="absolute -left-1 -top-2 rounded-full border border-violet-200 bg-white px-1.5 py-0.5 text-[10px] font-extrabold text-violet-700">
-                                  {String(index + 1).padStart(2, '0')}
-                                </span>
-                              </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-extrabold text-slate-900">{step.label}</p>
-                                <p className="mt-1 line-clamp-2 text-xs text-slate-500">{rawStageId ? 'Reusable production stage' : 'Custom stage'}</p>
+                  <div className="mt-3 overflow-x-auto pb-2">
+                    <div
+                      className="relative grid min-w-max items-start gap-5 px-1 pt-5 sm:gap-8 lg:min-w-0 lg:gap-10"
+                      style={{ gridTemplateColumns: `repeat(${detailsStyle.steps.length}, minmax(108px, 1fr))` }}
+                    >
+                      {detailsStyle.steps.length > 1 && (
+                        <div className="absolute left-[55px] right-[55px] top-8 hidden border-t border-dashed border-violet-200 sm:block" />
+                      )}
+                      {(detailsStyle.steps || []).map((step, index) => {
+                        const StageIcon = stepIcons[index % stepIcons.length] || Scissors;
+                        return (
+                          <div key={`${detailsStyle._id}-detail-step-${step.label}-${index}`} className="relative flex min-w-[108px] flex-col items-center gap-3">
+                            <div className="z-10 flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-[10px] font-extrabold text-white ring-4 ring-white">
+                              {index + 1}
+                            </div>
+                            <div className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                              <div className="flex items-center gap-2">
+                                <StageIcon className="h-4 w-4 shrink-0 text-slate-500" />
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-bold text-slate-800">{step.label}</p>
+                                  <p className="mt-0.5 text-sm font-extrabold text-slate-950">₹{Number(step.price || 0)}</p>
+                                </div>
                               </div>
                             </div>
-                            <p className="shrink-0 text-base font-extrabold text-slate-950">₹{Number(step.price || 0)}</p>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : (
                   <p className="mt-3 text-sm text-slate-400">No stages added.</p>
