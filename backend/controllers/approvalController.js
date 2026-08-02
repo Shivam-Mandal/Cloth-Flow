@@ -2,7 +2,7 @@
 import mongoose from 'mongoose';
 import SubOrder from '../models/SubOrderSchema.js';
 import ApprovalHistory from '../models/ApprovalHistory.js';
-import { approveWorkflowStage, calculateStageEarnings, rejectWorkflowStage } from '../services/workflowService.js';
+import { approveWorkflowStage, calculateStageEarningsFromAssignments, rejectWorkflowStage } from '../services/workflowService.js';
 
 const generateSubOrderCode = () => {
   const time = Date.now().toString(36).toUpperCase().slice(-4);
@@ -93,17 +93,24 @@ export const getPendingApprovals = async (req, res) => {
     }));
 
     // Add calculated payment info for admin review
-    const enrichedApprovals = pendingSubOrders.map(subOrder => {
-      const { amount: calculatedPayment } = calculateStageEarnings(subOrder);
-      
+    const enrichedApprovals = await Promise.all(pendingSubOrders.map(async (subOrder) => {
+      const {
+        amount: calculatedPayment,
+        pricePerPiece,
+        completedPieces,
+        damagedPieces,
+        submittedPieces
+      } = await calculateStageEarningsFromAssignments(subOrder);
+
       return {
         ...subOrder,
+        submittedPieces,
+        approvedPieces: completedPieces,
+        faultyPieces: damagedPieces,
         calculatedPayment,
-        pricePerPiece: subOrder.order?.style?.steps?.find(
-          step => step.label.toLowerCase() === subOrder.currentStage.toLowerCase()
-        )?.price || 0
+        pricePerPiece
       };
-    });
+    }));
 
     res.json({ success: true, approvals: enrichedApprovals });
   } catch (error) {

@@ -3,26 +3,64 @@ import Assignment from '../models/Assignment.js';
 import { createNextStageAssignments } from '../controllers/orderController.js';
 import { isLastStage, normalizeStageKey } from '../utils/workflow.js';
 
-export const calculateStageEarnings = (subOrder) => {
-  const approvedPieces = Number(subOrder?.approvedPieces) || 0;
+const getStagePricePerPiece = (subOrder) => {
   const steps = subOrder?.order?.style?.steps || [];
   const currentStage = normalizeStageKey(subOrder?.currentStage);
   const currentStageStep = steps.find((step) => normalizeStageKey(step?.label) === currentStage);
-  const pricePerPiece = Number(currentStageStep?.price) || 0;
+  return Number(currentStageStep?.price) || 0;
+};
+
+export const calculateStageEarnings = (subOrder, options = {}) => {
+  const completedPieces = Number(options.completedPieces ?? subOrder?.approvedPieces) || 0;
+  const pricePerPiece = getStagePricePerPiece(subOrder);
 
   return {
+    completedPieces,
     pricePerPiece,
-    amount: approvedPieces * pricePerPiece
+    amount: completedPieces * pricePerPiece
+  };
+};
+
+export const calculateStageEarningsFromAssignments = async (subOrder, { session } = {}) => {
+  const assignments = await Assignment.find({
+    subOrder: subOrder._id,
+    stage: subOrder.currentStage,
+    status: 'completed'
+  }).session(session).lean();
+
+  const completedPieces = assignments.length
+    ? assignments.reduce((sum, assignment) => sum + (Number(assignment.completedPieces) || 0), 0)
+    : Number(subOrder?.approvedPieces) || 0;
+  const damagedPieces = assignments.length
+    ? assignments.reduce((sum, assignment) => sum + (Number(assignment.damagedPieces) || 0), 0)
+    : Number(subOrder?.faultyPieces) || 0;
+  const { amount, pricePerPiece } = calculateStageEarnings(subOrder, { completedPieces });
+
+  return {
+    amount,
+    pricePerPiece,
+    completedPieces,
+    damagedPieces,
+    submittedPieces: completedPieces + damagedPieces
   };
 };
 
 export const approveWorkflowStage = async (subOrder, { adminId, session, io } = {}) => {
   const finalStage = isLastStage(subOrder.order, subOrder.currentStage);
-  const { amount, pricePerPiece } = calculateStageEarnings(subOrder);
+  const {
+    amount,
+    pricePerPiece,
+    completedPieces,
+    damagedPieces,
+    submittedPieces
+  } = await calculateStageEarningsFromAssignments(subOrder, { session });
 
   subOrder.status = finalStage ? 'completed' : 'approved';
   subOrder.approvedBy = adminId;
   subOrder.approvedAt = new Date();
+  subOrder.submittedPieces = submittedPieces;
+  subOrder.approvedPieces = completedPieces;
+  subOrder.faultyPieces = damagedPieces;
   subOrder.pricePerPiece = pricePerPiece;
   subOrder.amount = amount;
   subOrder.workerEarnings = amount;
