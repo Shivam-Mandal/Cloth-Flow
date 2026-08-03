@@ -123,7 +123,7 @@ export const getPendingApprovals = async (req, res) => {
 
 export const getPackingInventory = async (req, res) => {
   try {
-    const { q = '', status = '' } = req.query;
+    const { q = '', status = '', styleId = '', startDate = '', endDate = '' } = req.query;
 
     const inventoryQuery = {
       inventoryStatus: { $in: INVENTORY_STATUSES }
@@ -158,9 +158,13 @@ export const getPackingInventory = async (req, res) => {
         const totalCompletedPieces = completedPieces || Number(subOrder.approvedPieces) || 0;
         const totalDamagedPieces = damagedPieces || Number(subOrder.faultyPieces) || 0;
         const availablePieces = ['packed', 'ready_for_sale'].includes(subOrder.inventoryStatus)
-          ? totalCompletedPieces
-          : 0;
-        const photos = subOrder.order?.style?.photos || [];
+          ? (totalCompletedPieces || Math.max(0, totalPackedPieces - totalDamagedPieces))
+          : (subOrder.inventoryStatus === 'reserved' ? (totalCompletedPieces || Math.max(0, totalPackedPieces - totalDamagedPieces)) : 0);
+        const photos = Array.isArray(subOrder.order?.style?.photos) && subOrder.order.style.photos.length > 0
+          ? subOrder.order.style.photos
+          : (Array.isArray(subOrder.order?.style?.images) && subOrder.order.style.images.length > 0)
+            ? subOrder.order.style.images
+            : (subOrder.order?.style?.photo ? [subOrder.order.style.photo] : (subOrder.order?.style?.image ? [subOrder.order.style.image] : []));
         const image =
           photos[0] ||
           subOrder.order?.style?.photo ||
@@ -179,13 +183,50 @@ export const getPackingInventory = async (req, res) => {
               ? Number(((totalDamagedPieces / totalPackedPieces) * 100).toFixed(1))
               : 0,
           availablePieces,
-          image
+          image,
+          photos
         };
       })
     );
 
+    // Extract unique styles for filter dropdown
+    const styleMap = new Map();
+    enrichedInventory.forEach((item) => {
+      const styleObj = item.order?.style;
+      if (styleObj && styleObj._id) {
+        const sid = styleObj._id.toString();
+        if (!styleMap.has(sid)) {
+          styleMap.set(sid, { _id: sid, name: styleObj.name || styleObj.styleId || 'Unnamed Style' });
+        }
+      } else if (item.name) {
+        if (!styleMap.has(item.name)) {
+          styleMap.set(item.name, { _id: item.name, name: item.name });
+        }
+      }
+    });
+    const styles = Array.from(styleMap.values());
+
     const inventory = enrichedInventory
       .filter((item) => (status && status !== 'all' ? item.inventoryStatus === status : true))
+      .filter((item) => {
+        if (!styleId || styleId === 'all') return true;
+        const sId = item.order?.style?._id?.toString() || item.order?.style?.toString() || item.name || '';
+        return sId === styleId;
+      })
+      .filter((item) => {
+        if (!startDate) return true;
+        const itemDate = new Date(item.inventoryUpdatedAt || item.updatedAt || item.createdAt);
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        return itemDate >= start;
+      })
+      .filter((item) => {
+        if (!endDate) return true;
+        const itemDate = new Date(item.inventoryUpdatedAt || item.updatedAt || item.createdAt);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        return itemDate <= end;
+      })
       .filter((item) => {
         if (!searchNeedle) return true;
 
@@ -208,7 +249,7 @@ export const getPackingInventory = async (req, res) => {
         return haystack.includes(searchNeedle);
       });
 
-    return res.json({ success: true, inventory });
+    return res.json({ success: true, inventory, styles });
   } catch (error) {
     console.error('getPackingInventory error:', error);
     return res.status(500).json({ error: error.message || 'Server error' });

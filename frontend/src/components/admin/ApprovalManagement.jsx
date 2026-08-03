@@ -199,92 +199,100 @@ export const ApprovalManagement = () => {
 
       {/* Approval Modal */}
       {selectedApproval && (
-        <div className="fixed inset-0 bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 shadow-2xl">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto relative">
-            <button
-              onClick={() => setSelectedApproval(null)}
-              className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-              title="Close modal"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
-              <Eye className="w-5 h-5" />
-              Work Review & Approval
-            </h3>
-
-            {/* Order Information */}
-            <div className="bg-gray-50 p-4 rounded-lg mb-6">
-              <h4 className="font-medium mb-3 flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                Order Information
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-600">Order ID:</span>
-                  <div className="font-medium">{selectedApproval.order?.orderId || selectedApproval.orderId}</div>
-                </div>
-                <div>
-                  <span className="text-gray-600">SubOrder ID:</span>
-                  <div className="font-medium">{getSubOrderCode(selectedApproval)}</div>
-                </div>
-                <div>
-                  <span className="text-gray-600">Style:</span>
-                  <div className="font-medium">{selectedApproval.order?.style?.name || 'N/A'}</div>
-                </div>
-                <div>
-                  <span className="text-gray-600">Stage:</span>
-                  <div className="font-medium">{selectedApproval.currentStage}</div>
-                </div>
-                <div>
-                  <span className="text-gray-600">SubOrder:</span>
-                  <div className="font-medium">{selectedApproval.name}</div>
-                </div>
-              </div>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto relative border border-slate-100 flex flex-col space-y-3.5 sm:space-y-4">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Eye className="w-4 h-4 text-blue-600" />
+                Work Review & Approval
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedApproval(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                title="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Worker Information */}
-            <div className="bg-blue-50 p-4 rounded-lg mb-6">
-              <h4 className="font-medium mb-3 flex items-center gap-2">
-                <User className="w-4 h-4" />
-                Worker Information
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-600">Name:</span>
-                  <div className="font-medium">{selectedApproval.completedBy?.name || 'Unknown'}</div>
+            {/* Combined Order & Worker Info Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Order Info */}
+              <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-xl">
+                <h4 className="font-semibold text-xs text-slate-700 mb-2 flex items-center gap-1.5 uppercase tracking-wider">
+                  <Package className="w-3.5 h-3.5 text-slate-500" />
+                  Order Info
+                </h4>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Order ID</span>
+                    <span className="font-semibold text-slate-900 truncate block">{selectedApproval.order?.orderId || selectedApproval.orderId}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">SubOrder ID</span>
+                    <span className="font-semibold text-slate-900 truncate block">{getSubOrderCode(selectedApproval)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Style</span>
+                    <span className="font-semibold text-slate-900 truncate block">{selectedApproval.order?.style?.name || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Stage</span>
+                    <span className="font-semibold text-blue-700 truncate block">{selectedApproval.currentStage}</span>
+                  </div>
+                  <div className="col-span-2 border-t border-slate-200/60 pt-1 mt-0.5">
+                    <span className="text-slate-500 inline-block text-[10px] mr-1">SubOrder:</span>
+                    <span className="font-semibold text-slate-900 inline-block">{selectedApproval.name}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-gray-600">Type:</span>
-                  <div className="font-medium">{selectedApproval.completedBy?.workerType || 'N/A'}</div>
-                </div>
-                <div>
-                  <span className="text-gray-600">Email:</span>
-                  <div className="font-medium">{selectedApproval.completedBy?.email || 'N/A'}</div>
+              </div>
+
+              {/* Worker Info */}
+              <div className="bg-blue-50/60 border border-blue-100 p-3 rounded-xl">
+                <h4 className="font-semibold text-xs text-blue-900 mb-2 flex items-center gap-1.5 uppercase tracking-wider">
+                  <User className="w-3.5 h-3.5 text-blue-600" />
+                  Worker Info
+                </h4>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Name</span>
+                    <span className="font-semibold text-slate-900 truncate block">{selectedApproval.completedBy?.name || 'Unknown'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Type</span>
+                    <span className="font-semibold text-slate-900 truncate block">{selectedApproval.completedBy?.workerType || 'N/A'}</span>
+                  </div>
+                  <div className="col-span-2 border-t border-blue-100 pt-1 mt-0.5">
+                    <span className="text-slate-500 block text-[10px]">Email</span>
+                    <span className="font-semibold text-slate-900 truncate block">{selectedApproval.completedBy?.email || 'N/A'}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Work Submission Details */}
-            <div className="bg-green-50 p-4 rounded-lg mb-6">
-              <h4 className="font-medium mb-3">Work Submission Details</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center p-3 bg-white rounded border">
-                  <div className="text-2xl font-bold text-blue-600">
+            <div className="bg-emerald-50/50 border border-emerald-100 p-3 rounded-xl">
+              <h4 className="font-semibold text-xs text-emerald-900 mb-2 uppercase tracking-wider">Work Submission Details</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="text-center p-2 bg-white rounded-lg border border-emerald-100 shadow-2xs">
+                  <div className="text-lg sm:text-xl font-bold text-blue-600">
                     {computePiecesTotal(selectedApproval.pieces)}
                   </div>
-                  <div className="text-sm text-gray-600">Total Submitted</div>
+                  <div className="text-[10px] text-slate-500 font-medium">Total Submitted</div>
                 </div>
-                <div className="text-center p-3 bg-white rounded border">
-                  <div className="text-2xl font-bold text-green-600">{selectedApproval.approvedPieces || 0}</div>
-                  <div className="text-sm text-gray-600">Completed Pieces</div>
+                <div className="text-center p-2 bg-white rounded-lg border border-emerald-100 shadow-2xs">
+                  <div className="text-lg sm:text-xl font-bold text-emerald-600">{selectedApproval.approvedPieces || 0}</div>
+                  <div className="text-[10px] text-slate-500 font-medium">Completed Pieces</div>
                 </div>
-                <div className="text-center p-3 bg-white rounded border">
-                  <div className="text-2xl font-bold text-red-600">{selectedApproval.faultyPieces || 0}</div>
-                  <div className="text-sm text-gray-600">Damaged Pieces</div>
+                <div className="text-center p-2 bg-white rounded-lg border border-emerald-100 shadow-2xs">
+                  <div className="text-lg sm:text-xl font-bold text-red-600">{selectedApproval.faultyPieces || 0}</div>
+                  <div className="text-[10px] text-slate-500 font-medium">Damaged Pieces</div>
                 </div>
-                <div className="text-center p-3 bg-white rounded border">
-                  <div className="text-lg font-bold text-gray-600">
+                <div className="text-center p-2 bg-white rounded-lg border border-emerald-100 shadow-2xs">
+                  <div className="text-base sm:text-lg font-bold text-slate-700">
                     {(() => {
                       const totalSubmitted = computePiecesTotal(selectedApproval.pieces);
                       return selectedApproval.faultyPieces > 0 && totalSubmitted > 0
@@ -292,50 +300,51 @@ export const ApprovalManagement = () => {
                         : '0%';
                     })()}
                   </div>
-                  <div className="text-sm text-gray-600">Damage Rate</div>
+                  <div className="text-[10px] text-slate-500 font-medium">Damage Rate</div>
                 </div>
               </div>
             </div>
 
             {/* Payment Calculation */}
-            <div className="bg-yellow-50 p-4 rounded-lg mb-6">
-              <h4 className="font-medium mb-3 flex items-center gap-2">
-                <IndianRupee className="w-4 h-4" />
-                Payment Calculation (Auto-Calculated)
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-600">Price per Piece ({selectedApproval.currentStage}):</span>
-                  <div className="font-bold text-lg">₹{selectedApproval.pricePerPiece || 0}</div>
-                </div>
-                <div>
-                  <span className="text-gray-600">Calculation:</span>
-                  <div className="font-medium">{selectedApproval.approvedPieces || 0} × ₹{selectedApproval.pricePerPiece || 0}</div>
-                </div>
-                <div>
-                  <span className="text-gray-600">Total Payment:</span>
-                  <div className="font-bold text-xl text-green-600">₹{selectedApproval.calculatedPayment || 0}</div>
-                </div>
+            <div className="bg-amber-50/70 border border-amber-200/70 p-3 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-xs text-amber-900 flex items-center gap-1.5 uppercase tracking-wider">
+                  <IndianRupee className="w-3.5 h-3.5 text-amber-600" />
+                  Payment Calculation (Auto-Calculated)
+                </h4>
+                <span className="text-[10px] text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-md font-medium">
+                  💡 Auto-added on approval
+                </span>
               </div>
-              <div className="mt-3 p-3 bg-white rounded border border-yellow-200">
-                <div className="text-sm text-yellow-800">
-                  💡 This amount will be automatically added to the worker's account upon approval
+              
+              <div className="grid grid-cols-3 gap-2 text-xs items-center bg-white p-2 rounded-lg border border-amber-100">
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Rate ({selectedApproval.currentStage})</span>
+                  <span className="font-bold text-slate-900">₹{selectedApproval.pricePerPiece || 0} / pc</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Calculation</span>
+                  <span className="font-medium text-slate-700">{selectedApproval.approvedPieces || 0} × ₹{selectedApproval.pricePerPiece || 0}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-slate-500 block text-[10px]">Total Payment</span>
+                  <span className="font-extrabold text-sm sm:text-base text-emerald-600">₹{selectedApproval.calculatedPayment || 0}</span>
                 </div>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="border-t pt-6">
+            <div className="border-t border-slate-100 pt-3">
               {!showRejectionForm ? (
-                <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-4">
-                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2 flex-1 sm:flex-initial">
                     <button
                       type="button"
                       onClick={() => handleApprove(selectedApproval._id)}
                       disabled={loading.action}
-                      className="bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2 font-medium shadow-sm transition-colors w-full sm:w-auto cursor-pointer"
+                      className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold shadow-xs transition-colors cursor-pointer"
                     >
-                      <CheckCircle className="w-5 h-5" />
+                      <CheckCircle className="w-4 h-4" />
                       {loading.action ? 'Processing...' : 'Approve & Process Payment'}
                     </button>
 
@@ -343,10 +352,10 @@ export const ApprovalManagement = () => {
                       type="button"
                       onClick={() => setShowRejectionForm(true)}
                       disabled={loading.action}
-                      className="border border-red-200 hover:border-red-300 text-red-600 bg-red-50/50 hover:bg-red-50 py-3 px-6 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2 font-medium transition-colors w-full sm:w-auto cursor-pointer"
+                      className="border border-red-200 hover:border-red-300 text-red-600 bg-red-50/50 hover:bg-red-50 py-2.5 px-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
                     >
-                      <XCircle className="w-5 h-5" />
-                      Reject Work...
+                      <XCircle className="w-4 h-4" />
+                      Reject...
                     </button>
                   </div>
 
@@ -354,27 +363,27 @@ export const ApprovalManagement = () => {
                     type="button"
                     onClick={() => setSelectedApproval(null)}
                     disabled={loading.action}
-                    className="px-6 py-3 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50 transition-colors w-full sm:w-auto text-center cursor-pointer"
+                    className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl disabled:opacity-50 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                 </div>
               ) : (
-                <div className="bg-red-50/30 border border-red-100 rounded-xl p-4 sm:p-5 space-y-4">
-                  <div className="flex items-center gap-2 text-red-800 font-semibold text-base">
-                    <XCircle className="w-5 h-5 text-red-600" />
-                    Provide Rejection Details
+                <div className="bg-red-50/40 border border-red-100 rounded-xl p-3 space-y-2.5">
+                  <div className="flex items-center gap-1.5 text-red-800 font-semibold text-xs uppercase tracking-wider">
+                    <XCircle className="w-4 h-4 text-red-600" />
+                    Provide Rejection Reason
                   </div>
                   
                   <textarea
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
-                    placeholder="Describe why the work is being rejected (e.g. faulty stitches, wrong size)..."
-                    className="w-full border border-gray-300 focus:border-red-400 focus:ring-1 focus:ring-red-400 rounded-lg p-3 outline-none resize-none bg-white transition-shadow shadow-sm"
-                    rows="3"
+                    placeholder="Describe why work is being rejected (e.g. faulty stitches)..."
+                    className="w-full border border-slate-200 focus:border-red-400 rounded-xl p-2.5 text-xs outline-none resize-none bg-white shadow-2xs"
+                    rows="2"
                   />
 
-                  <div className="flex flex-col sm:flex-row justify-end gap-3">
+                  <div className="flex items-center justify-end gap-2">
                     <button
                       type="button"
                       onClick={() => {
@@ -382,23 +391,24 @@ export const ApprovalManagement = () => {
                         setRejectReason('');
                       }}
                       disabled={loading.action}
-                      className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg disabled:opacity-50 transition-colors order-2 sm:order-1 text-center cursor-pointer"
+                      className="px-3.5 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer"
                     >
-                      Back to Options
+                      Back
                     </button>
                     <button
                       type="button"
                       onClick={() => handleReject(selectedApproval._id)}
                       disabled={loading.action || !rejectReason.trim()}
-                      className="px-5 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2 order-1 sm:order-2 text-center cursor-pointer"
+                      className="px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <XCircle className="w-4 h-4" />
+                      <XCircle className="w-3.5 h-3.5" />
                       {loading.action ? 'Processing...' : 'Confirm Rejection'}
                     </button>
                   </div>
                 </div>
               )}
             </div>
+
           </div>
         </div>
       )}
