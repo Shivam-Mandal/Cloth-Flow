@@ -4,6 +4,7 @@ import {
   Search,
   Filter,
   Package2,
+  Package,
   ShieldCheck,
   AlertTriangle,
   ClipboardList,
@@ -17,11 +18,416 @@ import {
   Eye,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Layers,
+  Palette,
+  Table
 } from 'lucide-react';
 import { fetchInventory, updateInventory } from '../services/inventoryServices';
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
+
+const getColorHex = (colorName = '') => {
+  const name = String(colorName).toLowerCase().trim();
+  if (name.includes('red') || name.includes('crimson') || name.includes('ruby') || name.includes('maroon')) return '#dc2626';
+  if (name.includes('navy')) return '#1e3a8a';
+  if (name.includes('blue') || name.includes('azure') || name.includes('denim')) return '#2563eb';
+  if (name.includes('sky') || name.includes('cyan')) return '#0891b2';
+  if (name.includes('black') || name.includes('dark')) return '#09090b';
+  if (name.includes('white') || name.includes('cream') || name.includes('ivory')) return '#ffffff';
+  if (name.includes('green') || name.includes('emerald') || name.includes('mint')) return '#059669';
+  if (name.includes('olive')) return '#65a30d';
+  if (name.includes('yellow') || name.includes('gold') || name.includes('mustard')) return '#ca8a04';
+  if (name.includes('orange') || name.includes('peach') || name.includes('coral')) return '#ea580c';
+  if (name.includes('pink') || name.includes('rose') || name.includes('magenta')) return '#db2777';
+  if (name.includes('purple') || name.includes('violet') || name.includes('lavender') || name.includes('plum')) return '#7c3aed';
+  if (name.includes('gray') || name.includes('grey') || name.includes('slate') || name.includes('charcoal')) return '#475569';
+  if (name.includes('brown') || name.includes('tan') || name.includes('beige') || name.includes('khaki')) return '#78350f';
+  return '#8b5cf6';
+};
+
+const StyleInventorySummaryTable = ({ inventory = [], onOpenDetails }) => {
+  const styleSummaries = useMemo(() => {
+    const map = new Map();
+
+    inventory.forEach((item) => {
+      const styleName = item.order?.style?.name || item.name || 'Unnamed Style';
+      const styleId = item.order?.style?._id?.toString() || item.order?.style?.toString() || styleName;
+      const stylePhoto = item.image || (Array.isArray(item.photos) && item.photos[0]) || null;
+
+      if (!map.has(styleId)) {
+        map.set(styleId, {
+          id: styleId,
+          name: styleName,
+          photo: stylePhoto,
+          variantsSet: new Set(),
+          colorsMap: new Map(),
+          availablePieces: 0,
+          totalPieces: 0,
+          subOrdersCount: 0
+        });
+      }
+
+      const entry = map.get(styleId);
+      if (!entry.photo && stylePhoto) {
+        entry.photo = stylePhoto;
+      }
+
+      const avail = Number(item.availablePieces) || 0;
+      const total = Number(item.totalSubmittedPieces) || Number(item.totalCompletedPieces) || Number(item.approvedPieces) || Number(item.submittedPieces) || 0;
+
+      entry.availablePieces += avail;
+      entry.totalPieces += total;
+      entry.subOrdersCount += 1;
+
+      if (item.pieces && typeof item.pieces === 'object') {
+        Object.entries(item.pieces).forEach(([colorName, sizes]) => {
+          if (!colorName) return;
+          const normalizedColor = colorName.trim();
+
+          if (typeof sizes === 'number') {
+            const qty = Number(sizes) || 0;
+            entry.variantsSet.add('Standard');
+            const currentQty = entry.colorsMap.get(normalizedColor) || 0;
+            entry.colorsMap.set(normalizedColor, currentQty + qty);
+          } else if (sizes && typeof sizes === 'object') {
+            Object.entries(sizes).forEach(([sizeName, qty]) => {
+              const numQty = Number(qty) || 0;
+              if (sizeName) {
+                entry.variantsSet.add(sizeName.trim());
+              }
+              const currentQty = entry.colorsMap.get(normalizedColor) || 0;
+              entry.colorsMap.set(normalizedColor, currentQty + numQty);
+            });
+          }
+        });
+      }
+    });
+
+    return Array.from(map.values()).map((style) => ({
+      ...style,
+      totalVariants: style.variantsSet.size > 0 ? style.variantsSet.size : 1,
+      totalColors: style.colorsMap.size > 0 ? style.colorsMap.size : 1,
+      variantsList: style.variantsSet.size > 0 ? Array.from(style.variantsSet) : ['Standard'],
+      colorsList: style.colorsMap.size > 0
+        ? Array.from(style.colorsMap.entries()).map(([color, count]) => ({ color, count }))
+        : [{ color: 'Default', count: style.availablePieces }]
+    }));
+  }, [inventory]);
+
+  if (!styleSummaries || styleSummaries.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm space-y-4">
+      {/* Table Header / Title */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-violet-600 border border-slate-200">
+            <Layers className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+              Style Inventory Summary
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 border border-slate-200">
+                {styleSummaries.length} {styleSummaries.length === 1 ? 'Style' : 'Styles'}
+              </span>
+            </h2>
+            <p className="text-xs text-slate-500">Aggregated breakdown of variants, color swatches, and piece quantities per style</p>
+          </div>
+        </div>
+
+        {onOpenDetails && (
+          <button
+            type="button"
+            onClick={onOpenDetails}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-violet-700 active:scale-[0.98] shrink-0"
+          >
+            <Table className="h-4 w-4 text-violet-200" />
+            <span>View Inventory Details</span>
+          </button>
+        )}
+      </div>
+
+      {/* Desktop / Tablet Table View */}
+      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200 shadow-xs">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+              <th className="py-3 px-4 min-w-[200px]">
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <Tag className="h-4 w-4 text-violet-500" />
+                  <span>Style Name</span>
+                </div>
+              </th>
+              <th className="py-3 px-4 min-w-[120px]">
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <Layers className="h-4 w-4 text-violet-500" />
+                  <span>Total Variants</span>
+                </div>
+              </th>
+              <th className="py-3 px-4 min-w-[120px]">
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <Palette className="h-4 w-4 text-violet-500" />
+                  <span>Total Colors</span>
+                </div>
+              </th>
+              <th className="py-3 px-4 min-w-[150px]">
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <Layers className="h-4 w-4 text-violet-500" />
+                  <span>Variant</span>
+                </div>
+              </th>
+              <th className="py-3 px-4 min-w-[180px]">
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <Palette className="h-4 w-4 text-violet-500" />
+                  <span>Color</span>
+                </div>
+              </th>
+              <th className="py-3 px-4 min-w-[140px]">
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <Package className="h-4 w-4 text-violet-500" />
+                  <span>Available Pieces</span>
+                </div>
+              </th>
+              <th className="py-3 px-4 min-w-[150px]">
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <Boxes className="h-4 w-4 text-violet-500" />
+                  <span>Total Pieces per Style</span>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white text-xs text-slate-700">
+            {styleSummaries.map((style) => {
+              const isOutOfStock = style.availablePieces === 0;
+              const isLowStock = style.availablePieces > 0 && style.availablePieces < 20;
+
+              return (
+                <tr key={style.id} className="transition hover:bg-slate-50/80">
+                  {/* Style Name */}
+                  <td className="py-3.5 px-4 font-semibold text-slate-900">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 border border-slate-200">
+                        {style.photo ? (
+                          <img src={style.photo} alt={style.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <Tag className="h-5 w-5 text-slate-400" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                          {style.name}
+                        </div>
+                        <span className="text-[11px] text-slate-400 font-normal">
+                          {style.subOrdersCount} {style.subOrdersCount === 1 ? 'suborder record' : 'suborder records'}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Total Variants */}
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1 font-semibold text-slate-700 border border-slate-200">
+                      <Layers className="h-3.5 w-3.5 text-violet-500" />
+                      <span>{style.totalVariants} {style.totalVariants === 1 ? 'Variant' : 'Variants'}</span>
+                    </span>
+                  </td>
+
+                  {/* Total Colors */}
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1 font-semibold text-slate-700 border border-slate-200">
+                      <Palette className="h-3.5 w-3.5 text-violet-500" />
+                      <span>{style.totalColors} {style.totalColors === 1 ? 'Color' : 'Colors'}</span>
+                    </span>
+                  </td>
+
+                  {/* Variant List Badges */}
+                  <td className="py-3.5 px-4">
+                    <div className="flex flex-wrap gap-1">
+                      {style.variantsList.map((v, i) => (
+                        <span key={i} className="inline-block rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700 border border-slate-200">
+                          {v}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+
+                  {/* Color List Swatches */}
+                  <td className="py-3.5 px-4">
+                    <div className="flex flex-wrap gap-1.5">
+                      {style.colorsList.map((c, i) => {
+                        const hex = getColorHex(c.color);
+                        const isLight = hex.toLowerCase() === '#ffffff' || hex.toLowerCase() === '#f8fafc';
+                        return (
+                          <span
+                            key={i}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 border border-slate-200 shadow-2xs"
+                            title={`${c.color} (${c.count} pcs)`}
+                          >
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full shrink-0 ${isLight ? 'border border-slate-300' : ''}`}
+                              style={{ backgroundColor: hex }}
+                            />
+                            <span>{c.color}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </td>
+
+                  {/* Available Pieces */}
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    {isOutOfStock ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-2.5 py-1 font-semibold text-rose-700 ring-1 ring-inset ring-rose-600/20">
+                        <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                        <span>0 Pcs (Out of stock)</span>
+                      </span>
+                    ) : isLowStock ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1 font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                        <span>{style.availablePieces} Pcs (Low stock)</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                        <Package className="h-3.5 w-3.5 text-violet-500" />
+                        <span>{style.availablePieces} Pcs</span>
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Total Pieces per Style */}
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 font-bold text-slate-800 border border-slate-200">
+                      <Boxes className="h-3.5 w-3.5 text-violet-500" />
+                      <span>{style.totalPieces} Pcs Total</span>
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile Stacked Card View */}
+      <div className="block md:hidden space-y-3">
+        {styleSummaries.map((style) => {
+          const isOutOfStock = style.availablePieces === 0;
+          const isLowStock = style.availablePieces > 0 && style.availablePieces < 20;
+
+          return (
+            <div
+              key={style.id}
+              className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs space-y-3 transition hover:border-slate-300"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 border border-slate-200">
+                    {style.photo ? (
+                      <img src={style.photo} alt={style.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <Tag className="h-5 w-5 text-slate-400" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-slate-900 text-sm truncate">{style.name}</h3>
+                    <p className="text-[11px] text-slate-400">{style.subOrdersCount} suborder record(s)</p>
+                  </div>
+                </div>
+
+                <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 border border-slate-200">
+                  Style Summary
+                </span>
+              </div>
+
+              {/* Metric Badges */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 p-2 font-medium text-slate-700 border border-slate-200">
+                  <Layers className="h-4 w-4 text-violet-500 shrink-0" />
+                  <span className="truncate">{style.totalVariants} Variants</span>
+                </div>
+                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 p-2 font-medium text-slate-700 border border-slate-200">
+                  <Palette className="h-4 w-4 text-violet-500 shrink-0" />
+                  <span className="truncate">{style.totalColors} Colors</span>
+                </div>
+              </div>
+
+              {/* Swatches & Variants */}
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Colors</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {style.colorsList.map((c, i) => {
+                      const hex = getColorHex(c.color);
+                      const isLight = hex.toLowerCase() === '#ffffff' || hex.toLowerCase() === '#f8fafc';
+                      return (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-0.5 text-[11px] font-medium text-slate-700 border border-slate-200"
+                        >
+                          <span
+                            className={`h-2.5 w-2.5 rounded-full shrink-0 ${isLight ? 'border border-slate-300' : ''}`}
+                            style={{ backgroundColor: hex }}
+                          />
+                          <span>{c.color}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Variants</span>
+                  <div className="flex flex-wrap gap-1">
+                    {style.variantsList.map((v, i) => (
+                      <span key={i} className="inline-block rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700 border border-slate-200">
+                        {v}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Stock Quantities Footer */}
+              <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-medium">Available</span>
+                  {isOutOfStock ? (
+                    <span className="inline-flex items-center gap-1 font-bold text-rose-700">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      0 Pcs
+                    </span>
+                  ) : isLowStock ? (
+                    <span className="inline-flex items-center gap-1 font-bold text-amber-700">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {style.availablePieces} Pcs
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
+                      <Package className="h-3.5 w-3.5 text-violet-500" />
+                      {style.availablePieces} Pcs
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block font-medium">Total Pieces</span>
+                  <span className="inline-flex items-center gap-1 font-bold text-slate-900">
+                    <Boxes className="h-3.5 w-3.5 text-violet-500" />
+                    {style.totalPieces} Pcs
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
 
 const INVENTORY_STATUSES = [
   { value: 'packed', label: 'Packed' },
@@ -55,7 +461,7 @@ const formatDate = (value) => {
   return new Date(value).toLocaleString();
 };
 
-const buildPiecesBreakdown = (pieces = {}, availablePieces = null) => {
+const buildPiecesBreakdown = (pieces = {}, targetPieces = null) => {
   const entries = [];
   if (!pieces || typeof pieces !== 'object') return entries;
 
@@ -70,8 +476,8 @@ const buildPiecesBreakdown = (pieces = {}, availablePieces = null) => {
     }
   });
 
-  const targetTotal = (availablePieces !== null && availablePieces !== undefined)
-    ? Number(availablePieces)
+  const targetTotal = (targetPieces !== null && targetPieces !== undefined)
+    ? Number(targetPieces)
     : rawTotal;
 
   const scaleFactor = (rawTotal > 0 && targetTotal !== rawTotal) ? (targetTotal / rawTotal) : 1;
@@ -231,6 +637,7 @@ export default function InventoryWorkspace({
   const [stylesList, setStylesList] = useState([]);
   const [editorState, setEditorState] = useState({});
   const [selectedItem, setSelectedItem] = useState(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   const loadInventory = async () => {
     setLoading(true);
@@ -286,7 +693,7 @@ export default function InventoryWorkspace({
     return inventory.reduce(
       (acc, item) => {
         acc.totalSubOrders += 1;
-        acc.totalPieces += Number(item.totalPackedPieces) || 0;
+        acc.totalPieces += Number(item.totalSubmittedPieces) || Number(item.totalCompletedPieces) || Number(item.approvedPieces) || Number(item.submittedPieces) || 0;
         acc.approvedPieces += Number(item.totalCompletedPieces) || 0;
         acc.availablePieces += Number(item.availablePieces) || 0;
         acc.damagedPieces += Number(item.totalDamagedPieces) || 0;
@@ -352,6 +759,14 @@ export default function InventoryWorkspace({
   };
 
   const getPrimaryColor = (pieces = {}) => Object.keys(pieces || {})[0] || 'N/A';
+  const getTotalSubmittedPieces = (item = {}) => {
+    const totalSubmittedPieces = Number(item.totalSubmittedPieces) || Number(item.totalCompletedPieces) || Number(item.approvedPieces) || Number(item.submittedPieces) || 0;
+    if (totalSubmittedPieces > 0) return totalSubmittedPieces;
+
+    const completedPieces = Number(item.totalCompletedPieces) || Number(item.approvedPieces) || 0;
+    const damagedPieces = Number(item.totalDamagedPieces) || Number(item.faultyPieces) || 0;
+    return completedPieces + damagedPieces;
+  };
 
   return (
     <div className="space-y-6">
@@ -377,9 +792,10 @@ export default function InventoryWorkspace({
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
           { label: 'Stored Suborders', value: summary.totalSubOrders, icon: ClipboardList, tone: 'from-cyan-500 to-blue-500' },
+          { label: 'Total Pieces Submitted', value: summary.totalPieces, icon: Boxes, tone: 'from-emerald-500 to-teal-500' },
           { label: 'Actual Quantity Present', value: summary.availablePieces, icon: Tag, tone: 'from-violet-500 to-fuchsia-500' }
         ].map((card) => {
           const Icon = card.icon;
@@ -399,6 +815,7 @@ export default function InventoryWorkspace({
         })}
       </section>
 
+      {/* Main Page Search & Filter Controls */}
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12 items-center">
           
@@ -412,7 +829,7 @@ export default function InventoryWorkspace({
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && loadInventory()}
                 placeholder="Search order, suborder, style..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-cyan-500 focus:bg-white"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
               />
             </label>
           </div>
@@ -424,7 +841,7 @@ export default function InventoryWorkspace({
               <select
                 value={selectedStyle}
                 onChange={(e) => setSelectedStyle(e.target.value)}
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-cyan-500 focus:bg-white"
+                className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
               >
                 <option value="all">All Styles</option>
                 {stylesList.map((st) => (
@@ -441,7 +858,7 @@ export default function InventoryWorkspace({
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-cyan-500 focus:bg-white"
+                className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
               >
                 <option value="all">All Statuses</option>
                 {INVENTORY_STATUSES.map((option) => (
@@ -475,7 +892,7 @@ export default function InventoryWorkspace({
         {/* Second Row: Date Range Filters */}
         <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100 text-xs text-slate-600">
           <div className="flex items-center gap-1.5 font-medium text-slate-500 shrink-0">
-            <CalendarDays className="h-4 w-4 text-cyan-600" />
+            <CalendarDays className="h-4 w-4 text-violet-600" />
             <span>Date Range:</span>
           </div>
 
@@ -521,81 +938,242 @@ export default function InventoryWorkspace({
           <p className="mt-2 text-sm text-slate-500">Final-stage approved suborders will appear here.</p>
         </div>
       ) : (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Image</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Order</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Style</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Color</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Pieces</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Location</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Updated</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {paginatedItems.map((item) => {
-                  const primaryColor = getPrimaryColor(item.pieces);
+        <StyleInventorySummaryTable inventory={inventory} onOpenDetails={() => setIsDetailsOpen(true)} />
+      )}
 
-                  return (
-                    <tr
-                      key={item._id}
-                      onClick={() => openInventoryItem(item)}
-                      className="cursor-pointer transition hover:bg-slate-50"
+      {/* Detailed Inventory Modal */}
+      {isDetailsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="relative w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-6xl flex flex-col bg-white sm:rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6 bg-slate-50/60 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600 border border-violet-200">
+                  <Table className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                    Detailed Inventory Records
+                    <span className="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700 border border-violet-200">
+                      {totalItems} {totalItems === 1 ? 'Record' : 'Records'}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-500">Search, filter, and view detailed suborder inventory records</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDetailsOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+                title="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+              {/* Filter Section */}
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12 items-center">
+                  
+                  {/* Search bar */}
+                  <div className="lg:col-span-4">
+                    <label className="relative block">
+                      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && loadInventory()}
+                        placeholder="Search order, suborder, style..."
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Style Filter Dropdown */}
+                  <div className="lg:col-span-3">
+                    <label className="relative block">
+                      <Tag className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <select
+                        value={selectedStyle}
+                        onChange={(e) => setSelectedStyle(e.target.value)}
+                        className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
+                      >
+                        <option value="all">All Styles</option>
+                        {stylesList.map((st) => (
+                          <option key={st._id} value={st._id}>{st.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  {/* Status Filter Dropdown */}
+                  <div className="lg:col-span-3">
+                    <label className="relative block">
+                      <Filter className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value)}
+                        className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
+                      >
+                        <option value="all">All Statuses</option>
+                        {INVENTORY_STATUSES.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  {/* Filter Action Buttons */}
+                  <div className="lg:col-span-2 flex items-center gap-2">
+                    <button
+                      onClick={loadInventory}
+                      disabled={loading}
+                      className="flex-1 inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
                     >
-                      <td className="px-4 py-3">
-                        <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
-                          {item.image ? (
-                            <img src={item.image} alt={item.order?.style?.name || item.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <Package2 className="h-6 w-6 text-slate-400" />
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap">
-                        <div className="font-semibold text-slate-900">{item.order?.orderId || item.orderId || 'N/A'}</div>
-                        <div className="text-xs text-slate-500">{item.subOrderCode || item.name || 'N/A'}</div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{item.order?.style?.name || item.name || 'N/A'}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{primaryColor}</td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap">
-                        <span className={`whitespace-nowrap inline-block rounded-full px-3 py-1 text-xs font-semibold capitalize ring-1 ${getStatusTone(item.inventoryStatus)}`}>
-                          {prettify(item.inventoryStatus)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-50 px-3 py-1.5 text-sm font-semibold text-cyan-800 ring-1 ring-inset ring-cyan-600/20">
-                          <Package2 className="h-4 w-4 text-cyan-600" />
-                          <span>{item.availablePieces ?? 0} Pcs</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{item.inventoryLocation || 'N/A'}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{formatDate(item.inventoryUpdatedAt)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openInventoryItem(item);
-                          }}
-                          aria-label={`View ${item.subOrderCode || item.order?.orderId || 'inventory item'}`}
-                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                        >
-                          <Eye className="h-4 w-4 text-cyan-600" />
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      Apply
+                    </button>
+                    {isFiltered && (
+                      <button
+                        onClick={handleResetFilters}
+                        className="rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200"
+                        title="Reset filters"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Second Row: Date Range Filters */}
+                <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100 text-xs text-slate-600">
+                  <div className="flex items-center gap-1.5 font-medium text-slate-500 shrink-0">
+                    <CalendarDays className="h-4 w-4 text-violet-600" />
+                    <span>Date Range:</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                      <span className="text-slate-400">From</span>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="bg-transparent text-xs text-slate-900 font-medium outline-none"
+                      />
+                    </div>
+
+                    <span className="text-slate-400">to</span>
+
+                    <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                      <span className="text-slate-400">To</span>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="bg-transparent text-xs text-slate-900 font-medium outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Detailed Table */}
+              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <div className="overflow-x-auto max-h-[50vh]">
+                  <table className="min-w-full divide-y divide-slate-200 text-left">
+                    <thead className="bg-slate-50 sticky top-0 z-10 shadow-xs border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-600">Image</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-600">Order</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-600">Style</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-600">Color</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-600">Status</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-600">Total Pieces</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-600">Location</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-600">Updated</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {paginatedItems.map((item) => {
+                        const primaryColor = getPrimaryColor(item.pieces);
+
+                        return (
+                          <tr
+                            key={item._id}
+                            onClick={() => openInventoryItem(item)}
+                            className="cursor-pointer transition hover:bg-slate-50"
+                          >
+                            <td className="px-4 py-3">
+                              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
+                                {item.image ? (
+                                  <img src={item.image} alt={item.order?.style?.name || item.name} className="h-full w-full object-cover" />
+                                ) : (
+                                  <Package2 className="h-6 w-6 text-slate-400" />
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm whitespace-nowrap">
+                              <div className="font-semibold text-slate-900">{item.order?.orderId || item.orderId || 'N/A'}</div>
+                              <div className="text-xs text-slate-500">{item.subOrderCode || item.name || 'N/A'}</div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{item.order?.style?.name || item.name || 'N/A'}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{primaryColor}</td>
+                            <td className="px-4 py-3 text-sm whitespace-nowrap">
+                              <span className={`whitespace-nowrap inline-block rounded-full px-3 py-1 text-xs font-semibold capitalize ring-1 ${getStatusTone(item.inventoryStatus)}`}>
+                                {prettify(item.inventoryStatus)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-50 px-3 py-1.5 text-sm font-semibold text-cyan-800 ring-1 ring-inset ring-cyan-600/20">
+                                <Package2 className="h-4 w-4 text-cyan-600" />
+                                <span>{getTotalSubmittedPieces(item)} Pcs</span>
+                              </span>
+                              {Number(item.totalDamagedPieces) > 0 && (
+                                <div className="mt-1 text-xs text-slate-500">
+                                  {item.availablePieces ?? 0} available
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{item.inventoryLocation || 'N/A'}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{formatDate(item.inventoryUpdatedAt)}</td>
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openInventoryItem(item);
+                                }}
+                                aria-label={`View ${item.subOrderCode || item.order?.orderId || 'inventory item'}`}
+                                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                              >
+                                <Eye className="h-4 w-4 text-cyan-600" />
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              {/* Modal Footer Pagination */}
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={pageSize}
+                onPageChange={handlePageChange}
+                itemLabel="inventory records"
+              />
+            </div>
           </div>
-        </section>
+        </div>
       )}
 
       <PaginationControls
@@ -609,7 +1187,8 @@ export default function InventoryWorkspace({
 
       {selectedItem && (() => {
         const item = selectedItem;
-        const piecesBreakdown = buildPiecesBreakdown(item.pieces, item.availablePieces);
+        const totalSubmittedPieces = getTotalSubmittedPieces(item);
+        const piecesBreakdown = buildPiecesBreakdown(item.pieces, totalSubmittedPieces);
         const form = editorState[item._id] || {
           inventoryStatus: item.inventoryStatus || 'packed',
           inventoryLocation: item.inventoryLocation || '',
@@ -664,7 +1243,17 @@ export default function InventoryWorkspace({
                 </div>
 
                 {/* Top Metrics Highlights Banner (Inside Scrollable Area) */}
-                <div className="grid grid-cols-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 p-4 text-white shadow-md flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] sm:text-xs font-semibold text-emerald-300 uppercase tracking-wider">Total Pieces Submitted</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Pieces submitted at the last completed stage</p>
+                    </div>
+                    <div className="flex items-baseline gap-1.5 bg-emerald-950/80 px-4 py-2 rounded-xl border border-emerald-500/30">
+                      <span className="text-2xl sm:text-3xl font-extrabold text-white">{totalSubmittedPieces}</span>
+                      <span className="text-xs font-semibold text-emerald-300">Pcs</span>
+                    </div>
+                  </div>
                   <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950 via-slate-900 to-slate-950 p-4 text-white shadow-md flex items-center justify-between">
                     <div>
                       <p className="text-[11px] sm:text-xs font-semibold text-cyan-300 uppercase tracking-wider">Actual Quantity Present in Inventory</p>

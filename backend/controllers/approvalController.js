@@ -151,15 +151,15 @@ export const getPackingInventory = async (req, res) => {
           damagedPieces,
           submittedPieces
         } = await calculateStageEarningsFromAssignments(subOrder);
-        const totalPackedPieces =
-          submittedPieces ||
-          (Number(subOrder.submittedPieces) || 0) ||
-          totalPlannedPieces;
         const totalCompletedPieces = completedPieces || Number(subOrder.approvedPieces) || 0;
         const totalDamagedPieces = damagedPieces || Number(subOrder.faultyPieces) || 0;
+        const totalReportedPieces = submittedPieces || Number(subOrder.submittedPieces) || (totalCompletedPieces + totalDamagedPieces);
+        const totalSubmittedPieces = totalCompletedPieces > 0
+          ? totalCompletedPieces
+          : Math.max(0, totalReportedPieces - totalDamagedPieces);
         const availablePieces = ['packed', 'ready_for_sale'].includes(subOrder.inventoryStatus)
-          ? (totalCompletedPieces || Math.max(0, totalPackedPieces - totalDamagedPieces))
-          : (subOrder.inventoryStatus === 'reserved' ? (totalCompletedPieces || Math.max(0, totalPackedPieces - totalDamagedPieces)) : 0);
+          ? totalSubmittedPieces
+          : (subOrder.inventoryStatus === 'reserved' ? totalSubmittedPieces : 0);
         const photos = Array.isArray(subOrder.order?.style?.photos) && subOrder.order.style.photos.length > 0
           ? subOrder.order.style.photos
           : (Array.isArray(subOrder.order?.style?.images) && subOrder.order.style.images.length > 0)
@@ -174,13 +174,14 @@ export const getPackingInventory = async (req, res) => {
 
         return {
           ...subOrder,
+          submittedPieces: totalSubmittedPieces,
           totalPlannedPieces,
-          totalPackedPieces,
+          totalSubmittedPieces,
           totalCompletedPieces,
           totalDamagedPieces,
           damageRate:
-            totalPackedPieces > 0
-              ? Number(((totalDamagedPieces / totalPackedPieces) * 100).toFixed(1))
+            totalReportedPieces > 0
+              ? Number(((totalDamagedPieces / totalReportedPieces) * 100).toFixed(1))
               : 0,
           availablePieces,
           image,

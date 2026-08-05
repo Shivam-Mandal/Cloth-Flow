@@ -104,9 +104,22 @@ export const ApprovalManagement = () => {
         }
       }
       return total;
-    } catch (e) {
+    } catch {
       return 0;
     }
+  };
+
+  const getSubmittedPiecesTotal = (approval) => {
+    const completedPieces = Number(approval?.approvedPieces) || 0;
+    if (completedPieces > 0) return completedPieces;
+
+    const submittedPieces = Number(approval?.submittedPieces);
+    if (Number.isFinite(submittedPieces) && submittedPieces > 0) {
+      const damagedPieces = Number(approval?.faultyPieces) || 0;
+      return Math.max(0, submittedPieces - damagedPieces);
+    }
+
+    return computePiecesTotal(approval?.pieces);
   };
 
   return (
@@ -279,7 +292,7 @@ export const ApprovalManagement = () => {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div className="text-center p-2 bg-white rounded-lg border border-emerald-100 shadow-2xs">
                   <div className="text-lg sm:text-xl font-bold text-blue-600">
-                    {computePiecesTotal(selectedApproval.pieces)}
+                    {getSubmittedPiecesTotal(selectedApproval)}
                   </div>
                   <div className="text-[10px] text-slate-500 font-medium">Total Submitted</div>
                 </div>
@@ -294,7 +307,7 @@ export const ApprovalManagement = () => {
                 <div className="text-center p-2 bg-white rounded-lg border border-emerald-100 shadow-2xs">
                   <div className="text-base sm:text-lg font-bold text-slate-700">
                     {(() => {
-                      const totalSubmitted = computePiecesTotal(selectedApproval.pieces);
+                      const totalSubmitted = getSubmittedPiecesTotal(selectedApproval);
                       return selectedApproval.faultyPieces > 0 && totalSubmitted > 0
                         ? `${((selectedApproval.faultyPieces / totalSubmitted) * 100).toFixed(1)}%`
                         : '0%';
