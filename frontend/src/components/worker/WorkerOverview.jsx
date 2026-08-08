@@ -10,15 +10,18 @@ import { useSocket } from "../../hooks/useSocket";
 // motion removed
 import { StatsCard, Card, EmptyState, Spinner } from "../ui/UIComponents";
 import { subscribeWorkerDataRefresh } from "../../utils/workerRefresh";
+import { dataCache } from "../../utils/dataCache";
 
 export default function WorkerOverview() {
   const { user } = useUser();
   const workerId = user?._id;
   const workerCategory = user?.workerType || user?.worker_type;
   const [tab, setTab] = useState("available");
-  const [pendingApprovals, setPendingApprovals] = useState([]);
-  const [completedWork, setCompletedWork] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const cachedPending = dataCache.getCache('workerPending');
+  const [pendingApprovals, setPendingApprovals] = useState(cachedPending || []);
+  const cachedCompleted = dataCache.getCache('workerCompleted');
+  const [completedWork, setCompletedWork] = useState(cachedCompleted || []);
+  const [loading, setLoading] = useState(!cachedPending);
   const [todaysTasks, setTodaysTasks] = useState(0);
   const lastRefreshRef = useRef({ assigned: 0, pending: 0, completed: 0 });
   const inFlightRef = useRef({ assigned: false, pending: false, completed: false });
@@ -55,7 +58,9 @@ export default function WorkerOverview() {
     try {
       const res = await fetchWorkerPendingApprovals();
       if (res.success) {
-        setPendingApprovals(res.approvals || []);
+        const list = res.approvals || [];
+        setPendingApprovals(list);
+        dataCache.setCache('workerPending', list);
       }
       lastRefreshRef.current.pending = Date.now();
     } catch (error) {
@@ -76,7 +81,9 @@ export default function WorkerOverview() {
     try {
       const res = await fetchWorkerCompletedWork();
       if (res.success) {
-        setCompletedWork(res.completedWork || []);
+        const list = res.completedWork || [];
+        setCompletedWork(list);
+        dataCache.setCache('workerCompleted', list);
       }
       lastRefreshRef.current.completed = Date.now();
     } catch (error) {

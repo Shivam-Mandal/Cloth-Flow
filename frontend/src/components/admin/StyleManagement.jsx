@@ -38,6 +38,7 @@ import {
 import * as styleService from '../services/styleServices'; // <-- ensure this file exists
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
+import { dataCache } from '../../utils/dataCache';
 import { useLayout } from '../context/LayoutContext';
 import api from '../../api/api';
 
@@ -88,7 +89,8 @@ const getStyleStatus = (style = {}) => style.status || (style.active === false ?
 
 export default function StyleManagement() {
   const { sidebarOpen, isMobile } = useLayout();
-  const [styles, setStyles] = useState([]);
+  const cachedStyles = dataCache.getCache('styles');
+  const [styles, setStyles] = useState(cachedStyles || []);
   const [availableStages, setAvailableStages] = useState([]);
   const [selectedStageIds, setSelectedStageIds] = useState([]);
   const [isStageManagerOpen, setIsStageManagerOpen] = useState(false);
@@ -99,7 +101,7 @@ export default function StyleManagement() {
   const [detailsStyle, setDetailsStyle] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [savingStyle, setSavingStyle] = useState(false);
-  const [loadingStyles, setLoadingStyles] = useState(true);
+  const [loadingStyles, setLoadingStyles] = useState(!cachedStyles);
   const [loadError, setLoadError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sizeFilter, setSizeFilter] = useState('all');
@@ -201,8 +203,10 @@ export default function StyleManagement() {
     return '';
   }, []);
 
-  const loadAllStylesAndStages = useCallback(async () => {
-    setLoadingStyles(true);
+  const loadAllStylesAndStages = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh || !dataCache.getCache('styles')) {
+      setLoadingStyles(true);
+    }
     setLoadError('');
     try {
       const [styleData, stageData] = await Promise.all([
@@ -214,7 +218,10 @@ export default function StyleManagement() {
         ? stageData
         : defaultSteps.map((stage, index) => ({ _id: stage, name: stage, sortOrder: index + 1, active: true }));
 
-      setStyles(styleData || []);
+      const fetchedStyles = styleData || [];
+      setStyles(fetchedStyles);
+      dataCache.setCache('styles', fetchedStyles);
+
       const sortedStages = sortStages(stages);
       setAvailableStages(sortedStages);
       setSelectedStageIds(sortedStages.filter((stage) => stage.active !== false).map((stage) => stage._id));
@@ -821,7 +828,7 @@ export default function StyleManagement() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <button
             type="button"
-            onClick={loadAllStylesAndStages}
+            onClick={() => loadAllStylesAndStages(true)}
             disabled={loadingStyles}
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:text-blue-600 hover:border-blue-200 disabled:opacity-50"
           >

@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { History, CheckCircle, XCircle, Clock, Filter, Search, X, RotateCcw, RotateCw } from 'lucide-react';
 import { fetchApprovalHistory } from '../services/approvalServices';
 import { toast } from 'react-toastify';
+import { dataCache } from '../../utils/dataCache';
 
 export const ApprovalHistory = () => {
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const cachedHistory = dataCache.getCache('approvalHistory');
+  const [history, setHistory] = useState(cachedHistory || []);
+  const [loading, setLoading] = useState(!cachedHistory);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
@@ -17,8 +19,10 @@ export const ApprovalHistory = () => {
   });
   const [pagination, setPagination] = useState(null);
 
-  const loadHistory = async () => {
-    setLoading(true);
+  const loadHistory = async (isManualRefresh = false) => {
+    if (isManualRefresh || !dataCache.getCache('approvalHistory')) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const params = { ...filters };
@@ -27,7 +31,9 @@ export const ApprovalHistory = () => {
       });
 
       const res = await fetchApprovalHistory(params);
-      setHistory(res.history || []);
+      const fetched = res.history || [];
+      setHistory(fetched);
+      dataCache.setCache('approvalHistory', fetched);
       setPagination(res.pagination);
     } catch (e) {
       console.error('Failed to load approval history', e);
@@ -156,7 +162,7 @@ export const ApprovalHistory = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={loadHistory}
+            onClick={() => loadHistory(true)}
             disabled={loading}
             className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
             title="Force refresh approval history"

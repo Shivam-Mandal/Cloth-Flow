@@ -9,23 +9,28 @@ import {
 import { emitWorkerDataRefresh, subscribeWorkerDataRefresh } from '../../utils/workerRefresh';
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
+import { dataCache } from '../../utils/dataCache';
 
 export const AssignedTasks = () => {
-  const [mine, setMine] = useState([]);
-  const [loading, setLoading] = useState({ fetch: false, action: false });
+  const cachedAssigned = dataCache.getCache('assignedTasks');
+  const [mine, setMine] = useState(cachedAssigned || []);
+  const [loading, setLoading] = useState({ fetch: !cachedAssigned, action: false });
   const [error, setError] = useState(null);
   const [completionModal, setCompletionModal] = useState({ open: false, assignment: null });
   const [completionData, setCompletionData] = useState({ completedPieces: '', damagedPieces: '', damagedReason: '' });
   const [modalError, setModalError] = useState(null);
   const lastRefreshRef = useRef(0);
 
-  const loadMine = useCallback(async () => {
-    setLoading(l => ({ ...l, fetch: true }));
+  const loadMine = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh || !dataCache.getCache('assignedTasks')) {
+      setLoading(l => ({ ...l, fetch: true }));
+    }
     setError(null);
     try {
       const res = await fetchAssignedForMe();
       const list = Array.isArray(res) ? res : (res?.assignments ?? (res?.data ?? []));
       setMine(list);
+      dataCache.setCache('assignedTasks', list);
       lastRefreshRef.current = Date.now();
     } catch (e) {
       console.error('Failed to load my assignments', e);
@@ -187,7 +192,7 @@ export const AssignedTasks = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={loadMine}
+            onClick={() => loadMine(true)}
             disabled={loading.fetch}
             className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
           >

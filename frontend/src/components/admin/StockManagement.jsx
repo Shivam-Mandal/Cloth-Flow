@@ -295,6 +295,7 @@ import stockService from '../services/stockServices';
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import api from '../../api/api';
+import { dataCache } from '../../utils/dataCache';
 
 const emptyStockForm = {
   vendor: '',
@@ -371,8 +372,9 @@ const getColorHex = (color) => {
 };
 
 export const StockManagement = () => {
-  const [stocks, setStocks] = useState([]);
-  const [loadingStocks, setLoadingStocks] = useState(true);
+  const cachedStocks = dataCache.getCache('stocks');
+  const [stocks, setStocks] = useState(cachedStocks || []);
+  const [loadingStocks, setLoadingStocks] = useState(!cachedStocks);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingStock, setEditingStock] = useState(null);
   const [savingStock, setSavingStock] = useState(false);
@@ -381,11 +383,15 @@ export const StockManagement = () => {
   const [selectedVendor, setSelectedVendor] = useState('all');
   const [newStock, setNewStock] = useState(emptyStockForm);
 
-  const loadStocks = async () => {
-    setLoadingStocks(true);
+  const loadStocks = async (isManualRefresh = false) => {
+    if (isManualRefresh || !dataCache.getCache('stocks')) {
+      setLoadingStocks(true);
+    }
     try {
       const data = await stockService.fetchStocks();
-      setStocks(data || []);
+      const fetched = data || [];
+      setStocks(fetched);
+      dataCache.setCache('stocks', fetched);
     } catch (err) {
       console.error('Failed to load stocks', err);
     } finally {
@@ -601,7 +607,7 @@ export const StockManagement = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={loadStocks}
+            onClick={() => loadStocks(true)}
             className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer"
             title="Force refresh stock data"
           >

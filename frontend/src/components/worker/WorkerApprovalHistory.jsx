@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { History, CheckCircle, XCircle, Clock, TrendingUp, RotateCw } from 'lucide-react';
 import { fetchWorkerApprovalHistory } from '../services/approvalServices';
 import { toast } from 'react-toastify';
+import { dataCache } from '../../utils/dataCache';
 
 export const WorkerApprovalHistory = () => {
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const cachedWorkerHistory = dataCache.getCache('workerApprovalHistory');
+  const [history, setHistory] = useState(cachedWorkerHistory || []);
+  const [loading, setLoading] = useState(!cachedWorkerHistory);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({
     totalSubmissions: 0,
@@ -16,12 +18,16 @@ export const WorkerApprovalHistory = () => {
   const [pagination, setPagination] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const loadHistory = async (page = 1) => {
-    setLoading(true);
+  const loadHistory = async (page = 1, isManualRefresh = false) => {
+    if (isManualRefresh || !dataCache.getCache('workerApprovalHistory')) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await fetchWorkerApprovalHistory({ page, limit: 20 });
-      setHistory(res.history || []);
+      const fetched = res.history || [];
+      setHistory(fetched);
+      dataCache.setCache('workerApprovalHistory', fetched);
       setPagination(res.pagination);
       setStats(res.stats || {
         totalSubmissions: 0,
@@ -74,7 +80,7 @@ export const WorkerApprovalHistory = () => {
         </div>
         <button
           type="button"
-          onClick={() => loadHistory(currentPage)}
+          onClick={() => loadHistory(currentPage, true)}
           disabled={loading}
           className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
         >

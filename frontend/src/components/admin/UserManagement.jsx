@@ -16,6 +16,7 @@ import {
 import { createUser, fetchUsers, updateUser } from '../services/userServices';
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
+import { dataCache } from '../../utils/dataCache';
 
 const fallbackWorkerTypes = ['Cutting', 'Printing', 'Stitching', 'Finishing', 'Packing', 'Inventory'];
 
@@ -36,9 +37,10 @@ const roleTone = (role) =>
     : 'bg-emerald-100 text-emerald-700 ring-emerald-200';
 
 export default function UserManagement() {
-  const [users, setUsers] = useState([]);
+  const cachedUsers = dataCache.getCache('users');
+  const [users, setUsers] = useState(cachedUsers || []);
   const [workerTypes, setWorkerTypes] = useState(fallbackWorkerTypes);
-  const [loading, setLoading] = useState({ fetch: false, submit: false, update: false });
+  const [loading, setLoading] = useState({ fetch: !cachedUsers, submit: false, update: false });
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [creationResult, setCreationResult] = useState(null);
@@ -69,13 +71,17 @@ export default function UserManagement() {
     address: ''
   });
 
-  const loadUsers = async () => {
-    setLoading((prev) => ({ ...prev, fetch: true }));
+  const loadUsers = async (isManualRefresh = false) => {
+    if (isManualRefresh || !dataCache.getCache('users')) {
+      setLoading((prev) => ({ ...prev, fetch: true }));
+    }
     setError(null);
 
     try {
       const res = await fetchUsers();
-      setUsers(res.users || []);
+      const fetched = res.users || [];
+      setUsers(fetched);
+      dataCache.setCache('users', fetched);
       setWorkerTypes(res.availableWorkerTypes?.length ? res.availableWorkerTypes : fallbackWorkerTypes);
       setFormData((prev) => ({
         ...prev,
@@ -276,7 +282,7 @@ export default function UserManagement() {
               Create User
             </button>
             <button
-              onClick={loadUsers}
+              onClick={() => loadUsers(true)}
               disabled={loading.fetch}
               className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/15 disabled:opacity-60 sm:w-auto"
             >

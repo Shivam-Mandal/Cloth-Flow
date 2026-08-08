@@ -13,11 +13,13 @@
   import PaginationControls from '../ui/PaginationControls';
   import { useClientPagination } from '../../hooks/useClientPagination';
   import { useUser } from '../context/UserContext';
+  import { dataCache } from '../../utils/dataCache';
 
   export const AvailableTasks = ({ workerId, workerCategory: initialWorkerCategory = null }) => {
     const { user } = useUser();
-    const [assignments, setAssignments] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const cachedAvailable = dataCache.getCache('availableTasks');
+    const [assignments, setAssignments] = useState(cachedAvailable || []);
+    const [loading, setLoading] = useState(!cachedAvailable);
     const [selectedProcess, setSelectedProcess] = useState('all');
     const [selectedPriority, setSelectedPriority] = useState('all');
     const [claimingId, setClaimingId] = useState(null);
@@ -72,7 +74,7 @@
     };
 
     // load available tasks with robust fallbacks
-    const load = async () => {
+    const load = async (isManualRefresh = false) => {
       // If we're still resolving worker info, skip fetch (avoid setting loading stuck)
       if (workerLoading) {
         // ensure UI doesn't show permanent loading
@@ -81,7 +83,9 @@
       }
 
       try {
-        setLoading(true);
+        if (isManualRefresh || !dataCache.getCache('availableTasks')) {
+          setLoading(true);
+        }
 
         let data = null;
 
@@ -128,6 +132,7 @@
           : arr;
 
         setAssignments(filteredByCategory);
+        dataCache.setCache('availableTasks', filteredByCategory);
       } catch (err) {
         console.error('Failed to load available assignments', err);
         toast.error('Failed to load tasks');
@@ -321,7 +326,7 @@
             <button
               type="button"
               onClick={() => {
-                load();
+                load(true);
                 loadAssignedForMe();
               }}
               disabled={loading}

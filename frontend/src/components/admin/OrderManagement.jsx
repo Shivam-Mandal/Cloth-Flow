@@ -26,6 +26,7 @@ import * as styleService from '../services/styleServices';
 import stockService from '../services/stockServices';
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
+import { dataCache } from '../../utils/dataCache';
 
 const colorMap = {
   black: '#111827',
@@ -118,10 +119,11 @@ const getPriorityColor = (priority = 'Normal') => {
 };
 
 export const OrderManagement = () => {
-  const [orders, setOrders] = useState([]);
-  const [styles, setStyles] = useState([]);
-  const [vendors, setVendors] = useState([]);
-  const [stocks, setStocks] = useState([]);
+  const cachedOrders = dataCache.getCache('orders');
+  const [orders, setOrders] = useState(cachedOrders || []);
+  const [styles, setStyles] = useState(dataCache.getCache('styles') || []);
+  const [vendors, setVendors] = useState(dataCache.getCache('vendors') || []);
+  const [stocks, setStocks] = useState(dataCache.getCache('stocks') || []);
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [viewingOrder, setViewingOrder] = useState(null);
@@ -135,24 +137,29 @@ export const OrderManagement = () => {
   const [photoMap, setPhotoMap] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedOrders);
 
   const fetchOrders = async () => {
     try {
       const res = await orderService.getOrders();
-      setOrders(normalizeOrdersResponse(res).map(normalizeOrder));
+      const norm = normalizeOrdersResponse(res).map(normalizeOrder);
+      setOrders(norm);
+      dataCache.setCache('orders', norm);
     } catch (err) {
       console.error('Failed to fetch orders:', err);
     }
   };
 
-  const loadAllData = async () => {
-    setLoading(true);
+  const loadAllData = async (isManualRefresh = false) => {
+    if (isManualRefresh || !dataCache.getCache('orders')) {
+      setLoading(true);
+    }
     try {
       await Promise.allSettled([
         (async () => {
           const data = await styleService.fetchStyles();
           setStyles(data || []);
+          if (data) dataCache.setCache('styles', data);
           setPhotoMap((data || []).reduce((map, style) => {
             map[style._id || style.id] = getStylePhoto(style);
             return map;
@@ -165,6 +172,8 @@ export const OrderManagement = () => {
           ]);
           setVendors(fetchedVendors || []);
           setStocks(fetchedStocks || []);
+          if (fetchedVendors) dataCache.setCache('vendors', fetchedVendors);
+          if (fetchedStocks) dataCache.setCache('stocks', fetchedStocks);
         })(),
         fetchOrders()
       ]);
@@ -360,7 +369,7 @@ export const OrderManagement = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={loadAllData}
+            onClick={() => loadAllData(true)}
             disabled={loading}
             className="flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
           >

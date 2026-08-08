@@ -27,6 +27,7 @@ import {
 import { toast } from 'react-toastify';
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
+import { dataCache } from '../../utils/dataCache';
 
 const extractSizesFromPieces = (pieces, name) => {
   const sizes = new Set();
@@ -65,8 +66,9 @@ const getStyleName = (item) => {
 };
 
 export const ApprovalManagement = () => {
-  const [pendingApprovals, setPendingApprovals] = useState([]);
-  const [loading, setLoading] = useState({ fetch: false, action: false, summary: false });
+  const cachedApprovals = dataCache.getCache('pendingApprovals');
+  const [pendingApprovals, setPendingApprovals] = useState(cachedApprovals || []);
+  const [loading, setLoading] = useState({ fetch: !cachedApprovals, action: false, summary: false });
   const [error, setError] = useState(null);
 
   // Selection state
@@ -88,14 +90,18 @@ export const ApprovalManagement = () => {
   const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState('');
 
-  const loadPendingApprovals = async () => {
-    setLoading(l => ({ ...l, fetch: true }));
+  const loadPendingApprovals = async (isManualRefresh = false) => {
+    if (isManualRefresh || !dataCache.getCache('pendingApprovals')) {
+      setLoading(l => ({ ...l, fetch: true }));
+    }
     setError(null);
     try {
       const res = await fetchPendingApprovals();
-      setPendingApprovals(res.approvals || []);
+      const approvals = res.approvals || [];
+      setPendingApprovals(approvals);
+      dataCache.setCache('pendingApprovals', approvals);
       // Reset selections that are no longer pending
-      setSelectedIds(prev => prev.filter(id => (res.approvals || []).some(a => a._id === id)));
+      setSelectedIds(prev => prev.filter(id => approvals.some(a => a._id === id)));
     } catch (e) {
       console.error('Failed to load pending approvals', e);
       setError(e?.response?.data?.message || e.message || 'Failed to load approvals');
@@ -321,7 +327,7 @@ export const ApprovalManagement = () => {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={loadPendingApprovals}
+            onClick={() => loadPendingApprovals(true)}
             disabled={loading.fetch}
             className="p-2 text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             title="Refresh pending list"
