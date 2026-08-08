@@ -809,7 +809,7 @@ export default function StyleManagement() {
     <div className="space-y-6">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold">Style Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold">Catalog Upload</h1>
           <p className="text-sm text-gray-500">Create and manage style definitions and per-step pricing.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

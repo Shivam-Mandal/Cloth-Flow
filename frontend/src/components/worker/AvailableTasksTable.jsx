@@ -10,6 +10,7 @@ import {
 import { getWorker } from '../services/workerService';
 import { toast } from 'react-toastify';
 import { emitWorkerDataRefresh, subscribeWorkerDataRefresh } from '../../utils/workerRefresh';
+import { useUser } from '../context/UserContext';
 
 // local thumbnail fallback — put placeholder.png in your public/ folder
 const exampleThumb = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100%25' height='100%25' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%239ca3af'%3ENo Photo%3C/text%3E%3C/svg%3E";
@@ -204,7 +205,8 @@ const TaskRow = React.memo(({
   claimingId,
   onClaim,
   workerId,
-  onOpenGallery // (images: string[], startIndex:number)
+  onOpenGallery, // (images: string[], startIndex:number)
+  allowMultipleClaims = false
 }) => {
   const resolved = useMemo(() => resolveAllImages(chunk), [chunk?._id]); // depend only on id
   const candidates = resolved.candidates || [exampleThumb];
@@ -221,7 +223,7 @@ const TaskRow = React.memo(({
   const { sku, color, size, pieces } = useMemo(() => extractSkuColorSize(chunk, orderKey), [chunk, orderKey]);
   const subOrderCode = useMemo(() => getSubOrderCode(chunk), [chunk]);
   const subOrderShort = subOrderCode || shortId(chunk?.subOrder?._id || chunk?.subOrder || chunk?._id);
-  const disabled = Boolean(activeAssignedId) || claimingId === chunk._id || !workerId;
+  const disabled = (Boolean(activeAssignedId) && !allowMultipleClaims) || claimingId === chunk._id || !workerId;
   const badgeClass = status === 'Current' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
 
   // Prefetch thumbs once to stabilize browser caching and reduce flicker
@@ -308,9 +310,10 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
   const [galleryImages, setGalleryImages] = useState([]);
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
-
+  const { user } = useUser();
   const [workerCategory, setWorkerCategory] = useState(initialWorkerCategory);
   const [workerLoading, setWorkerLoading] = useState(!initialWorkerCategory && Boolean(workerId));
+  const [allowMultipleClaims, setAllowMultipleClaims] = useState(Boolean(user?.allowMultipleClaims));
 
   const [activeAssigned, setActiveAssigned] = useState(null);
   const [, setAssignedLoading] = useState(true);
@@ -322,11 +325,13 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
   const loadWorker = useCallback(async (signal) => {
     if (initialWorkerCategory) {
       setWorkerCategory(initialWorkerCategory);
+      setAllowMultipleClaims(Boolean(user?.allowMultipleClaims));
       setWorkerLoading(false);
       return;
     }
     if (!workerId) {
       setWorkerCategory(null);
+      setAllowMultipleClaims(Boolean(user?.allowMultipleClaims));
       setWorkerLoading(false);
       return;
     }
@@ -336,16 +341,23 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
       const w = await getWorker(workerId, { signal });
       const workerObj = w?.data || w?.worker || w;
       const wt = workerObj?.workerType ?? workerObj?.category ?? workerObj?.type ?? workerObj?.worker_type ?? null;
-      if (mountedRef.current) setWorkerCategory(wt ?? null);
+      const canMultiple = Boolean(workerObj?.allowMultipleClaims ?? user?.allowMultipleClaims);
+      if (mountedRef.current) {
+        setWorkerCategory(wt ?? null);
+        setAllowMultipleClaims(canMultiple);
+      }
     } catch (err) {
       if (err.name === 'AbortError') return;
       console.error('loadWorker error', err);
       toast.error('Failed to load worker profile — showing all tasks');
-      if (mountedRef.current) setWorkerCategory(null);
+      if (mountedRef.current) {
+        setWorkerCategory(null);
+        setAllowMultipleClaims(Boolean(user?.allowMultipleClaims));
+      }
     } finally {
       if (mountedRef.current) setWorkerLoading(false);
     }
-  }, [workerId, initialWorkerCategory]);
+  }, [workerId, initialWorkerCategory, user]);
 
   const fetchAvailable = useCallback(async (signal) => {
     if (workerLoading) return [];
@@ -523,7 +535,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
 
   const handleClaim = useCallback(async (chunkId) => {
     if (!workerId) { toast.error('Worker not identified — cannot claim. Please login or provide workerId.'); return; }
-    if (activeAssigned) { toast.error('Please complete your current assignment before claiming another.'); return; }
+    if (activeAssigned && !allowMultipleClaims) { toast.error('Please complete your current assignment before claiming another.'); return; }
 
     setClaimingId(chunkId);
     try {
@@ -543,7 +555,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
     } finally {
       if (mountedRef.current) setClaimingId(null);
     }
-  }, [workerId, activeAssigned, loadAssignedForMe, fetchAvailable]);
+  }, [workerId, activeAssigned, allowMultipleClaims, loadAssignedForMe, fetchAvailable]);
 
   const grouped = useMemo(() => {
     const map = new Map();
@@ -595,6 +607,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
                 onClaim={handleClaim}
                 workerId={workerId}
                 onOpenGallery={openGallery}
+                allowMultipleClaims={allowMultipleClaims}
               />
             )}
 
@@ -613,6 +626,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
                 onClaim={handleClaim}
                 workerId={workerId}
                 onOpenGallery={openGallery}
+                allowMultipleClaims={allowMultipleClaims}
               />
             ))}
 

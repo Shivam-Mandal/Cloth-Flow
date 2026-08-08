@@ -120,11 +120,13 @@ export const OrderManagement = () => {
   const [orders, setOrders] = useState([]);
   const [styles, setStyles] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [stocks, setStocks] = useState([]);
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [viewingOrder, setViewingOrder] = useState(null);
   const [selectedStyleId, setSelectedStyleId] = useState('');
   const [selectedVendor, setSelectedVendor] = useState('');
+  const [selectedFabric, setSelectedFabric] = useState('');
   const [pieces, setPieces] = useState({});
   const [requiredKgInput, setRequiredKgInput] = useState('');
   const [deadlineInput, setDeadlineInput] = useState('');
@@ -149,14 +151,19 @@ export const OrderManagement = () => {
   }, []);
 
   useEffect(() => {
-    const fetchVendors = async () => {
+    const fetchVendorsAndStocks = async () => {
       try {
-        setVendors((await stockService.fetchVendors()) || []);
+        const [fetchedVendors, fetchedStocks] = await Promise.all([
+          stockService.fetchVendors(),
+          stockService.fetchStocks()
+        ]);
+        setVendors(fetchedVendors || []);
+        setStocks(fetchedStocks || []);
       } catch (err) {
-        console.error('Failed to fetch vendors:', err);
+        console.error('Failed to fetch vendors/stocks:', err);
       }
     };
-    fetchVendors();
+    fetchVendorsAndStocks();
   }, []);
 
   useEffect(() => {
@@ -172,6 +179,15 @@ export const OrderManagement = () => {
   }, []);
 
   const selectedStyle = styles.find((style) => style._id === selectedStyleId || style.id === selectedStyleId);
+
+  const availableFabrics = useMemo(() => {
+    if (!selectedVendor) return [];
+    const matching = stocks.filter(
+      (s) => (s.vendor || '').trim().toLowerCase() === (selectedVendor || '').trim().toLowerCase() && s.fabric
+    );
+    const fabricList = Array.from(new Set(matching.map((s) => s.fabric.trim()))).filter(Boolean);
+    return fabricList;
+  }, [stocks, selectedVendor]);
 
   const stats = useMemo(() => {
     const normalized = orders.map(normalizeOrder);
@@ -198,6 +214,7 @@ export const OrderManagement = () => {
     setEditingOrder(null);
     setSelectedStyleId('');
     setSelectedVendor('');
+    setSelectedFabric('');
     setPieces({});
     setRequiredKgInput('');
     setDeadlineInput('');
@@ -227,6 +244,11 @@ export const OrderManagement = () => {
     initializePiecesForStyle(style);
   };
 
+  const handleVendorChange = (vendorValue) => {
+    setSelectedVendor(vendorValue);
+    setSelectedFabric('');
+  };
+
   const openCreateOrder = () => {
     resetForm();
     setShowOrderForm(true);
@@ -237,6 +259,7 @@ export const OrderManagement = () => {
     setEditingOrder(normalized);
     setSelectedStyleId(normalized.style?._id || normalized.style || '');
     setSelectedVendor(normalized.vendor || '');
+    setSelectedFabric(normalized.fabric || '');
     setPieces(normalized.pieces || {});
     setRequiredKgInput(normalized.requiredKg ?? '');
     setDeadlineInput(normalized.deadline ? new Date(normalized.deadline).toISOString().slice(0, 10) : '');
@@ -263,7 +286,8 @@ export const OrderManagement = () => {
       requiredKg: requiredKgInput ? Number(requiredKgInput) : undefined,
       deadline: deadlineInput ? new Date(deadlineInput).toISOString() : undefined,
       priority: priorityInput || 'Normal',
-      vendor: selectedVendor || undefined
+      vendor: selectedVendor || undefined,
+      fabric: selectedFabric || undefined
     };
 
     try {
@@ -338,21 +362,22 @@ export const OrderManagement = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
         {statCards.map(({ label, count, icon: Icon, color }) => (
-          <div key={label} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-5">
-              <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-xl ${colorClasses[color]}`}>
-                <Icon className="h-8 w-8" />
+          <div key={label} className="rounded-xl border border-gray-200 bg-white p-3.5 sm:p-6 shadow-sm">
+            <div className="flex items-center gap-3 sm:gap-5">
+              <div className={`flex h-10 w-10 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-xl ${colorClasses[color]}`}>
+                <Icon className="h-5 w-5 sm:h-8 sm:w-8" />
               </div>
-              <div>
-                <p className="text-base font-medium text-gray-600">{label}</p>
-                <p className="mt-1 text-3xl font-bold text-gray-900">{count}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-base font-medium text-gray-600 truncate">{label}</p>
+                <p className="mt-0.5 sm:mt-1 text-xl sm:text-3xl font-bold text-gray-900">{count}</p>
               </div>
             </div>
           </div>
         ))}
       </div>
+
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="flex items-center gap-3 border-b border-gray-200 p-5">
@@ -368,18 +393,16 @@ export const OrderManagement = () => {
               <col className="w-[72px]" />
               <col className="w-[150px]" />
               <col className="w-[130px]" />
+              <col className="w-[120px]" />
               <col className="w-[100px]" />
-              <col className="w-[86px]" />
-              <col className="w-[140px]" />
-              <col className="w-[150px]" />
-              <col className="w-[76px]" />
+              <col className="w-[160px]" />
               <col className="w-[100px]" />
-              <col className="w-[118px]" />
+              <col className="w-[120px]" />
               <col className="w-[120px]" />
             </colgroup>
             <thead className="bg-gray-50">
               <tr>
-                {['Photos', 'Order ID', 'Design', 'Vendor', 'Required KG', 'Current Stage', 'Progress', 'Workers', 'Priority', 'Deadline', 'Actions'].map((head) => (
+                {['Photos', 'Order ID', 'Design', 'Vendor', 'Required KG', 'Progress', 'Priority', 'Deadline', 'Actions'].map((head) => (
                   <th key={head} className="px-3 py-3 text-left text-[11px] font-semibold uppercase text-gray-500">
                     {head}
                   </th>
@@ -389,7 +412,7 @@ export const OrderManagement = () => {
             <tbody className="divide-y divide-gray-200 bg-white">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-10 text-center text-gray-500">
+                  <td colSpan={9} className="py-10 text-center text-gray-500">
                     No orders available
                   </td>
                 </tr>
@@ -411,14 +434,15 @@ export const OrderManagement = () => {
                       </td>
                       <td className="break-words px-3 py-2 text-xs font-bold leading-snug text-gray-900">{order.orderId || '—'}</td>
                       <td className="px-3 py-2 text-sm leading-snug text-gray-800">{order.styleSnapshot?.name || order.style?.name || order.design || 'N/A'}</td>
-                      <td className="px-3 py-2 text-sm text-gray-800">{order.vendor || 'N/A'}</td>
-                      <td className="px-3 py-2 text-sm text-gray-800">{order.requiredKg ?? 0} kg</td>
-                      <td className="px-3 py-2">
-                        <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-bold ${getStatusColor(order)}`}>
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                          {getStageLabel(order)}
-                        </span>
+                      <td className="px-3 py-2 text-sm text-gray-800">
+                        <div>{order.vendor || 'N/A'}</div>
+                        {order.fabric && (
+                          <span className="inline-block mt-0.5 rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">
+                            {order.fabric}
+                          </span>
+                        )}
                       </td>
+                      <td className="px-3 py-2 text-sm text-gray-800">{order.requiredKg ?? 0} kg</td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-20 overflow-hidden rounded-full bg-gray-200">
@@ -427,7 +451,6 @@ export const OrderManagement = () => {
                           <span className="w-9 text-sm font-semibold text-gray-600">{progress}%</span>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-sm text-gray-800">{order.assignedWorkers || 0}</td>
                       <td className="px-3 py-2">
                         <span className={`rounded-md px-2 py-1 text-xs font-bold ${getPriorityColor(order.priority)}`}>
                           {order.priority || 'Normal'}
@@ -519,7 +542,7 @@ export const OrderManagement = () => {
                     <Store className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-green-600" />
                     <select
                       value={selectedVendor}
-                      onChange={(e) => setSelectedVendor(e.target.value)}
+                      onChange={(e) => handleVendorChange(e.target.value)}
                       className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 pl-11 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
                       disabled={isSubmitting}
                     >
@@ -532,6 +555,39 @@ export const OrderManagement = () => {
                     </select>
                   </div>
                 </div>
+
+                {selectedVendor && (
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-gray-700">Fabric</label>
+                    <div className="relative">
+                      <Shirt className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-purple-600" />
+                      {availableFabrics.length > 0 ? (
+                        <select
+                          value={selectedFabric}
+                          onChange={(e) => setSelectedFabric(e.target.value)}
+                          className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 pl-11 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                          disabled={isSubmitting}
+                        >
+                          <option value="">Select fabric for {selectedVendor}</option>
+                          {availableFabrics.map((fabric) => (
+                            <option key={fabric} value={fabric}>
+                              {fabric}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={selectedFabric}
+                          onChange={(e) => setSelectedFabric(e.target.value)}
+                          placeholder="Enter fabric name (e.g. Cotton, Silk)"
+                          className="h-11 w-full rounded-lg border border-gray-300 px-3 pl-11 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                          disabled={isSubmitting}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                   <div>

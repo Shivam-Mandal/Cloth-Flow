@@ -20,6 +20,21 @@ export const rejectSubOrder = async (subOrderId, reason = '') => {
   return res.data;
 };
 
+export const fetchBulkApprovalSummary = async (subOrderIds) => {
+  const res = await api.post('/approvals/summary', { subOrderIds });
+  return res.data;
+};
+
+export const bulkApproveSubOrders = async (subOrderIds) => {
+  const res = await api.post('/approvals/bulk-approve', { subOrderIds });
+  return res.data;
+};
+
+export const bulkRejectSubOrders = async (subOrderIds, reason = '') => {
+  const res = await api.post('/approvals/bulk-reject', { subOrderIds, reason });
+  return res.data;
+};
+
 export const fetchApprovalHistory = async (params = {}) => {
   const res = await api.get('/approvals/history', { params });
   return res.data;

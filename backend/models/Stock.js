@@ -7,6 +7,8 @@ const StockSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true }, // e.g. "Navy Blue"
     hex: { type: String, trim: true }                   // optional hex code e.g. "#003366"
   },
+  fabric: { type: String, trim: true, default: '' },    // e.g. "Cotton", "Silk"
+  image: { type: String, trim: true, default: '' },     // Cloudinary image URL
   quantityKg: { type: Number, required: true, min: 0 }, // quantity in kg
   unitPrice: { type: Number, required: true, min: 0 },  // price per kg (or unit) in store currency
   sizeMm: { type: Number, default: null },              // optional size in mm

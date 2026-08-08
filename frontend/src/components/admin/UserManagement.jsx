@@ -10,7 +10,8 @@ import {
   Sparkles,
   KeyRound,
   X,
-  Pencil
+  Pencil,
+  CheckCircle
 } from 'lucide-react';
 import { createUser, fetchUsers, updateUser } from '../services/userServices';
 import PaginationControls from '../ui/PaginationControls';
@@ -49,6 +50,9 @@ export default function UserManagement() {
     password: '',
     role: 'worker',
     workerType: fallbackWorkerTypes[0],
+    allowMultipleClaims: false,
+    autoApprove: false,
+    allowExcessPieces: false,
     phone: '',
     address: ''
   });
@@ -58,6 +62,9 @@ export default function UserManagement() {
     password: generatePassword(),
     role: 'worker',
     workerType: fallbackWorkerTypes[0],
+    allowMultipleClaims: false,
+    autoApprove: false,
+    allowExcessPieces: false,
     phone: '',
     address: ''
   });
@@ -85,6 +92,16 @@ export default function UserManagement() {
   useEffect(() => {
     loadUsers();
   }, []);
+
+  useEffect(() => {
+    if (creationResult) {
+      const duration = creationResult.credentials ? 10000 : 5000;
+      const timer = setTimeout(() => {
+        setCreationResult(null);
+      }, duration);
+      return () => clearTimeout(timer);
+    }
+  }, [creationResult]);
 
   const filteredUsers = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -132,6 +149,9 @@ export default function UserManagement() {
       password: '',
       role: user.role || 'worker',
       workerType: user.workerType || workerTypes[0] || fallbackWorkerTypes[0],
+      allowMultipleClaims: Boolean(user.allowMultipleClaims),
+      autoApprove: Boolean(user.autoApprove),
+      allowExcessPieces: Boolean(user.allowExcessPieces),
       phone: user.phone || '',
       address: user.address || ''
     });
@@ -162,6 +182,9 @@ export default function UserManagement() {
         password: generatePassword(),
         role: 'worker',
         workerType: workerTypes[0] || fallbackWorkerTypes[0],
+        allowMultipleClaims: false,
+        autoApprove: false,
+        allowExcessPieces: false,
         phone: '',
         address: ''
       });
@@ -258,22 +281,22 @@ export default function UserManagement() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
         {[
           { label: 'Total Users', value: stats.total, icon: Users, tone: 'from-sky-500 to-indigo-500' },
           { label: 'Admins', value: stats.admins, icon: Shield, tone: 'from-blue-500 to-cyan-500' },
           { label: 'Workers', value: stats.workers, icon: Scissors, tone: 'from-emerald-500 to-teal-500' }
-        ].map((card) => {
+        ].map((card, idx) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div key={card.label} className={`rounded-3xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm ${idx === 2 ? 'col-span-2 md:col-span-1' : ''}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-500">{card.label}</p>
-                  <p className="mt-2 text-3xl font-semibold text-slate-900">{card.value}</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-500">{card.label}</p>
+                  <p className="mt-1 sm:mt-2 text-xl sm:text-3xl font-semibold text-slate-900">{card.value}</p>
                 </div>
-                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${card.tone} text-white shadow-lg`}>
-                  <Icon className="h-6 w-6" />
+                <div className={`flex h-9 w-9 sm:h-12 sm:w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${card.tone} text-white shadow-lg shrink-0`}>
+                  <Icon className="h-4 w-4 sm:h-6 sm:w-6" />
                 </div>
               </div>
             </div>
@@ -281,39 +304,61 @@ export default function UserManagement() {
         })}
       </section>
 
+
       <section className="space-y-6">
         <div className="space-y-6">
-          {creationResult && (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm sm:p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-emerald-900">User saved successfully</h2>
-                  <p className="mt-1 text-sm text-emerald-700">{creationResult.message}</p>
+      {/* Top Centered Floating Toast / Popup */}
+      {creationResult && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[92vw] max-w-lg transition-all duration-300 animate-in fade-in slide-in-from-top-4">
+          <div className="rounded-2xl border border-emerald-300 bg-emerald-500 text-white p-4 shadow-2xl backdrop-blur-md">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white mt-0.5">
+                  <CheckCircle className="h-5 w-5 text-white" />
                 </div>
+                <div>
+                  <h3 className="font-semibold text-white text-base">User saved successfully</h3>
+                  <p className="text-sm text-emerald-100 mt-0.5">{creationResult.message}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
                 {creationResult.credentials && (
                   <button
                     type="button"
                     onClick={copyCredentials}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-800"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-50"
                   >
-                    <Copy className="h-4 w-4" />
+                    <Copy className="h-3.5 w-3.5" />
                     Copy
                   </button>
                 )}
-              </div>
-
-              {creationResult.credentials && (
-                <div className="mt-4 rounded-2xl bg-white p-4 text-sm text-slate-700">
-                  <p><span className="font-medium text-slate-900">Login Email:</span> {creationResult.credentials.email}</p>
-                  <p className="mt-2"><span className="font-medium text-slate-900">Password:</span> {creationResult.credentials.password}</p>
-                </div>
-              )}
-
-              <div className="mt-4 rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm text-slate-700">
-                <span className="font-medium text-slate-900">Email delivery:</span> {creationResult.emailStatus?.message}
+                <button
+                  type="button"
+                  onClick={() => setCreationResult(null)}
+                  className="rounded-xl p-1.5 text-emerald-100 hover:bg-white/20 hover:text-white transition"
+                  aria-label="Close notification"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
             </div>
-          )}
+
+            {creationResult.credentials && (
+              <div className="mt-3 rounded-xl bg-white/10 p-3 text-xs text-white border border-white/20">
+                <p><span className="font-semibold">Login Email:</span> {creationResult.credentials.email}</p>
+                <p className="mt-1"><span className="font-semibold">Password:</span> {creationResult.credentials.password}</p>
+              </div>
+            )}
+
+            {creationResult.emailStatus?.message && (
+              <p className="mt-2.5 text-xs text-emerald-100 border-t border-emerald-400/50 pt-2">
+                <span className="font-semibold text-white">Email delivery:</span> {creationResult.emailStatus.message}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -527,6 +572,49 @@ export default function UserManagement() {
                   </div>
                 </div>
 
+                {formData.role === 'worker' && (
+                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(formData.allowMultipleClaims)}
+                        onChange={(e) => handleChange('allowMultipleClaims', e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                      />
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">Multiple Claim</div>
+                        <div className="text-xs text-slate-500">Allow worker to claim multiple tasks</div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(formData.autoApprove)}
+                        onChange={(e) => handleChange('autoApprove', e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">Auto Approve</div>
+                        <div className="text-xs text-slate-500">Auto-approve completed tasks without admin review</div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(formData.allowExcessPieces)}
+                        onChange={(e) => handleChange('allowExcessPieces', e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">Increase Pieces</div>
+                        <div className="text-xs text-slate-500">Allow completed pieces above total requirement</div>
+                      </div>
+                    </label>
+                  </div>
+                )}
+
                 <div className="sm:col-span-2">
                   <label className="mb-1 block text-sm font-medium text-slate-700">Address</label>
                   <textarea
@@ -683,16 +771,59 @@ export default function UserManagement() {
                 </div>
 
                 {editFormData.role === 'worker' && (
-                  <div className="sm:col-span-2">
-                    <label className="mb-1 block text-sm font-medium text-slate-700">Address</label>
-                    <textarea
-                      value={editFormData.address}
-                      onChange={(e) => handleEditChange('address', e.target.value)}
-                      rows="3"
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-sky-400 focus:bg-white"
-                      placeholder="Optional address"
-                    />
-                  </div>
+                  <>
+                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <label className="flex items-center gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editFormData.allowMultipleClaims)}
+                          onChange={(e) => handleEditChange('allowMultipleClaims', e.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        <div>
+                          <div className="text-sm font-semibold text-slate-900">Multiple Claim</div>
+                          <div className="text-xs text-slate-500">Allow worker to claim multiple tasks</div>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editFormData.autoApprove)}
+                          onChange={(e) => handleEditChange('autoApprove', e.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <div>
+                          <div className="text-sm font-semibold text-slate-900">Auto Approve</div>
+                          <div className="text-xs text-slate-500">Auto-approve completed tasks without admin review</div>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editFormData.allowExcessPieces)}
+                          onChange={(e) => handleEditChange('allowExcessPieces', e.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <div>
+                          <div className="text-sm font-semibold text-slate-900">Increase Pieces</div>
+                          <div className="text-xs text-slate-500">Allow completed pieces above total requirement</div>
+                        </div>
+                      </label>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="mb-1 block text-sm font-medium text-slate-700">Address</label>
+                      <textarea
+                        value={editFormData.address}
+                        onChange={(e) => handleEditChange('address', e.target.value)}
+                        rows="3"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-sky-400 focus:bg-white"
+                        placeholder="Optional address"
+                      />
+                    </div>
+                  </>
                 )}
               </div>
 

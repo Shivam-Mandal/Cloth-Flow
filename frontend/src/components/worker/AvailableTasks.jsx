@@ -12,8 +12,10 @@
   import { emitWorkerDataRefresh, subscribeWorkerDataRefresh } from '../../utils/workerRefresh';
   import PaginationControls from '../ui/PaginationControls';
   import { useClientPagination } from '../../hooks/useClientPagination';
+  import { useUser } from '../context/UserContext';
 
   export const AvailableTasks = ({ workerId, workerCategory: initialWorkerCategory = null }) => {
+    const { user } = useUser();
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedProcess, setSelectedProcess] = useState('all');
@@ -23,6 +25,7 @@
     const [workerCategory, setWorkerCategory] = useState(initialWorkerCategory);
     // start workerLoading only if we need to fetch worker
     const [workerLoading, setWorkerLoading] = useState(!initialWorkerCategory && Boolean(workerId));
+    const [allowMultipleClaims, setAllowMultipleClaims] = useState(Boolean(user?.allowMultipleClaims));
 
     const [activeAssigned, setActiveAssigned] = useState(null);
     const [, setAssignedLoading] = useState(true);
@@ -34,12 +37,14 @@
     const loadWorker = async () => {
       if (initialWorkerCategory) {
         setWorkerCategory(initialWorkerCategory);
+        setAllowMultipleClaims(Boolean(user?.allowMultipleClaims));
         setWorkerLoading(false);
         return;
       }
 
       if (!workerId) {
         setWorkerCategory(null);
+        setAllowMultipleClaims(Boolean(user?.allowMultipleClaims));
         setWorkerLoading(false);
         return;
       }
@@ -55,10 +60,12 @@
         } else {
           setWorkerCategory(null);
         }
+        setAllowMultipleClaims(Boolean(workerObj?.allowMultipleClaims ?? user?.allowMultipleClaims));
       } catch (err) {
         console.error('loadWorker error', err);
         toast.error('Failed to load worker profile — showing all tasks');
         setWorkerCategory(null);
+        setAllowMultipleClaims(Boolean(user?.allowMultipleClaims));
       } finally {
         setWorkerLoading(false);
       }
@@ -268,7 +275,7 @@
         return;
       }
 
-      if (activeAssigned) {
+      if (activeAssigned && !allowMultipleClaims) {
         toast.error('Please complete your current assignment before claiming another.');
         return;
       }
@@ -307,7 +314,7 @@
           <div className="text-sm text-gray-600">{loading ? 'Loading…' : `${assignments.length} chunk(s) available`}</div>
         </div>
 
-        {activeAssigned && (
+        {activeAssigned && !allowMultipleClaims && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
             <div className="flex items-start justify-between">
               <div>
@@ -363,26 +370,27 @@
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700">Process</p>
-                    <p className="text-lg font-semibold text-gray-900">{group.process}</p>
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
+                  <div className="bg-gray-50 p-2.5 sm:p-4 rounded-lg">
+                    <p className="text-xs sm:text-sm font-medium text-gray-700">Process</p>
+                    <p className="text-sm sm:text-lg font-semibold text-gray-900 truncate">{group.process}</p>
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700">Available Chunks</p>
-                    <p className="text-lg font-semibold text-gray-900">{group.chunks.length}</p>
+                  <div className="bg-gray-50 p-2.5 sm:p-4 rounded-lg">
+                    <p className="text-xs sm:text-sm font-medium text-gray-700">Available</p>
+                    <p className="text-sm sm:text-lg font-semibold text-gray-900">{group.chunks.length} chunk(s)</p>
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700">Example Pieces (chunk)</p>
-                    <p className="text-lg font-semibold text-gray-900">{group.chunks[0]?.totalPieces ?? '—'}</p>
+                  <div className="bg-gray-50 p-2.5 sm:p-4 rounded-lg">
+                    <p className="text-xs sm:text-sm font-medium text-gray-700">Pieces</p>
+                    <p className="text-sm sm:text-lg font-semibold text-gray-900">{group.chunks[0]?.totalPieces ?? '—'}</p>
                   </div>
                 </div>
+
 
                 <div className="mb-4">
                   <p className="text-sm font-medium text-gray-700 mb-2">Chunks</p>
                   <div className="flex flex-wrap gap-2">
                     {group.chunks.map(chunk => {
-                      const disabled = Boolean(activeAssigned) || claimingId === chunk._id || !workerId;
+                      const disabled = (Boolean(activeAssigned) && !allowMultipleClaims) || claimingId === chunk._id || !workerId;
                       return (
                         <div key={chunk._id} className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg border">
                           <div className="text-sm">

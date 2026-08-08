@@ -161,6 +161,16 @@ textarea:disabled {
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
 }
 
+/* Mobile Safe Area Padding */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+}
+
+/* Touch active highlight removal for clean native app feel */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Disable all transitions and animations globally */
 *,
 ::before,

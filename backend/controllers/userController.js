@@ -15,6 +15,9 @@ const sanitizeUser = (user, typeOverride = null) => {
     phone: user.phone || '',
     role: typeOverride || user.role,
     workerType: user.workerType || '',
+    allowMultipleClaims: Boolean(user.allowMultipleClaims),
+    autoApprove: Boolean(user.autoApprove),
+    allowExcessPieces: Boolean(user.allowExcessPieces),
     address: user.address || '',
     profileImageUrl: user.profileImageUrl || '',
     createdAt: user.createdAt,
@@ -110,6 +113,9 @@ export const createUser = async (req, res) => {
       address,
       profileImageUrl,
       workerType,
+      allowMultipleClaims,
+      autoApprove,
+      allowExcessPieces,
       sendCredentials
     } = req.body;
 
@@ -167,7 +173,10 @@ export const createUser = async (req, res) => {
         dob,
         address,
         profileImageUrl,
-        workerType: normalizedWorkerType
+        workerType: normalizedWorkerType,
+        allowMultipleClaims: Boolean(allowMultipleClaims),
+        autoApprove: Boolean(autoApprove),
+        allowExcessPieces: Boolean(allowExcessPieces)
       });
     }
 
@@ -226,6 +235,9 @@ export const updateUser = async (req, res) => {
       address,
       profileImageUrl,
       workerType,
+      allowMultipleClaims,
+      autoApprove,
+      allowExcessPieces,
       sendCredentials
     } = req.body;
 
@@ -293,6 +305,15 @@ export const updateUser = async (req, res) => {
 
       user.workerType = normalizedWorkerType;
       user.address = address || '';
+      if (allowMultipleClaims !== undefined) {
+        user.allowMultipleClaims = Boolean(allowMultipleClaims);
+      }
+      if (autoApprove !== undefined) {
+        user.autoApprove = Boolean(autoApprove);
+      }
+      if (allowExcessPieces !== undefined) {
+        user.allowExcessPieces = Boolean(allowExcessPieces);
+      }
     }
 
     const trimmedPassword = password ? String(password).trim() : '';

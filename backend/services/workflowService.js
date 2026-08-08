@@ -80,7 +80,8 @@ export const approveWorkflowStage = async (subOrder, { adminId, session, io } = 
   }
 
   if (!finalStage) {
-    await createNextStageAssignments(subOrder.order._id, subOrder.currentStage, { session });
+    const orderId = subOrder.order?._id || subOrder.order;
+    await createNextStageAssignments(orderId, subOrder.currentStage, { session });
   }
 
   return { amount, pricePerPiece, finalStage };

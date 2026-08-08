@@ -8,7 +8,10 @@ import {
   getPackingInventory,
   getApprovalHistory,
   getWorkerApprovalHistory,
-  getWorkerPendingApprovals
+  getWorkerPendingApprovals,
+  getBulkApprovalSummary,
+  bulkApproveSubOrders,
+  bulkRejectSubOrders
 } from '../controllers/approvalController.js';
 import { requireInventoryAccess, requireRole, verifyAccessToken } from '../middlewares/authMiddleware.js';
 
@@ -17,6 +20,9 @@ const router = express.Router();
 // Admin routes
 router.get('/pending', verifyAccessToken, requireRole(['admin']), getPendingApprovals);
 router.get('/inventory', verifyAccessToken, requireInventoryAccess, getPackingInventory);
+router.post('/summary', verifyAccessToken, requireRole(['admin']), getBulkApprovalSummary);
+router.post('/bulk-approve', verifyAccessToken, requireRole(['admin']), bulkApproveSubOrders);
+router.post('/bulk-reject', verifyAccessToken, requireRole(['admin']), bulkRejectSubOrders);
 router.post('/:subOrderId/approve', verifyAccessToken, requireRole(['admin']), approveSubOrder);
 router.post('/:subOrderId/reject', verifyAccessToken, requireRole(['admin']), rejectSubOrder);
 router.get('/history', verifyAccessToken, requireRole(['admin']), getApprovalHistory);
@@ -27,3 +33,4 @@ router.get('/worker/completed-work', verifyAccessToken, requireRole(['worker']),
 router.get('/worker/history', verifyAccessToken, requireRole(['worker']), getWorkerApprovalHistory);
 
 export default router;
+

@@ -401,6 +401,7 @@ export const isStageCompleted = async (orderId, stage, opts = {}) => {
   return remaining === 0;
 };
 
+
 /* -----------------------
    Controller actions
    ----------------------- */
@@ -413,6 +414,7 @@ export const createOrder = async (req, res) => {
       deadline,
       priority,
       vendor,
+      fabric,
       requiredKg,
       distributionMode = 'perSku',
       workersCount = 1
@@ -442,6 +444,7 @@ export const createOrder = async (req, res) => {
       deadline,
       priority,
       vendor,
+      fabric,
       createdBy: req.user?.id
     });
     await order.save();
@@ -479,7 +482,8 @@ export const getOrders = async (req, res) => {
       const escaped = String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.$or = [
         { orderId: new RegExp(escaped, 'i') },
-        { vendor: new RegExp(escaped, 'i') }
+        { vendor: new RegExp(escaped, 'i') },
+        { fabric: new RegExp(escaped, 'i') }
       ];
     }
 
@@ -531,7 +535,7 @@ export const updateOrder = async (req, res) => {
       order.totalQuantity = computeTotalQuantity(up.pieces);
     }
 
-    ['priority', 'deadline', 'vendor', 'requiredKg'].forEach(k => {
+    ['priority', 'deadline', 'vendor', 'fabric', 'requiredKg'].forEach(k => {
       if (up[k] !== undefined) order[k] = up[k];
     });
 

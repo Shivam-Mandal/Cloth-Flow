@@ -6,6 +6,7 @@ import SubOrder from '../models/SubOrderSchema.js';
 import { WorkerModel } from '../models/Worker.js';
 import ApprovalHistory from '../models/ApprovalHistory.js';
 import { isLastStage, normalizeStageKey } from '../utils/workflow.js';
+import { approveWorkflowStage } from '../services/workflowService.js';
 
 
 /**
@@ -148,15 +149,17 @@ export const pickAssignment = async (req, res) => {
       return res.status(403).json({ error: 'Only workers can claim assignments' });
     }
 
-    const worker = await WorkerModel.findById(workerId).select('workerType').lean();
+    const worker = await WorkerModel.findById(workerId).select('workerType allowMultipleClaims autoApprove').lean();
     if (!worker?.workerType) {
       return res.status(403).json({ error: 'Worker type is required to claim assignments' });
     }
 
-    // Prevent multiple assigned tasks (simple guard)
-    const active = await Assignment.countDocuments({ worker: workerId, status: 'assigned' }).exec();
-    if (active > 0) {
-      return res.status(409).json({ error: 'Finish your current assignment before picking another.' });
+    // Prevent multiple assigned tasks unless worker has allowMultipleClaims enabled
+    if (!worker.allowMultipleClaims) {
+      const active = await Assignment.countDocuments({ worker: workerId, status: 'assigned' }).exec();
+      if (active > 0) {
+        return res.status(409).json({ error: 'Finish your current assignment before picking another.' });
+      }
     }
 
     const assignment = await Assignment.findById(id).select('stage status').lean();
@@ -229,7 +232,6 @@ export const getAssignmentById = async (req, res) => {
  * POST /api/assignments/:id/complete
  * Marks an assignment complete, updates related subOrder progress, and attempts to move order to next stage.
  */
-
 export const completeAssignment = async (req, res) => {
   const session = await mongoose.startSession();
   let finalSubOrder = null;
@@ -281,23 +283,25 @@ export const completeAssignment = async (req, res) => {
       const damagedPieces = Number(req.body.damagedPieces ?? 0);
       const totalPieces = Number(assignment.totalPieces ?? 0);
       if (!Number.isInteger(completedPieces) || !Number.isInteger(damagedPieces) || completedPieces < 0 || damagedPieces < 0) {
-        const e = new Error('Completed and damaged pieces must be non-negative whole numbers');
+        const e = new Error('Invalid piece count');
         e.status = 400;
         throw e;
       }
       if (!Number.isInteger(totalPieces) || totalPieces < 0) {
-        const e = new Error('Assignment total pieces is invalid');
+        const e = new Error('Invalid total pieces');
         e.status = 400;
         throw e;
       }
-      const totalReported = completedPieces + damagedPieces;
-      if (totalReported > totalPieces) {
-        const e = new Error(`Completed pieces (${completedPieces}) + damaged pieces (${damagedPieces}) cannot exceed total pieces (${totalPieces})`);
-        e.status = 400;
-        throw e;
+      if (completedPieces > totalPieces) {
+        const workerDoc = await WorkerModel.findById(workerId).select('allowExcessPieces').session(session).lean();
+        if (!workerDoc?.allowExcessPieces && !isAdmin) {
+          const e = new Error(`Cannot exceed total pieces (${totalPieces})`);
+          e.status = 403;
+          throw e;
+        }
       }
-      if (totalReported !== totalPieces) {
-        const e = new Error(`Completed pieces (${completedPieces}) + damaged pieces (${damagedPieces}) must equal total pieces (${totalPieces})`);
+      if (completedPieces < totalPieces && (completedPieces + damagedPieces) < totalPieces) {
+        const e = new Error(`Pieces must sum to ${totalPieces}`);
         e.status = 400;
         throw e;
       }
@@ -335,7 +339,7 @@ export const completeAssignment = async (req, res) => {
         await SubOrder.findByIdAndUpdate(subOrderId, { progress }, { session }).exec();
       }
 
-      // if this completes the subOrder for the stage, create next-stage assignments
+      // if this completes the subOrder for the stage, create next-stage assignments or trigger auto-approval
       if (progress === 100) {
         const orderId = assignment.order?._id || assignment.order;
         
@@ -352,13 +356,13 @@ export const completeAssignment = async (req, res) => {
         const orderDoc = assignment.order?._id ? assignment.order : await Order.findById(orderId).session(session);
         const isFinalStage = isLastStage(orderDoc, stage);
 
-        // Update suborder with submission details for admin review
+        // Update suborder with submission details
         await SubOrder.findByIdAndUpdate(subOrderId, {
           currentStage: stage,
           status: 'pending_approval',
           completedBy: workerId,
           submittedPieces: totalCompletedPieces + totalDamagedPieces,
-          approvedPieces: totalCompletedPieces, // Will be reviewed by admin
+          approvedPieces: totalCompletedPieces,
           faultyPieces: totalDamagedPieces,
           ...(isFinalStage
             ? {
@@ -386,9 +390,23 @@ export const completeAssignment = async (req, res) => {
             : {})
         }, { session }).exec();
 
-        // Log submission to approval history
-        const updatedSubOrder = await SubOrder.findById(subOrderId).session(session);
-        await logApprovalHistoryForSubmission(updatedSubOrder, workerId);
+        const workerDoc = await WorkerModel.findById(workerId).select('autoApprove').session(session).lean();
+        const updatedSubOrder = await SubOrder.findById(subOrderId)
+          .populate({ path: 'order', populate: { path: 'style' } })
+          .session(session);
+
+        if (workerDoc?.autoApprove && updatedSubOrder) {
+          // Auto approve the suborder stage immediately
+          await approveWorkflowStage(updatedSubOrder, {
+            adminId: workerId,
+            session,
+            io: req.app.get('io')
+          });
+          await logApprovalHistoryForSubmission(updatedSubOrder, workerId);
+        } else if (updatedSubOrder) {
+          // Log submission to approval history for regular admin review
+          await logApprovalHistoryForSubmission(updatedSubOrder, workerId);
+        }
       }
 
       // fetch updated subOrder within the transaction and expose it

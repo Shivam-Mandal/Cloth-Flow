@@ -14,6 +14,9 @@ const workerSchema = new mongoose.Schema({
       trim: true,
       required: function() { return this.role === "worker"; } 
     },
+    allowMultipleClaims: { type: Boolean, default: false },
+    autoApprove: { type: Boolean, default: false },
+    allowExcessPieces: { type: Boolean, default: false },
     lastLogin: { type: Date },
 
 }, { timestamps: true });

@@ -23,19 +23,11 @@ export const WorkerApprovalHistory = () => {
       const res = await fetchWorkerApprovalHistory({ page, limit: 20 });
       setHistory(res.history || []);
       setPagination(res.pagination);
-
-      // Calculate stats
-      const allHistory = res.history || [];
-      const submissions = allHistory.filter(h => h.action === 'submitted');
-      const approvals = allHistory.filter(h => h.action === 'approved');
-      const rejections = allHistory.filter(h => h.action === 'rejected');
-      const earnings = approvals.reduce((sum, h) => sum + (h.amount || 0), 0);
-
-      setStats({
-        totalSubmissions: submissions.length,
-        approvedCount: approvals.length,
-        rejectedCount: rejections.length,
-        totalEarnings: earnings
+      setStats(res.stats || {
+        totalSubmissions: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        totalEarnings: 0
       });
     } catch (e) {
       console.error('Failed to load approval history', e);

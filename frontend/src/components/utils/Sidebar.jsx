@@ -21,11 +21,11 @@ import {
 const Sidebar = ({ activeTab, onTabChange }) => {
   const { sidebarOpen, closeSidebar, isMobile } = useLayout();
   const menuItems = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard, to: '/admin' },
+    { id: 'overview', label: 'Dashboard', icon: LayoutDashboard, to: '/admin' },
     { id: 'approvals', label: 'Approvals', icon: CheckCircle, to: '/admin/approvals' },
     { id: 'approval-history', label: 'Approval History', icon: BarChart3, to: '/admin/approval-history' },
     { id: 'inventory', label: 'Inventory', icon: Boxes, to: '/admin/inventory' },
-    { id: 'style', label: 'Style Management', icon: Shirt, to: '/admin/styles' },
+    { id: 'style', label: 'Catalog Upload', icon: Shirt, to: '/admin/styles' },
     { id: 'stock', label: 'Stock Management', icon: Package, to: '/admin/stock' },
     { id: 'orders', label: 'Order Management', icon: ShoppingCart, to: '/admin/orders' },
     { id: 'processes', label: 'Process Tracking', icon: Activity, to: '/admin/processes' },

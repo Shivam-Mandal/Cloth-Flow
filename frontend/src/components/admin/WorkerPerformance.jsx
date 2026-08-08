@@ -79,47 +79,48 @@ export const WorkerPerformance = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="bg-white p-3.5 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <Users className="w-8 h-8 text-blue-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-600">Active Workers</p>
-              <p className="text-2xl font-bold text-gray-900">{activeWorkers}</p>
+            <Users className="w-5 h-5 sm:w-8 sm:h-8 text-blue-600 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Active Workers</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{activeWorkers}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-3.5 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <Award className="w-8 h-8 text-green-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Pieces</p>
-              <p className="text-2xl font-bold text-gray-900">{totalPieces.toLocaleString()}</p>
+            <Award className="w-5 h-5 sm:w-8 sm:h-8 text-green-600 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Pieces</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{totalPieces.toLocaleString()}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-3.5 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <TrendingUp className="w-8 h-8 text-purple-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-600">Avg. Efficiency</p>
-              <p className="text-2xl font-bold text-gray-900">{Math.round(avgEfficiency)}%</p>
+            <TrendingUp className="w-5 h-5 sm:w-8 sm:h-8 text-purple-600 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Avg. Efficiency</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{Math.round(avgEfficiency)}%</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-3.5 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <Clock className="w-8 h-8 text-orange-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-600">Avg. Task Time</p>
-              <p className="text-2xl font-bold text-gray-900">3.2h</p>
+            <Clock className="w-5 h-5 sm:w-8 sm:h-8 text-orange-600 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Avg. Task Time</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">3.2h</p>
             </div>
           </div>
         </div>
       </div>
+
 
       {/* Worker Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">

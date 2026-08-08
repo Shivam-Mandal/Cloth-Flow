@@ -60,7 +60,7 @@ export const Overview = () => {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Dashboard Overview</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600 mt-2">Monitor your manufacturing operations in real-time</p>
         </div>
         <div className="text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg whitespace-nowrap">
@@ -290,6 +290,8 @@ const StatCard = ({ title, value, changeText, icon, trend = 'up', color = 'blue'
   );
 };
 
+import MobileBottomNav from '../navigation/MobileBottomNav';
+
 export default function AdminDashboard() {
   const { user, loading, initialLoadDone, logout } = useUser();
   const { sidebarOpen } = useLayout();
@@ -309,18 +311,20 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 overflow-hidden relative">
       <Sidebar />
       <div className={`flex-1 flex flex-col ${
         sidebarOpen ? 'lg:ml-0' : 'ml-0'
       } min-w-0`}>
         <Topbar user={user} onLogout={logout} />
-        <main className="flex-1 overflow-auto p-4 sm:p-6">
+        <main className="flex-1 overflow-auto p-3 sm:p-6 pb-24 lg:pb-6">
           <div className="max-w-[1600px] mx-auto w-full">
             <Outlet />
           </div>
         </main>
       </div>
+      <MobileBottomNav />
     </div>
   );
 }
+

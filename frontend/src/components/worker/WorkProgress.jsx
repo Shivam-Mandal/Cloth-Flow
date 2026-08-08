@@ -135,40 +135,41 @@ export const WorkProgress = () => {
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Goals</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="font-medium text-gray-700">Pieces Target</span>
-              <span className="text-sm text-gray-600">750/1000</span>
+        <div className="grid grid-cols-3 gap-2 sm:gap-6">
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs sm:text-sm">
+              <span className="font-medium text-gray-700 truncate">Pieces</span>
+              <span className="text-gray-600">750/1000</span>
             </div>
-            <div className="w-full h-3 bg-gray-200 rounded-full">
+            <div className="w-full h-2 sm:h-3 bg-gray-200 rounded-full">
               <div className="h-full bg-blue-600 rounded-full transition-all duration-300" style={{ width: '75%' }}></div>
             </div>
-            <p className="text-xs text-gray-600">75% complete - 250 pieces remaining</p>
+            <p className="text-[10px] sm:text-xs text-gray-600 truncate">75% complete</p>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="font-medium text-gray-700">Quality Score</span>
-              <span className="text-sm text-gray-600">9.6/10</span>
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs sm:text-sm">
+              <span className="font-medium text-gray-700 truncate">Quality</span>
+              <span className="text-gray-600">9.6/10</span>
             </div>
-            <div className="w-full h-3 bg-gray-200 rounded-full">
+            <div className="w-full h-2 sm:h-3 bg-gray-200 rounded-full">
               <div className="h-full bg-green-600 rounded-full transition-all duration-300" style={{ width: '96%' }}></div>
             </div>
-            <p className="text-xs text-gray-600">Excellent performance</p>
+            <p className="text-[10px] sm:text-xs text-gray-600 truncate">Excellent</p>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="font-medium text-gray-700">Efficiency</span>
-              <span className="text-sm text-gray-600">92%</span>
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs sm:text-sm">
+              <span className="font-medium text-gray-700 truncate">Efficiency</span>
+              <span className="text-gray-600">92%</span>
             </div>
-            <div className="w-full h-3 bg-gray-200 rounded-full">
+            <div className="w-full h-2 sm:h-3 bg-gray-200 rounded-full">
               <div className="h-full bg-purple-600 rounded-full transition-all duration-300" style={{ width: '92%' }}></div>
             </div>
-            <p className="text-xs text-gray-600">Above department average</p>
+            <p className="text-[10px] sm:text-xs text-gray-600 truncate">Above avg</p>
           </div>
         </div>
+
       </div>
     </div>
   );

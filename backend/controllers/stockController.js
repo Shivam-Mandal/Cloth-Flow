@@ -2,12 +2,12 @@
 import { Stock } from '../models/Stock.js';
 
 const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const STOCK_SORT_FIELDS = new Set(['vendor', 'quantityKg', 'unitPrice', 'sizeMm', 'dateAdded', 'createdAt', 'updatedAt']);
+const STOCK_SORT_FIELDS = new Set(['vendor', 'quantityKg', 'unitPrice', 'sizeMm', 'fabric', 'dateAdded', 'createdAt', 'updatedAt']);
 
 /**
  * GET /api/stocks
  * Query params (optional):
- *  - q: general search string (matches vendor or color.name)
+ *  - q: general search string (matches vendor, color.name, or fabric)
  *  - vendor: filter by vendor exact or partial
  *  - color: filter by color name
  *  - page, limit: pagination
@@ -34,7 +34,8 @@ export const getAllStocks = async (req, res) => {
       const rx = new RegExp(escapeRegex(q), 'i');
       query.$or = [
         { vendor: rx },
-        { 'color.name': rx }
+        { 'color.name': rx },
+        { fabric: rx }
       ];
     }
 
@@ -99,6 +100,8 @@ export const getStockById = async (req, res) => {
  * {
  *   vendor: "Textile Corp",
  *   color: { name: "Red", hex: "#ff0000" },
+ *   fabric: "Cotton",
+ *   image: "https://res.cloudinary.com/...",
  *   quantityKg: 120,
  *   unitPrice: 25,
  *   sizeMm: 20
@@ -106,7 +109,7 @@ export const getStockById = async (req, res) => {
  */
 export const createStock = async (req, res) => {
   try {
-    const { vendor, color, quantityKg, unitPrice, sizeMm } = req.body;
+    const { vendor, color, quantityKg, unitPrice, sizeMm, fabric, image } = req.body;
     if (!vendor || !color || !color.name || quantityKg == null || unitPrice == null) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
@@ -117,6 +120,8 @@ export const createStock = async (req, res) => {
         name: color.name,
         hex: color.hex || null
       },
+      fabric: fabric ? String(fabric).trim() : '',
+      image: image ? String(image).trim() : '',
       quantityKg: Number(quantityKg),
       unitPrice: Number(unitPrice),
       sizeMm: sizeMm != null ? Number(sizeMm) : null
@@ -136,7 +141,7 @@ export const createStock = async (req, res) => {
  */
 export const updateStock = async (req, res) => {
   try {
-    const { vendor, color, quantityKg, unitPrice, sizeMm } = req.body;
+    const { vendor, color, quantityKg, unitPrice, sizeMm, fabric, image } = req.body;
 
     const update = {};
     if (vendor !== undefined) update.vendor = vendor;
@@ -144,6 +149,8 @@ export const updateStock = async (req, res) => {
       name: color.name ?? (color?.name || ''),
       hex: color.hex ?? (color?.hex || null)
     };
+    if (fabric !== undefined) update.fabric = String(fabric).trim();
+    if (image !== undefined) update.image = String(image).trim();
     if (quantityKg !== undefined) update.quantityKg = Number(quantityKg);
     if (unitPrice !== undefined) update.unitPrice = Number(unitPrice);
     if (sizeMm !== undefined) update.sizeMm = sizeMm === null ? null : Number(sizeMm);

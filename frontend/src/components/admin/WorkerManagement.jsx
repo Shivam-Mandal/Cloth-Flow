@@ -110,31 +110,32 @@ export const WorkerManagement = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-xl shadow flex items-center gap-3">
-          <Users className="text-blue-600" />
-          <div>
-            <p className="text-sm text-gray-500">Total Workers</p>
-            <p className="font-bold">{workers.length}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow flex items-center gap-3">
+          <Users className="text-blue-600 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm text-gray-500 truncate">Total Workers</p>
+            <p className="font-bold text-sm sm:text-base text-gray-900">{workers.length}</p>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow flex items-center gap-3">
-          <UserCheck className="text-green-600" />
-          <div>
-            <p className="text-sm text-gray-500">Active</p>
-            <p className="font-bold">
+        <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow flex items-center gap-3">
+          <UserCheck className="text-green-600 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm text-gray-500 truncate">Active</p>
+            <p className="font-bold text-sm sm:text-base text-gray-900">
               {workers.filter((w) => w.status === "Active").length}
             </p>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow flex items-center gap-3">
-          <Briefcase className="text-purple-600" />
-          <div>
-            <p className="text-sm text-gray-500">Roles</p>
-            <p className="font-bold">{new Set(workers.map((w) => w.role)).size}</p>
+        <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow flex items-center gap-3 col-span-2 sm:col-span-1">
+          <Briefcase className="text-purple-600 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm text-gray-500 truncate">Roles</p>
+            <p className="font-bold text-sm sm:text-base text-gray-900">{new Set(workers.map((w) => w.role)).size}</p>
           </div>
         </div>
       </div>
+
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">

@@ -284,18 +284,25 @@ import {
   Ruler,
   Scale,
   CalendarDays,
-  Save
+  Save,
+  Shirt,
+  Upload,
+  ImageIcon,
+  X
 } from 'lucide-react';
 import stockService from '../services/stockServices';
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
+import api from '../../api/api';
 
 const emptyStockForm = {
   vendor: '',
   color: { name: 'Red', hex: '#ff0000' },
   quantityKg: '',
   unitPrice: '',
-  sizeMm: ''
+  sizeMm: '',
+  fabric: '',
+  image: ''
 };
 
 const namedColors = {
@@ -367,6 +374,7 @@ export const StockManagement = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingStock, setEditingStock] = useState(null);
   const [savingStock, setSavingStock] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedVendor, setSelectedVendor] = useState('all');
   const [newStock, setNewStock] = useState(emptyStockForm);
@@ -386,10 +394,54 @@ export const StockManagement = () => {
 
   const vendors = Array.from(new Set(stocks.map((s) => s.vendor).filter(Boolean)));
 
+  const handleImageUpload = async (file) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const signatureRes = await api.post('/uploads/cloudinary/signature', {
+        files: [{ name: file.name, type: file.type, size: file.size }]
+      });
+      const uploadConfig = signatureRes.data?.data || {};
+      if (!uploadConfig.cloudName || !uploadConfig.apiKey || !uploadConfig.signature || !uploadConfig.timestamp) {
+        alert('Unable to prepare secure upload to Cloudinary.');
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('api_key', uploadConfig.apiKey);
+      fd.append('timestamp', uploadConfig.timestamp);
+      fd.append('signature', uploadConfig.signature);
+      fd.append('folder', uploadConfig.folder);
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${uploadConfig.cloudName}/image/upload`, {
+        method: 'POST',
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error('Cloudinary stock image upload failed', data);
+        alert(data?.error?.message || 'Image upload failed');
+        return;
+      }
+      const url = data.secure_url || data.url;
+      if (url) {
+        setNewStock((prev) => ({ ...prev, image: url }));
+      }
+    } catch (err) {
+      console.error('Cloudinary upload error:', err);
+      alert('Failed to upload image to Cloudinary.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const filteredStocks = stocks.filter((stock) => {
     const colorName = getColorLabel(stock.color).toLowerCase();
+    const fabricName = (stock.fabric ?? '').toLowerCase();
     const matchesSearch =
       colorName.includes(searchTerm.toLowerCase()) ||
+      fabricName.includes(searchTerm.toLowerCase()) ||
       (stock.vendor ?? '').toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesVendor = selectedVendor === 'all' || stock.vendor === selectedVendor;
@@ -430,7 +482,9 @@ export const StockManagement = () => {
       },
       quantityKg: stock.quantityKg ?? '',
       unitPrice: stock.unitPrice ?? '',
-      sizeMm: stock.sizeMm ?? ''
+      sizeMm: stock.sizeMm ?? '',
+      fabric: stock.fabric || '',
+      image: stock.image || ''
     });
     setShowAddForm(true);
   };
@@ -470,7 +524,9 @@ export const StockManagement = () => {
     },
     quantityKg: Number(newStock.quantityKg),
     unitPrice: Number(newStock.unitPrice),
-    sizeMm: newStock.sizeMm !== '' ? Number(newStock.sizeMm) : null
+    sizeMm: newStock.sizeMm !== '' ? Number(newStock.sizeMm) : null,
+    fabric: newStock.fabric ? newStock.fabric.trim() : '',
+    image: newStock.image ? newStock.image.trim() : ''
   });
 
   const handleSaveStock = async (e) => {
@@ -540,41 +596,42 @@ export const StockManagement = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
+        <div className="bg-white p-3.5 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-              <Package className="w-6 h-6" />
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 shrink-0">
+              <Package className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Stock</p>
-              <p className="text-2xl font-bold text-gray-900">{totalQuantity} kg</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Stock</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{totalQuantity} kg</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-3.5 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-green-600">
-              <IndianRupee className="h-5 w-5" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-green-100 rounded-lg flex items-center justify-center text-green-600 shrink-0">
+              <IndianRupee className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Value</p>
-              <p className="text-2xl font-bold text-gray-900">₹{totalValue.toLocaleString()}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Value</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">₹{totalValue.toLocaleString()}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-3.5 sm:p-6 rounded-xl shadow-sm border border-gray-200 col-span-2 md:col-span-1">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600">
-              <Hash className="h-5 w-5" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 shrink-0">
+              <Hash className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Stock Items</p>
-              <p className="text-2xl font-bold text-gray-900">{stocks.length}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Stock Items</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{stocks.length}</p>
             </div>
           </div>
         </div>
       </div>
+
 
       {/* Filters & Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -615,7 +672,13 @@ export const StockManagement = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Image
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <span className="inline-flex items-center gap-2"><Store className="h-3.5 w-3.5" /> Vendor</span>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <span className="inline-flex items-center gap-2"><Shirt className="h-3.5 w-3.5" /> Fabric</span>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <span className="inline-flex items-center gap-2"><Palette className="h-3.5 w-3.5" /> Color</span>
@@ -646,8 +709,30 @@ export const StockManagement = () => {
                 const keyId = getStockId(displayStock);
                 return (
                   <tr key={keyId} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {displayStock.image ? (
+                        <img
+                          src={displayStock.image}
+                          alt={displayStock.fabric || 'Stock preview'}
+                          className="h-10 w-10 rounded-lg object-cover border border-gray-200 shadow-xs"
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-400">
+                          <ImageIcon className="h-5 w-5 stroke-1" />
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {displayStock.vendor}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {displayStock.fabric ? (
+                        <span className="inline-flex items-center rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 border border-blue-200">
+                          {displayStock.fabric}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-3">
@@ -709,7 +794,7 @@ export const StockManagement = () => {
       {/* Stock Form */}
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="mb-5 flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                 {editingStock ? <Edit3 className="h-5 w-5" /> : <Package className="h-5 w-5" />}
@@ -734,6 +819,7 @@ export const StockManagement = () => {
                   />
                 </div>
               </div>
+
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Color</label>
                 <div className="grid grid-cols-[1fr_auto] gap-3">
@@ -761,6 +847,39 @@ export const StockManagement = () => {
                   <span>{normalizeHex(newStock.color.hex) || '#ff0000'}</span>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Fabric Type</label>
+                  <div className="relative">
+                    <Shirt className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pl-10 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g. Cotton, Silk, Denim"
+                      value={newStock.fabric}
+                      onChange={(e) => setNewStock({ ...newStock, fabric: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Size (mm)</label>
+                  <div className="relative">
+                    <Ruler className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pl-10 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter size"
+                      value={newStock.sizeMm}
+                      onChange={(e) => setNewStock({ ...newStock, sizeMm: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Quantity (kg)</label>
@@ -778,6 +897,7 @@ export const StockManagement = () => {
                     />
                   </div>
                 </div>
+
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Unit Price (₹)</label>
                   <div className="relative">
@@ -794,22 +914,55 @@ export const StockManagement = () => {
                     />
                   </div>
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Size (mm)</label>
-                  <div className="relative">
-                    <Ruler className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
+
+              {/* Cloudinary Stock Image Picker */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Stock Image (Cloudinary)</label>
+                <div className="flex items-center gap-4 rounded-xl border border-gray-200 bg-gray-50/50 p-3">
+                  {newStock.image ? (
+                    <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-gray-200 shadow-xs shrink-0">
+                      <img src={newStock.image} alt="Fabric preview" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setNewStock((prev) => ({ ...prev, image: '' }))}
+                        className="absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white shadow hover:bg-red-700"
+                        title="Remove image"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white text-gray-400 shrink-0">
+                      <ImageIcon className="h-6 w-6 stroke-1" />
+                    </div>
+                  )}
+                  <div className="flex-1">
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pl-10 focus:border-transparent focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter size"
-                      value={newStock.sizeMm}
-                      onChange={(e) => setNewStock({ ...newStock, sizeMm: e.target.value })}
+                      type="file"
+                      accept="image/*"
+                      id="stock-image-file-input"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          await handleImageUpload(file);
+                          e.target.value = '';
+                        }
+                      }}
                     />
+                    <label
+                      htmlFor="stock-image-file-input"
+                      className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-xs hover:bg-gray-50 transition-colors"
+                    >
+                      <Upload className="h-4 w-4 text-blue-600" />
+                      {uploadingImage ? 'Uploading to Cloudinary...' : newStock.image ? 'Change Image' : 'Select Image'}
+                    </label>
+                    <p className="mt-1 text-[11px] text-gray-500">Stored automatically in Cloudinary</p>
                   </div>
                 </div>
               </div>
+
               <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row">
                 <button
                   type="button"
@@ -820,7 +973,7 @@ export const StockManagement = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={savingStock}
+                  disabled={savingStock || uploadingImage}
                   className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {editingStock ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}

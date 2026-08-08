@@ -10,10 +10,10 @@ import stockService from '../services/stockServices';
 import { fetchUsers } from '../services/userServices';
 
 const staticSearchItems = [
-  { id: 'page-overview', type: 'Page', title: 'Overview', subtitle: 'Dashboard summary', path: '/admin', icon: LayoutDashboard },
+  { id: 'page-overview', type: 'Page', title: 'Dashboard', subtitle: 'Dashboard summary', path: '/admin', icon: LayoutDashboard },
   { id: 'page-approvals', type: 'Page', title: 'Approvals', subtitle: 'Review pending work approvals', path: '/admin/approvals', icon: CheckCircle },
   { id: 'page-inventory', type: 'Page', title: 'Inventory', subtitle: 'Packed and sale-ready inventory', path: '/admin/inventory', icon: Boxes },
-  { id: 'page-styles', type: 'Page', title: 'Style Management', subtitle: 'Create and manage garment styles', path: '/admin/styles', icon: Shirt },
+  { id: 'page-styles', type: 'Page', title: 'Catalog Upload', subtitle: 'Create and manage garment styles', path: '/admin/styles', icon: Shirt },
   { id: 'page-stock', type: 'Page', title: 'Stock Management', subtitle: 'Raw cloth inventory', path: '/admin/stock', icon: Package },
   { id: 'page-orders', type: 'Page', title: 'Order Management', subtitle: 'Production orders', path: '/admin/orders', icon: ShoppingCart },
   { id: 'page-users', type: 'Page', title: 'User Management', subtitle: 'Admins and workers', path: '/admin/users', icon: Users },
@@ -214,14 +214,24 @@ const Topbar = ({ user = {}, onLogout }) => {
         </div>
 
         {/* Right Section */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-3">
           
+          {/* Mobile Search Trigger Button */}
+          <button
+            onClick={() => setSearchFocused(true)}
+            className="sm:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200"
+            aria-label="Open search"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+
           {/* Quick Actions */}
           <div className="hidden md:flex items-center space-x-2">
             <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200">
               <Settings className="w-5 h-5" />
             </button>
           </div>
+
           
           {/* Notifications */}
           <div className="relative">
@@ -330,6 +340,62 @@ const Topbar = ({ user = {}, onLogout }) => {
         </div>
       </div>
       
+      {/* Mobile Search Overlay Modal */}
+      {searchFocused && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm sm:hidden flex flex-col p-4">
+          <div className="bg-white rounded-2xl p-3 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+              <Search className="w-5 h-5 text-gray-400 ml-1" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus
+                placeholder="Search orders, workers, styles..."
+                className="flex-1 py-2 text-base focus:outline-none bg-transparent"
+              />
+              <button
+                type="button"
+                onClick={() => setSearchFocused(false)}
+                className="p-1.5 text-gray-500 bg-gray-100 rounded-lg text-xs font-semibold"
+              >
+                Done
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 py-2">
+              {filteredSearchItems.length === 0 ? (
+                <p className="text-center py-6 text-sm text-gray-500">No results found</p>
+              ) : (
+                Object.entries(groupedSearchItems).map(([group, items]) => (
+                  <div key={group} className="py-1">
+                    <p className="px-2 py-1 text-[11px] font-bold uppercase text-gray-400">{group}</p>
+                    {items.map((item) => {
+                      const Icon = item.icon || Search;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleSearchSelect(item)}
+                          className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left hover:bg-gray-50 active:bg-gray-100"
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold text-gray-900">{item.title}</span>
+                            <span className="block truncate text-xs text-gray-500">{item.subtitle}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Click outside to close dropdowns */}
       {(showUserMenu || showNotifications) && (
         <div 
@@ -345,3 +411,4 @@ const Topbar = ({ user = {}, onLogout }) => {
 };
 
 export default Topbar;
+

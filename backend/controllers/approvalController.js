@@ -1,10 +1,70 @@
-// controllers/approvalController.js
 import mongoose from 'mongoose';
 import SubOrder from '../models/SubOrderSchema.js';
+import Order from '../models/Order.js';
+import { Style } from '../models/StyleSchema.js';
 import ApprovalHistory from '../models/ApprovalHistory.js';
 import { approveWorkflowStage, calculateStageEarningsFromAssignments, rejectWorkflowStage } from '../services/workflowService.js';
 
 const INVENTORY_STATUSES = ['packed', 'ready_for_sale', 'reserved', 'dispatched', 'sold'];
+
+/**
+ * Robust helper to resolve style name and size breakdown across subOrder & order schemas
+ */
+const resolveStyleAndSizes = (subOrder) => {
+  const orderDoc = subOrder.order && typeof subOrder.order === 'object' ? subOrder.order : null;
+
+  // 1. Resolve Style Name
+  const styleName = orderDoc?.style?.name
+    || orderDoc?.styleSnapshot?.name
+    || orderDoc?.styleName
+    || subOrder.styleName
+    || '—';
+
+  // 2. Resolve Sizes
+  const sizesSet = new Set();
+
+  const parsePiecesObj = (obj) => {
+    if (!obj || typeof obj !== 'object') return;
+    for (const [key, val] of Object.entries(obj)) {
+      if (typeof val === 'number' && val > 0) {
+        sizesSet.add(key);
+      } else if (typeof val === 'object' && val !== null) {
+        parsePiecesObj(val);
+      }
+    }
+  };
+
+  // Try subOrder.pieces
+  parsePiecesObj(subOrder.pieces);
+
+  // Try orderDoc.pieces if empty
+  if (sizesSet.size === 0 && orderDoc?.pieces) {
+    parsePiecesObj(orderDoc.pieces);
+  }
+
+  // Try styleSnapshot.sizes or style.sizes
+  if (sizesSet.size === 0) {
+    const arr = orderDoc?.styleSnapshot?.sizes || orderDoc?.style?.sizes;
+    if (Array.isArray(arr) && arr.length > 0) {
+      arr.forEach(s => sizesSet.add(s));
+    }
+  }
+
+  // Fallback: parse from subOrder.name (e.g. "Cutting-Red-S")
+  if (sizesSet.size === 0 && typeof subOrder.name === 'string') {
+    const parts = subOrder.name.split('-');
+    if (parts.length >= 2) {
+      const lastPart = parts[parts.length - 1].trim();
+      if (lastPart && !/batch|suborder/i.test(lastPart)) {
+        sizesSet.add(lastPart);
+      }
+    }
+  }
+
+  const sizeStr = sizesSet.size > 0 ? Array.from(sizesSet).join(', ') : '—';
+
+  return { styleName, sizeStr };
+};
 
 const generateSubOrderCode = () => {
   const time = Date.now().toString(36).toUpperCase().slice(-4);
@@ -94,7 +154,7 @@ export const getPendingApprovals = async (req, res) => {
       }
     }));
 
-    // Add calculated payment info for admin review
+    // Add calculated payment info and resolved style/sizes for admin review
     const enrichedApprovals = await Promise.all(pendingSubOrders.map(async (subOrder) => {
       const {
         amount: calculatedPayment,
@@ -104,8 +164,12 @@ export const getPendingApprovals = async (req, res) => {
         submittedPieces
       } = await calculateStageEarningsFromAssignments(subOrder);
 
+      const { styleName, sizeStr } = resolveStyleAndSizes(subOrder);
+
       return {
         ...subOrder,
+        styleName,
+        size: sizeStr,
         submittedPieces,
         approvedPieces: completedPieces,
         faultyPieces: damagedPieces,
@@ -414,12 +478,15 @@ export const getWorkerApprovalHistory = async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const history = await ApprovalHistory.find({
+    const workerSubOrders = await getWorkerSubOrders(workerId);
+    const filterQuery = {
       $or: [
-        { actor: workerId, actorRole: 'worker' }, // Submissions by this worker
-        { subOrder: { $in: await getWorkerSubOrders(workerId) } } // Actions on this worker's suborders
+        { actor: workerId, actorRole: 'worker' },
+        { subOrder: { $in: workerSubOrders } }
       ]
-    })
+    };
+
+    const history = await ApprovalHistory.find(filterQuery)
       .populate('subOrder', 'name orderId currentStage status')
       .populate('order', 'orderId')
       .populate('actor', 'name email')
@@ -428,16 +495,45 @@ export const getWorkerApprovalHistory = async (req, res) => {
       .limit(parseInt(limit))
       .lean();
 
-    const total = await ApprovalHistory.countDocuments({
-      $or: [
-        { actor: workerId, actorRole: 'worker' },
-        { subOrder: { $in: await getWorkerSubOrders(workerId) } }
-      ]
-    });
+    const total = await ApprovalHistory.countDocuments(filterQuery);
+
+    const statsAggregation = await ApprovalHistory.aggregate([
+      { $match: filterQuery },
+      {
+        $group: {
+          _id: null,
+          totalSubmissions: {
+            $sum: { $cond: [{ $eq: ['$action', 'submitted'] }, 1, 0] }
+          },
+          approvedCount: {
+            $sum: { $cond: [{ $eq: ['$action', 'approved'] }, 1, 0] }
+          },
+          rejectedCount: {
+            $sum: { $cond: [{ $eq: ['$action', 'rejected'] }, 1, 0] }
+          },
+          totalEarnings: {
+            $sum: { $cond: [{ $eq: ['$action', 'approved'] }, '$amount', 0] }
+          }
+        }
+      }
+    ]);
+
+    const stats = statsAggregation[0] ? {
+      totalSubmissions: statsAggregation[0].totalSubmissions || 0,
+      approvedCount: statsAggregation[0].approvedCount || 0,
+      rejectedCount: statsAggregation[0].rejectedCount || 0,
+      totalEarnings: statsAggregation[0].totalEarnings || 0
+    } : {
+      totalSubmissions: 0,
+      approvedCount: 0,
+      rejectedCount: 0,
+      totalEarnings: 0
+    };
 
     res.json({
       success: true,
       history,
+      stats,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -534,3 +630,274 @@ export const getWorkerCompletedWork = async (req, res) => {
     res.status(500).json({ error: error.message || 'Server error' });
   }
 };
+
+/**
+ * POST /api/approvals/summary
+ * Calculate summary metrics on the backend for selected subOrder IDs
+ */
+export const getBulkApprovalSummary = async (req, res) => {
+  try {
+    const { subOrderIds } = req.body;
+
+    if (!Array.isArray(subOrderIds) || subOrderIds.length === 0) {
+      return res.status(400).json({ error: 'subOrderIds must be a non-empty array' });
+    }
+
+    const validIds = subOrderIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+    if (validIds.length === 0) {
+      return res.status(400).json({ error: 'No valid subOrderIds provided' });
+    }
+
+    const pendingSubOrders = await SubOrder.find({
+      _id: { $in: validIds },
+      status: 'pending_approval'
+    })
+      .populate({
+        path: 'order',
+        populate: { path: 'style' }
+      })
+      .populate('completedBy', 'name email workerType')
+      .lean();
+
+    let totalSubmittedPieces = 0;
+    let totalApprovedPieces = 0;
+    let totalFaultyPieces = 0;
+    let totalCalculatedPayment = 0;
+    const stageBreakdownMap = {};
+    const workerBreakdownMap = {};
+
+    const itemsSummary = await Promise.all(pendingSubOrders.map(async (subOrder) => {
+      const {
+        amount: calculatedPayment,
+        pricePerPiece,
+        completedPieces,
+        damagedPieces,
+        submittedPieces
+      } = await calculateStageEarningsFromAssignments(subOrder);
+
+      totalSubmittedPieces += submittedPieces;
+      totalApprovedPieces += completedPieces;
+      totalFaultyPieces += damagedPieces;
+      totalCalculatedPayment += calculatedPayment;
+
+      const stage = subOrder.currentStage || 'Unknown';
+      stageBreakdownMap[stage] = (stageBreakdownMap[stage] || 0) + 1;
+
+      const workerIdStr = subOrder.completedBy?._id?.toString() || 'unknown';
+      const workerName = subOrder.completedBy?.name || 'Unknown Worker';
+      if (!workerBreakdownMap[workerIdStr]) {
+        workerBreakdownMap[workerIdStr] = {
+          name: workerName,
+          count: 0,
+          totalPieces: 0,
+          totalPayment: 0
+        };
+      }
+      workerBreakdownMap[workerIdStr].count += 1;
+      workerBreakdownMap[workerIdStr].totalPieces += completedPieces;
+      workerBreakdownMap[workerIdStr].totalPayment += calculatedPayment;
+
+      const { styleName, sizeStr } = resolveStyleAndSizes(subOrder);
+
+      return {
+        _id: subOrder._id,
+        name: subOrder.name,
+        orderId: subOrder.orderId,
+        subOrderCode: subOrder.subOrderCode,
+        stage: subOrder.currentStage,
+        styleName,
+        size: sizeStr,
+        workerName,
+        submittedPieces,
+        approvedPieces: completedPieces,
+        faultyPieces: damagedPieces,
+        pricePerPiece,
+        calculatedPayment
+      };
+    }));
+
+    const missingOrInvalidCount = validIds.length - pendingSubOrders.length;
+
+    res.json({
+      success: true,
+      summary: {
+        totalRequested: validIds.length,
+        totalSelected: pendingSubOrders.length,
+        missingOrInvalidCount,
+        totalSubmittedPieces,
+        totalApprovedPieces,
+        totalFaultyPieces,
+        totalCalculatedPayment,
+        overallDamageRate: (totalSubmittedPieces > 0)
+          ? Number(((totalFaultyPieces / totalSubmittedPieces) * 100).toFixed(1))
+          : 0,
+        stageBreakdown: stageBreakdownMap,
+        workerBreakdown: Object.values(workerBreakdownMap),
+        items: itemsSummary
+      }
+    });
+  } catch (error) {
+    console.error('getBulkApprovalSummary error:', error);
+    res.status(500).json({ error: error.message || 'Server error' });
+  }
+};
+
+/**
+ * POST /api/approvals/bulk-approve
+ * Approve multiple pending suborders atomically
+ */
+export const bulkApproveSubOrders = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const { subOrderIds } = req.body;
+    const adminId = req.user?._id;
+
+    if (!Array.isArray(subOrderIds) || subOrderIds.length === 0) {
+      return res.status(400).json({ error: 'subOrderIds must be a non-empty array' });
+    }
+
+    const validIds = subOrderIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+    if (validIds.length === 0) {
+      return res.status(400).json({ error: 'No valid subOrderIds provided' });
+    }
+
+    const results = {
+      approvedCount: 0,
+      failedCount: 0,
+      details: []
+    };
+
+    await session.withTransaction(async () => {
+      for (const id of validIds) {
+        try {
+          const subOrder = await SubOrder.findById(id)
+            .populate({
+              path: 'order',
+              populate: { path: 'style' }
+            })
+            .session(session);
+
+          if (!subOrder) {
+            results.failedCount++;
+            results.details.push({ id, status: 'failed', reason: 'SubOrder not found' });
+            continue;
+          }
+
+          if (subOrder.status !== 'pending_approval') {
+            results.failedCount++;
+            results.details.push({ id, status: 'failed', reason: `Status is '${subOrder.status}', not pending_approval` });
+            continue;
+          }
+
+          const { amount: calculatedPayment } = await approveWorkflowStage(subOrder, {
+            adminId,
+            session,
+            io: req.app.get('io')
+          });
+
+          await logApprovalHistory(subOrder, 'approved', adminId, 'admin', {
+            amount: calculatedPayment,
+            previousStatus: 'pending_approval',
+            notes: 'Bulk approved by admin'
+          });
+
+          results.approvedCount++;
+          results.details.push({ id, status: 'approved', amount: calculatedPayment });
+        } catch (err) {
+          results.failedCount++;
+          results.details.push({ id, status: 'failed', reason: err.message });
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Successfully processed bulk approval. Approved: ${results.approvedCount}, Failed: ${results.failedCount}`,
+      ...results
+    });
+  } catch (error) {
+    console.error('bulkApproveSubOrders error:', error);
+    res.status(500).json({ error: error.message || 'Server error' });
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
+ * POST /api/approvals/bulk-reject
+ * Reject multiple pending suborders
+ */
+export const bulkRejectSubOrders = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const { subOrderIds, reason = '' } = req.body;
+    const adminId = req.user?._id;
+
+    if (!Array.isArray(subOrderIds) || subOrderIds.length === 0) {
+      return res.status(400).json({ error: 'subOrderIds must be a non-empty array' });
+    }
+
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({ error: 'Rejection reason is required' });
+    }
+
+    const validIds = subOrderIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+    if (validIds.length === 0) {
+      return res.status(400).json({ error: 'No valid subOrderIds provided' });
+    }
+
+    const results = {
+      rejectedCount: 0,
+      failedCount: 0,
+      details: []
+    };
+
+    await session.withTransaction(async () => {
+      for (const id of validIds) {
+        try {
+          const subOrder = await SubOrder.findById(id).session(session);
+
+          if (!subOrder) {
+            results.failedCount++;
+            results.details.push({ id, status: 'failed', reason: 'SubOrder not found' });
+            continue;
+          }
+
+          if (subOrder.status !== 'pending_approval') {
+            results.failedCount++;
+            results.details.push({ id, status: 'failed', reason: `Status is '${subOrder.status}', not pending_approval` });
+            continue;
+          }
+
+          await rejectWorkflowStage(subOrder, { session });
+
+          await logApprovalHistory(subOrder, 'rejected', adminId, 'admin', {
+            reason: String(reason).trim(),
+            previousStatus: 'pending_approval',
+            notes: 'Bulk rejected by admin'
+          });
+
+          results.rejectedCount++;
+          results.details.push({ id, status: 'rejected' });
+        } catch (err) {
+          results.failedCount++;
+          results.details.push({ id, status: 'failed', reason: err.message });
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Successfully processed bulk rejection. Rejected: ${results.rejectedCount}, Failed: ${results.failedCount}`,
+      ...results
+    });
+  } catch (error) {
+    console.error('bulkRejectSubOrders error:', error);
+    res.status(500).json({ error: error.message || 'Server error' });
+  } finally {
+    session.endSession();
+  }
+};
+

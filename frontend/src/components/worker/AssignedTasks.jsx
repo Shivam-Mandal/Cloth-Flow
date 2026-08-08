@@ -16,6 +16,7 @@ export const AssignedTasks = () => {
   const [error, setError] = useState(null);
   const [completionModal, setCompletionModal] = useState({ open: false, assignment: null });
   const [completionData, setCompletionData] = useState({ completedPieces: '', damagedPieces: '', damagedReason: '' });
+  const [modalError, setModalError] = useState(null);
   const lastRefreshRef = useRef(0);
 
   const loadMine = useCallback(async () => {
@@ -83,22 +84,30 @@ export const AssignedTasks = () => {
   const handleComplete = async (assignmentId) => {
     const assignment = mine.find(a => (a._id || a.id) === assignmentId);
     if (!assignment) return;
-    setCompletionData({ completedPieces: String(assignment.totalPieces ?? ''), damagedPieces: '', damagedReason: '' });
+    setCompletionData({ completedPieces: String(assignment.totalPieces ?? ''), damagedPieces: '0', damagedReason: '' });
+    setModalError(null);
     setCompletionModal({ open: true, assignment });
   };
 
   const submitCompletion = async () => {
     const { assignment } = completionModal;
     if (!assignment) return;
+    setModalError(null);
     const completedPieces = Number(completionData.completedPieces || 0);
     const damagedPieces = Number(completionData.damagedPieces || 0);
     const totalPieces = Number(assignment.totalPieces || 0);
-    if (!Number.isInteger(completedPieces) || !Number.isInteger(damagedPieces) || completedPieces < 0 || damagedPieces < 0 || completedPieces + damagedPieces !== totalPieces) {
-      setError(`Completed pieces and damaged pieces must add up exactly to ${totalPieces}.`);
+    
+    if (completionData.completedPieces === '' || isNaN(completedPieces) || completedPieces < 0 || damagedPieces < 0) {
+      setModalError('Enter valid piece counts.');
       return;
     }
+
+    if (completedPieces < totalPieces && (completedPieces + damagedPieces) < totalPieces) {
+      setModalError(`Pieces must sum to ${totalPieces}.`);
+      return;
+    }
+
     setLoading(l => ({ ...l, action: true }));
-    setError(null);
     try {
       const payload = {
         completedPieces,
@@ -107,11 +116,12 @@ export const AssignedTasks = () => {
       };
       await completeAssignment(assignment._id || assignment.id, payload);
       setCompletionModal({ open: false, assignment: null });
+      setModalError(null);
       await loadMine();
       emitWorkerDataRefresh({ scope: 'worker', reason: 'complete-assignment', force: true });
     } catch (e) {
       console.error('complete failed', e);
-      setError(e?.response?.data?.error || e?.response?.data?.message || e.message || 'Failed to complete assignment');
+      setModalError(e?.response?.data?.message || e?.response?.data?.error || e.message || 'Failed to complete assignment');
     } finally {
       setLoading(l => ({ ...l, action: false }));
     }
@@ -259,6 +269,12 @@ export const AssignedTasks = () => {
             </p>
             <p className="text-sm text-gray-600 mb-4">Total Pieces: {completionModal.assignment.totalPieces}</p>
             
+            {modalError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg font-medium">
+                {modalError}
+              </div>
+            )}
+            
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Completed Pieces</label>
@@ -266,7 +282,24 @@ export const AssignedTasks = () => {
                   type="number"
                   min="0"
                   value={completionData.completedPieces}
-                  onChange={(e) => setCompletionData(prev => ({ ...prev, completedPieces: e.target.value }))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const num = Number(val);
+                    const total = Number(completionModal.assignment?.totalPieces || 0);
+                    let autoDamaged = completionData.damagedPieces;
+                    if (!isNaN(num) && val !== '') {
+                      if (num < total) {
+                        autoDamaged = String(Math.max(0, total - num));
+                      } else {
+                        autoDamaged = '0';
+                      }
+                    }
+                    setCompletionData(prev => ({
+                      ...prev,
+                      completedPieces: val,
+                      damagedPieces: autoDamaged
+                    }));
+                  }}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                 />
               </div>
@@ -302,7 +335,14 @@ export const AssignedTasks = () => {
               </button>
               <button
                 onClick={submitCompletion}
-                disabled={loading.action || ((Number(completionData.completedPieces || 0) + Number(completionData.damagedPieces || 0)) !== Number(completionModal.assignment.totalPieces || 0))}
+                disabled={
+                  loading.action ||
+                  completionData.completedPieces === '' ||
+                  isNaN(Number(completionData.completedPieces)) ||
+                  Number(completionData.completedPieces) < 0 ||
+                  (Number(completionData.completedPieces) < Number(completionModal.assignment?.totalPieces || 0) &&
+                    (Number(completionData.completedPieces) + Number(completionData.damagedPieces || 0)) < Number(completionModal.assignment?.totalPieces || 0))
+                }
                 className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
               >
                 Complete

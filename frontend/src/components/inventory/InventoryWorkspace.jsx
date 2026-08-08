@@ -792,28 +792,29 @@ export default function InventoryWorkspace({
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3">
         {[
           { label: 'Stored Suborders', value: summary.totalSubOrders, icon: ClipboardList, tone: 'from-cyan-500 to-blue-500' },
           { label: 'Total Pieces Submitted', value: summary.totalPieces, icon: Boxes, tone: 'from-emerald-500 to-teal-500' },
           { label: 'Actual Quantity Present', value: summary.availablePieces, icon: Tag, tone: 'from-violet-500 to-fuchsia-500' }
-        ].map((card) => {
+        ].map((card, idx) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div key={card.label} className={`rounded-3xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm ${idx === 2 ? 'col-span-2 sm:col-span-1' : ''}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-500">{card.label}</p>
-                  <p className="mt-2 text-3xl font-semibold text-slate-900">{card.value}</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-500">{card.label}</p>
+                  <p className="mt-1 sm:mt-2 text-xl sm:text-3xl font-semibold text-slate-900">{card.value}</p>
                 </div>
-                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${card.tone} text-white shadow-lg`}>
-                  <Icon className="h-6 w-6" />
+                <div className={`flex h-9 w-9 sm:h-12 sm:w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${card.tone} text-white shadow-lg shrink-0`}>
+                  <Icon className="h-4 w-4 sm:h-6 sm:w-6" />
                 </div>
               </div>
             </div>
           );
         })}
       </section>
+
 
       {/* Main Page Search & Filter Controls */}
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 space-y-4">
@@ -890,32 +891,30 @@ export default function InventoryWorkspace({
         </div>
 
         {/* Second Row: Date Range Filters */}
-        <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100 text-xs text-slate-600">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 pt-3 border-t border-slate-100 text-xs text-slate-600">
           <div className="flex items-center gap-1.5 font-medium text-slate-500 shrink-0">
             <CalendarDays className="h-4 w-4 text-violet-600" />
             <span>Date Range:</span>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-              <span className="text-slate-400">From</span>
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 min-w-0">
+              <span className="text-slate-400 font-medium shrink-0">From</span>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent text-xs text-slate-900 font-medium outline-none"
+                className="bg-transparent text-xs text-slate-900 font-medium outline-none w-full min-w-0"
               />
             </div>
 
-            <span className="text-slate-400">to</span>
-
-            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-              <span className="text-slate-400">To</span>
+            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 min-w-0">
+              <span className="text-slate-400 font-medium shrink-0">To</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent text-xs text-slate-900 font-medium outline-none"
+                className="bg-transparent text-xs text-slate-900 font-medium outline-none w-full min-w-0"
               />
             </div>
           </div>
@@ -1048,32 +1047,30 @@ export default function InventoryWorkspace({
                 </div>
 
                 {/* Second Row: Date Range Filters */}
-                <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100 text-xs text-slate-600">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 pt-3 border-t border-slate-100 text-xs text-slate-600">
                   <div className="flex items-center gap-1.5 font-medium text-slate-500 shrink-0">
                     <CalendarDays className="h-4 w-4 text-violet-600" />
                     <span>Date Range:</span>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-                      <span className="text-slate-400">From</span>
+                  <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 min-w-0">
+                      <span className="text-slate-400 font-medium shrink-0">From</span>
                       <input
                         type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="bg-transparent text-xs text-slate-900 font-medium outline-none"
+                        className="bg-transparent text-xs text-slate-900 font-medium outline-none w-full min-w-0"
                       />
                     </div>
 
-                    <span className="text-slate-400">to</span>
-
-                    <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-                      <span className="text-slate-400">To</span>
+                    <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 min-w-0">
+                      <span className="text-slate-400 font-medium shrink-0">To</span>
                       <input
                         type="date"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="bg-transparent text-xs text-slate-900 font-medium outline-none"
+                        className="bg-transparent text-xs text-slate-900 font-medium outline-none w-full min-w-0"
                       />
                     </div>
                   </div>
