@@ -147,17 +147,17 @@ const Topbar = ({ user = {}, onLogout }) => {
   return (
     <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 shadow-sm">
       <div className="flex items-center justify-between gap-4">
-        
+
         {/* Left Section */}
         <div className="flex min-w-0 flex-1 items-center space-x-4">
-          <button 
+          <button
             onClick={toggleSidebar}
             className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
             aria-label="Toggle sidebar"
           >
             <Menu className="w-5 h-5" />
           </button>
-          
+
           {/* Search Bar */}
           <div className="hidden min-w-0 flex-1 sm:block" ref={searchRef}>
             <div className="relative">
@@ -215,7 +215,7 @@ const Topbar = ({ user = {}, onLogout }) => {
 
         {/* Right Section */}
         <div className="flex items-center space-x-2 sm:space-x-3">
-          
+
           {/* Mobile Search Trigger Button */}
           <button
             onClick={() => setSearchFocused(true)}
@@ -232,7 +232,7 @@ const Topbar = ({ user = {}, onLogout }) => {
             </button>
           </div>
 
-          
+
           {/* Notifications */}
           <div className="relative">
             <button
@@ -245,35 +245,35 @@ const Topbar = ({ user = {}, onLogout }) => {
                 {notifications.length}
               </span>
             </button>
-            
+
             {/* Notifications Dropdown */}
 
-              {showNotifications && (
-                <div
+            {showNotifications && (
+              <div
 
 
 
 
-                  className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
-                >
-                  <div className="p-4 border-b border-gray-100">
-                    <h3 className="font-semibold text-gray-900">Notifications</h3>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {notifications.map((notification) => (
-                      <div key={notification.id} className="p-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
-                        <p className="text-sm font-medium text-gray-900">{notification.title}</p>
-                        <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="p-3 border-t border-gray-100">
-                    <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                      View all notifications
-                    </button>
-                  </div>
+                className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
+              >
+                <div className="p-4 border-b border-gray-100">
+                  <h3 className="font-semibold text-gray-900">Notifications</h3>
                 </div>
-              )}
+                <div className="max-h-64 overflow-y-auto">
+                  {notifications.map((notification) => (
+                    <div key={notification.id} className="p-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
+                      <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 border-t border-gray-100">
+                  <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                    View all notifications
+                  </button>
+                </div>
+              </div>
+            )}
 
           </div>
 
@@ -296,50 +296,50 @@ const Topbar = ({ user = {}, onLogout }) => {
               </div>
               <ChevronDown className="w-4 h-4 text-gray-500" />
             </button>
-            
+
             {/* User Dropdown */}
 
-              {showUserMenu && (
-                <div
+            {showUserMenu && (
+              <div
 
 
 
 
-                  className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
-                >
-                  <div className="p-3 border-b border-gray-100">
-                    <p className="font-medium text-gray-900">{user?.name || 'Admin'}</p>
-                    <p className="text-sm text-gray-500">{user?.email || 'Signed in user'}</p>
-                  </div>
-                  <div className="py-2">
-                    <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
-                      <UserIcon className="w-4 h-4" />
-                      <span>Profile</span>
-                    </button>
-                    <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
-                      <Settings className="w-4 h-4" />
-                      <span>Settings</span>
-                    </button>
-                  </div>
-                  <div className="border-t border-gray-100 py-2">
-                    <button
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        onLogout?.();
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Sign out</span>
-                    </button>
-                  </div>
+                className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
+              >
+                <div className="p-3 border-b border-gray-100">
+                  <p className="font-medium text-gray-900">{user?.name || 'Admin'}</p>
+                  <p className="text-sm text-gray-500">{user?.email || 'Signed in user'}</p>
                 </div>
-              )}
+                <div className="py-2">
+                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                    <UserIcon className="w-4 h-4" />
+                    <span>Profile</span>
+                  </button>
+                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                    <Settings className="w-4 h-4" />
+                    <span>Settings</span>
+                  </button>
+                </div>
+                <div className="border-t border-gray-100 py-2">
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      onLogout?.();
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Sign out</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
           </div>
         </div>
       </div>
-      
+
       {/* Mobile Search Overlay Modal */}
       {searchFocused && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm sm:hidden flex flex-col p-4">
@@ -398,8 +398,8 @@ const Topbar = ({ user = {}, onLogout }) => {
 
       {/* Click outside to close dropdowns */}
       {(showUserMenu || showNotifications) && (
-        <div 
-          className="fixed inset-0 z-40" 
+        <div
+          className="fixed inset-0 z-40"
           onClick={() => {
             setShowUserMenu(false);
             setShowNotifications(false);

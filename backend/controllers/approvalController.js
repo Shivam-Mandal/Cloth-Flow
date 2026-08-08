@@ -429,18 +429,35 @@ export const rejectSubOrder = async (req, res) => {
  */
 export const getApprovalHistory = async (req, res) => {
   try {
-    const { page = 1, limit = 20, action, subOrder, actor } = req.query;
+    const { page = 1, limit = 20, action, subOrder, actor, search, stage, actorRole } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const query = {};
     if (action) query.action = action;
     if (subOrder) query.subOrder = subOrder;
     if (actor) query.actor = actor;
+    if (actorRole) query.actorRole = actorRole;
+    if (stage) query['metadata.stage'] = stage;
+
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      query['$or'] = [
+        { 'metadata.subOrderName': searchRegex },
+        { 'metadata.orderId': searchRegex },
+        { 'metadata.stage': searchRegex },
+        { reason: searchRegex },
+        { notes: searchRegex }
+      ];
+    }
 
     const history = await ApprovalHistory.find(query)
-      .populate('subOrder', 'name orderId currentStage')
-      .populate('order', 'orderId')
-      .populate('actor', 'name email')
+      .populate({
+        path: 'subOrder',
+        select: 'name subOrderCode code orderId currentStage pieces color size totalPieces',
+        populate: { path: 'order', select: 'orderId style styleSnapshot styleCode styleName' }
+      })
+      .populate('order', 'orderId style styleSnapshot styleCode styleName')
+      .populate('actor', 'name email workerType category type')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))

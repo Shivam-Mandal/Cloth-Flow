@@ -417,27 +417,39 @@ export const AssignedTasksTable = () => {
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
             {loading.fetch ? (
-              <tr><td colSpan={8} className="px-3 py-6 text-center text-sm text-gray-500">Loading your tasks...</td></tr>
+              <>
+                {[1, 2, 3].map((i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-3 py-3"><div className="h-10 w-10 bg-gray-200 rounded" /></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-gray-200 rounded w-24" /></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-gray-200 rounded w-12" /></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-gray-200 rounded w-12" /></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-gray-200 rounded w-12" /></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-gray-200 rounded w-16" /></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-gray-200 rounded w-20" /></td>
+                    <td className="px-3 py-3"><div className="h-8 bg-gray-200 rounded w-24" /></td>
+                  </tr>
+                ))}
+              </>
             ) : mine.length === 0 ? (
               <tr><td colSpan={8} className="px-3 py-6 text-center text-sm text-gray-500">You haven't selected any tasks yet.</td></tr>
             ) : (
               mine.map(task => (
                 <tr key={task._id || task.id}>
-                      <td className="px-3 py-3 align-top">
-                        <div className="w-16 h-10 bg-gray-50 rounded overflow-hidden flex items-center justify-center border">
-                            <img src={getFirstImage(task)} alt="thumb" className="object-cover w-full h-full cursor-pointer" onClick={() => { openModalWithTask(task, 0); }} />
-                        </div>
-                        {/* <div className="text-xs text-gray-500 mt-1">{task.order?.orderId || task.orderId}</div> */}
-                      </td>
-                      <td className="px-3 py-3 align-top text-sm">
-                        <div className="font-medium">{task.order?.orderId ?? task.orderId ?? '—'}</div>
-                        <div className="text-xs text-gray-500">
-                          SubOrder: {getSubOrderCode(task) || shortId(task?.subOrder?._id || task?.subOrder || task?._id)}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 align-top text-sm">{getPiecesCount(task)}</td>
-                      <td className="px-3 py-3 align-top text-sm">{task.completedPieces || 0}</td>
-                      <td className="px-3 py-3 align-top text-sm">{task.damagedPieces || 0}</td>
+                  <td className="px-3 py-3 align-top">
+                    <div className="w-16 h-10 bg-gray-50 rounded overflow-hidden flex items-center justify-center border">
+                      <img src={getFirstImage(task)} alt="thumb" className="object-cover w-full h-full cursor-pointer" onClick={() => { openModalWithTask(task, 0); }} />
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 align-top text-sm">
+                    <div className="font-medium">{task.order?.orderId ?? task.orderId ?? '—'}</div>
+                    <div className="text-xs text-gray-500">
+                      SubOrder: {getSubOrderCode(task) || shortId(task?.subOrder?._id || task?.subOrder || task?._id)}
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 align-top text-sm">{getPiecesCount(task)}</td>
+                  <td className="px-3 py-3 align-top text-sm">{task.completedPieces || 0}</td>
+                  <td className="px-3 py-3 align-top text-sm">{task.damagedPieces || 0}</td>
                   <td className="px-3 py-3 align-top text-sm flex items-center gap-2">{getStatusIcon(task.status)} <span>{task.status || '—'}</span></td>
                   <td className="px-3 py-3 align-top text-sm">{task.order?.deadline ? new Date(task.order.deadline).toLocaleString() : (task.deadline ? new Date(task.deadline).toLocaleString() : '—')}</td>
                   <td className="px-3 py-3 align-top text-sm">
@@ -499,13 +511,13 @@ export const AssignedTasksTable = () => {
               Assignment: {getSubOrderCode(completionModal.assignment) || shortId(completionModal.assignment?.subOrder?._id || completionModal.assignment?.subOrder || completionModal.assignment?._id)} — {completionModal.assignment.stage || completionModal.assignment.process}
             </p>
             <p className="text-sm text-gray-600 mb-4">Total Pieces: {completionModal.assignment.totalPieces}</p>
-            
+
             {modalError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg font-medium">
                 {modalError}
               </div>
             )}
-            
+
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Completed Pieces</label>
@@ -534,7 +546,7 @@ export const AssignedTasksTable = () => {
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700">Damaged Pieces</label>
                 <input
@@ -545,7 +557,7 @@ export const AssignedTasksTable = () => {
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700">Reason for Damaged Pieces (optional)</label>
                 <textarea
@@ -556,7 +568,7 @@ export const AssignedTasksTable = () => {
                 />
               </div>
             </div>
-            
+
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setCompletionModal({ open: false, assignment: null })}

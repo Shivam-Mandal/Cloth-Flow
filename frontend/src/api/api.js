@@ -13,7 +13,7 @@ const resolveBaseURL = () => {
 
 const api = axios.create({
   baseURL: resolveBaseURL(),
-  withCredentials: true, 
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -40,9 +40,22 @@ const attachCsrfToken = (config = {}) => {
   return config;
 };
 
-// Request interceptor - tokens handled via cookies
+// Request interceptor - tokens handled via cookies, enforce fresh data fetches
 api.interceptors.request.use(
-  attachCsrfToken,
+  (config) => {
+    const updatedConfig = attachCsrfToken(config);
+    if (String(updatedConfig.method || 'get').toLowerCase() === 'get') {
+      updatedConfig.headers = updatedConfig.headers || {};
+      updatedConfig.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      updatedConfig.headers['Pragma'] = 'no-cache';
+      updatedConfig.headers['Expires'] = '0';
+
+      // Always append timestamp _t to bypass browser cache
+      updatedConfig.params = updatedConfig.params || {};
+      updatedConfig.params._t = Date.now();
+    }
+    return updatedConfig;
+  },
   (error) => Promise.reject(error)
 );
 
@@ -51,17 +64,17 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
         await axios.post(
           `${api.defaults.baseURL}/auth/refresh-token`,
           {},
           attachCsrfToken({ withCredentials: true })
         );
-        
+
         return api(originalRequest);
       } catch {
         // Only redirect if not already on login page
@@ -70,7 +83,7 @@ api.interceptors.response.use(
         }
       }
     }
-    
+
     return Promise.reject(error);
   }
 );

@@ -1,7 +1,7 @@
   // src/components/AvailableTasks.jsx
   import React, { useEffect, useState, useMemo, useRef } from 'react';
   import PropTypes from 'prop-types';
-  import { Package, AlertCircle, Plus, Filter } from 'lucide-react';
+  import { Package, AlertCircle, Plus, Filter, RotateCw } from 'lucide-react';
   import {
     fetchAvailableForMe,
     claimAssignment,
@@ -180,6 +180,11 @@
         }
       });
 
+      const handleGlobalRefresh = () => {
+        refreshIfStale({ force: true });
+      };
+      window.addEventListener('app:refresh', handleGlobalRefresh);
+
       const revalidateVisibleState = () => {
         if (document.visibilityState === 'visible') {
           refreshIfStale();
@@ -191,6 +196,7 @@
 
       return () => {
         unsubscribe();
+        window.removeEventListener('app:refresh', handleGlobalRefresh);
         window.removeEventListener('focus', revalidateVisibleState);
         document.removeEventListener('visibilitychange', revalidateVisibleState);
       };
@@ -311,7 +317,21 @@
               {workerLoading ? 'Determining your worker type…' : workerCategory ? `Showing tasks for: ${workerCategory}` : 'Showing tasks (all categories)'}
             </p>
           </div>
-          <div className="text-sm text-gray-600">{loading ? 'Loading…' : `${assignments.length} chunk(s) available`}</div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                load();
+                loadAssignedForMe();
+              }}
+              disabled={loading}
+              className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <div className="text-sm text-gray-600">{loading ? 'Loading…' : `${assignments.length} chunk(s) available`}</div>
+          </div>
         </div>
 
         {activeAssigned && !allowMultipleClaims && (
@@ -352,9 +372,22 @@
         </div>
 
         <div className="grid grid-cols-1 gap-6">
-          {paginatedItems.map(group => {
-            const timeRemaining = getTimeRemaining(group.deadline);
-            return (
+          {loading ? (
+            Array.from({ length: 3 }).map((_, idx) => (
+              <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse space-y-4">
+                <div className="flex justify-between items-center"><div className="h-6 w-40 bg-slate-200 rounded" /><div className="h-6 w-20 bg-slate-200 rounded-full" /></div>
+                <div className="grid grid-cols-3 gap-4"><div className="h-12 bg-slate-100 rounded" /><div className="h-12 bg-slate-100 rounded" /><div className="h-12 bg-slate-100 rounded" /></div>
+                <div className="h-16 bg-slate-100 rounded-lg" />
+              </div>
+            ))
+          ) : paginatedItems.length === 0 ? (
+            <div className="bg-white p-12 rounded-xl text-center border border-dashed border-gray-300">
+              <p className="text-gray-500 font-medium">No available tasks matching your filter.</p>
+            </div>
+          ) : (
+            paginatedItems.map(group => {
+              const timeRemaining = getTimeRemaining(group.deadline);
+              return (
               <div key={group.orderKey} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-3">
@@ -426,7 +459,8 @@
                 </div>
               </div>
             );
-          })}
+          })
+          )}
         </div>
 
         <PaginationControls

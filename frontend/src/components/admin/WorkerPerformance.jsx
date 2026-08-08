@@ -1,7 +1,32 @@
-import React, { useState } from 'react';
-import { Users, Award, TrendingUp, Clock, Search } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Users, Award, TrendingUp, Clock, Search, RotateCw } from 'lucide-react';
 
 export const WorkerPerformance = () => {
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setLoading(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      setLoading(false);
+    }, 400);
+  };
+
+  useEffect(() => {
+    const handleGlobalRefresh = () => {
+      handleRefresh();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
+  }, []);
+
   const [workers] = useState([
     {
       id: '1',
@@ -76,6 +101,14 @@ export const WorkerPerformance = () => {
           <h1 className="text-3xl font-bold text-gray-900">Worker Performance</h1>
           <p className="text-gray-600 mt-1">Track worker productivity and task assignments</p>
         </div>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer"
+        >
+          <RotateCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
       {/* Stats Grid */}
@@ -166,7 +199,20 @@ export const WorkerPerformance = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredWorkers.map((worker) => (
+              {loading ? (
+                Array.from({ length: 4 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse">
+                    <td className="px-6 py-4"><div className="h-4 w-32 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-24 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-12 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
+                  </tr>
+                ))
+              ) : (
+                filteredWorkers.map((worker) => (
                 <tr key={worker.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-3">
@@ -206,7 +252,8 @@ export const WorkerPerformance = () => {
                     </span>
                   </td>
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>

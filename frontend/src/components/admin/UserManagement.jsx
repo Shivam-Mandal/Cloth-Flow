@@ -91,6 +91,12 @@ export default function UserManagement() {
 
   useEffect(() => {
     loadUsers();
+
+    const handleGlobalRefresh = () => {
+      loadUsers();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
   }, []);
 
   useEffect(() => {
@@ -380,8 +386,19 @@ export default function UserManagement() {
 
             <div className="mt-5">
               {loading.fetch ? (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-12 text-center text-sm text-slate-500">
-                  Loading users...
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                  <div className="p-5 space-y-4">
+                    {Array.from({ length: 5 }).map((_, idx) => (
+                      <div key={idx} className="flex items-center gap-4 py-3 px-4 bg-slate-50 rounded-xl animate-pulse">
+                        <div className="w-1/5 h-4 bg-slate-200 rounded" />
+                        <div className="w-1/4 h-4 bg-slate-200 rounded" />
+                        <div className="w-1/6 h-4 bg-slate-200 rounded" />
+                        <div className="w-1/6 h-4 bg-slate-200 rounded" />
+                        <div className="w-1/6 h-4 bg-slate-200 rounded" />
+                        <div className="w-16 h-8 bg-slate-200 rounded-xl ml-auto" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : filteredUsers.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-12 text-center text-sm text-slate-500">

@@ -1,9 +1,33 @@
-import React, { useState } from 'react';
-import { BarChart3, Download, Calendar, TrendingUp, IndianRupee, Package } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { BarChart3, Download, Calendar, TrendingUp, IndianRupee, Package, RotateCw } from 'lucide-react';
 
 export const Reports = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [selectedReport, setSelectedReport] = useState('overview');
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setLoading(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      setLoading(false);
+    }, 400);
+  };
+
+  useEffect(() => {
+    const handleGlobalRefresh = () => {
+      handleRefresh();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
+  }, []);
 
   const reportTypes = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -27,6 +51,14 @@ export const Reports = () => {
           <p className="text-gray-600 mt-1">Generate comprehensive business reports</p>
         </div>
         <div className="flex items-center space-x-3">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer"
+          >
+            <RotateCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
@@ -63,7 +95,26 @@ export const Reports = () => {
         })}
       </div>
 
-      {selectedReport === 'overview' && (
+      {loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-pulse">
+          <div className="bg-white p-6 rounded-xl border border-gray-200 space-y-4">
+            <div className="h-6 w-40 bg-slate-200 rounded" />
+            <div className="space-y-3">
+              <div className="h-14 bg-slate-100 rounded-lg" />
+              <div className="h-14 bg-slate-100 rounded-lg" />
+              <div className="h-14 bg-slate-100 rounded-lg" />
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-xl border border-gray-200 space-y-4">
+            <div className="h-6 w-40 bg-slate-200 rounded" />
+            <div className="space-y-3">
+              <div className="h-14 bg-slate-100 rounded-lg" />
+              <div className="h-14 bg-slate-100 rounded-lg" />
+              <div className="h-14 bg-slate-100 rounded-lg" />
+            </div>
+          </div>
+        </div>
+      ) : selectedReport === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Production Overview</h3>

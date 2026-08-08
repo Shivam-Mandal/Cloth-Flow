@@ -123,7 +123,7 @@ const resolveAllImages = (chunk) => {
   pushIf(chunk.order?.previewImage);
   pushIf(chunk.order?.styleSnapshot?.images);
   pushIf(chunk.order?.styleSnapshot?.photos);
-  
+
   // Tertiary: Chunk level images
   pushIf(chunk.pieces);
   pushIf(chunk.photos);
@@ -572,73 +572,83 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
 
   return (
     <>
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Tasks {workerCategory ? `— ${workerCategory}` : ''}</h1>
-          <p className="text-sm text-gray-600 mt-1">{workerLoading ? 'Determining worker type…' : (workerCategory ? `Showing tasks for ${workerCategory}` : 'Showing all tasks')}</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Tasks {workerCategory ? `— ${workerCategory}` : ''}</h1>
+            <p className="text-sm text-gray-600 mt-1">{workerLoading ? 'Determining worker type…' : (workerCategory ? `Showing tasks for ${workerCategory}` : 'Showing all tasks')}</p>
+          </div>
+          <div className="text-sm text-gray-600">{loading ? 'Loading…' : `${assignments.length} chunk(s) available`}</div>
         </div>
-        <div className="text-sm text-gray-600">{loading ? 'Loading…' : `${assignments.length} chunk(s) available`}</div>
-      </div>
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead>
-            <tr className="text-left text-sm text-gray-600">
-              <th className="px-3 py-2">Photo</th>
-              <th className="px-3 py-2">SKU / Order</th>
-              <th className="px-3 py-2">Pieces</th>
-              <th className="px-3 py-2">Color</th>
-              <th className="px-3 py-2">Size</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Pick</th>
-            </tr>
-          </thead>
-
-          <tbody className="bg-white divide-y divide-gray-100">
-            {activeAssigned && (
-              <TaskRow
-                key={activeAssigned._id}
-                chunk={activeAssigned}
-                orderKey={activeAssigned.order?.orderId ?? activeAssigned.order}
-                status="Current"
-                activeAssignedId={activeAssigned._id}
-                claimingId={claimingId}
-                onClaim={handleClaim}
-                workerId={workerId}
-                onOpenGallery={openGallery}
-                allowMultipleClaims={allowMultipleClaims}
-              />
-            )}
-
-            {tableRows.length === 0 && !loading ? (
-              <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">No available tasks</td>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead>
+              <tr className="text-left text-sm text-gray-600">
+                <th className="px-3 py-2">Photo</th>
+                <th className="px-3 py-2">SKU / Order</th>
+                <th className="px-3 py-2">Pieces</th>
+                <th className="px-3 py-2">Color</th>
+                <th className="px-3 py-2">Size</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Pick</th>
               </tr>
-            ) : tableRows.map(({ orderKey, chunk }) => (
-              <TaskRow
-                key={chunk._id}
-                chunk={chunk}
-                orderKey={orderKey}
-                status="Available"
-                activeAssignedId={activeAssigned?._id}
-                claimingId={claimingId}
-                onClaim={handleClaim}
-                workerId={workerId}
-                onOpenGallery={openGallery}
-                allowMultipleClaims={allowMultipleClaims}
-              />
-            ))}
+            </thead>
 
-            {loading && (
-              <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">Loading tasks…</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {activeAssigned && (
+                <TaskRow
+                  key={activeAssigned._id}
+                  chunk={activeAssigned}
+                  orderKey={activeAssigned.order?.orderId ?? activeAssigned.order}
+                  status="Current"
+                  activeAssignedId={activeAssigned._id}
+                  claimingId={claimingId}
+                  onClaim={handleClaim}
+                  workerId={workerId}
+                  onOpenGallery={openGallery}
+                  allowMultipleClaims={allowMultipleClaims}
+                />
+              )}
+
+              {tableRows.length === 0 && !loading ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">No available tasks</td>
+                </tr>
+              ) : tableRows.map(({ orderKey, chunk }) => (
+                <TaskRow
+                  key={chunk._id}
+                  chunk={chunk}
+                  orderKey={orderKey}
+                  status="Available"
+                  activeAssignedId={activeAssigned?._id}
+                  claimingId={claimingId}
+                  onClaim={handleClaim}
+                  workerId={workerId}
+                  onOpenGallery={openGallery}
+                  allowMultipleClaims={allowMultipleClaims}
+                />
+              ))}
+
+              {loading && (
+                <>
+                  {[1, 2, 3, 4].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-3 py-3"><div className="h-12 w-12 bg-gray-200 rounded" /></td>
+                      <td className="px-3 py-3"><div className="h-4 bg-gray-200 rounded w-24" /></td>
+                      <td className="px-3 py-3"><div className="h-4 bg-gray-200 rounded w-12" /></td>
+                      <td className="px-3 py-3"><div className="h-4 bg-gray-200 rounded w-16" /></td>
+                      <td className="px-3 py-3"><div className="h-4 bg-gray-200 rounded w-12" /></td>
+                      <td className="px-3 py-3"><div className="h-4 bg-gray-200 rounded w-16" /></td>
+                      <td className="px-3 py-3"><div className="h-8 bg-gray-200 rounded w-20" /></td>
+                    </tr>
+                  ))}
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
       {/* Gallery modal (simple lightbox) */}
       {galleryOpen && (
         <div

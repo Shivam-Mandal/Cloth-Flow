@@ -32,7 +32,8 @@ import {
   PaintRoller,
   Package,
   Tag,
-  Info
+  Info,
+  RotateCw
 } from 'lucide-react';
 import * as styleService from '../services/styleServices'; // <-- ensure this file exists
 import PaginationControls from '../ui/PaginationControls';
@@ -200,36 +201,41 @@ export default function StyleManagement() {
     return '';
   }, []);
 
+  const loadAllStylesAndStages = useCallback(async () => {
+    setLoadingStyles(true);
+    setLoadError('');
+    try {
+      const [styleData, stageData] = await Promise.all([
+        styleService.fetchStyles(),
+        styleService.fetchStages()
+      ]);
+
+      const stages = stageData?.length
+        ? stageData
+        : defaultSteps.map((stage, index) => ({ _id: stage, name: stage, sortOrder: index + 1, active: true }));
+
+      setStyles(styleData || []);
+      const sortedStages = sortStages(stages);
+      setAvailableStages(sortedStages);
+      setSelectedStageIds(sortedStages.filter((stage) => stage.active !== false).map((stage) => stage._id));
+    } catch (err) {
+      console.error('Failed to fetch styles or stages', err);
+      setLoadError(err?.response?.data?.message || 'Failed to load styles.');
+    } finally {
+      setLoadingStyles(false);
+    }
+  }, []);
+
   // fetch styles on mount
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoadingStyles(true);
-      setLoadError('');
-      try {
-        const [styleData, stageData] = await Promise.all([
-          styleService.fetchStyles(),
-          styleService.fetchStages()
-        ]);
-        if (!mounted) return;
+    loadAllStylesAndStages();
 
-        const stages = stageData?.length
-          ? stageData
-          : defaultSteps.map((stage, index) => ({ _id: stage, name: stage, sortOrder: index + 1, active: true }));
-
-        setStyles(styleData || []);
-        const sortedStages = sortStages(stages);
-        setAvailableStages(sortedStages);
-        setSelectedStageIds(sortedStages.filter((stage) => stage.active !== false).map((stage) => stage._id));
-      } catch (err) {
-        console.error('Failed to fetch styles or stages', err);
-        if (mounted) setLoadError(err?.response?.data?.message || 'Failed to load styles.');
-      } finally {
-        if (mounted) setLoadingStyles(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
+    const handleGlobalRefresh = () => {
+      loadAllStylesAndStages();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
+  }, [loadAllStylesAndStages]);
 
   const activeStages = useMemo(
     () => availableStages.filter((stage) => stage.active !== false),
@@ -813,6 +819,14 @@ export default function StyleManagement() {
           <p className="text-sm text-gray-500">Create and manage style definitions and per-step pricing.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <button
+            type="button"
+            onClick={loadAllStylesAndStages}
+            disabled={loadingStyles}
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:text-blue-600 hover:border-blue-200 disabled:opacity-50"
+          >
+            <RotateCw className={`w-4 h-4 ${loadingStyles ? 'animate-spin' : ''}`} /> Refresh
+          </button>
           <button
             type="button"
             onClick={() => setIsStageManagerOpen(true)}

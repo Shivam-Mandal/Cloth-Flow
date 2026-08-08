@@ -106,6 +106,12 @@ export const ApprovalManagement = () => {
 
   useEffect(() => {
     loadPendingApprovals();
+
+    const handleGlobalRefresh = () => {
+      loadPendingApprovals();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
   }, []);
 
   // Fetch server-calculated summary whenever selectedIds changes
@@ -350,7 +356,7 @@ export const ApprovalManagement = () => {
               <div>
                 <h3 className="font-bold text-base sm:text-lg flex items-center gap-2">
                   <span>Selected Approvals</span>
-            
+
                 </h3>
                 <p className="text-xs text-slate-300">
                   {backendSummary
@@ -516,9 +522,17 @@ export const ApprovalManagement = () => {
       {/* Main Tabular View */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
         {loading.fetch ? (
-          <div className="text-center py-12">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <div className="text-sm font-medium text-slate-500">Loading pending approvals...</div>
+          <div className="p-6 space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-4 py-3.5 px-4 bg-slate-50 rounded-xl animate-pulse">
+                <div className="w-5 h-5 bg-slate-200 rounded" />
+                <div className="w-1/4 h-4 bg-slate-200 rounded" />
+                <div className="w-1/4 h-4 bg-slate-200 rounded" />
+                <div className="w-1/6 h-4 bg-slate-200 rounded" />
+                <div className="w-1/6 h-4 bg-slate-200 rounded" />
+                <div className="w-1/6 h-4 bg-slate-200 rounded" />
+              </div>
+            ))}
           </div>
         ) : filteredApprovals.length === 0 ? (
           <div className="text-center py-12 px-4">
@@ -572,9 +586,8 @@ export const ApprovalManagement = () => {
                   return (
                     <tr
                       key={approval._id}
-                      className={`transition-colors hover:bg-blue-50/40 ${
-                        isSelected ? 'bg-blue-50/70 border-l-4 border-l-blue-600' : ''
-                      }`}
+                      className={`transition-colors hover:bg-blue-50/40 ${isSelected ? 'bg-blue-50/70 border-l-4 border-l-blue-600' : ''
+                        }`}
                     >
                       {/* Checkbox */}
                       <td className="py-3.5 px-4">
@@ -651,9 +664,8 @@ export const ApprovalManagement = () => {
 
                       {/* Priority / Date */}
                       <td className="py-3.5 px-4">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
-                          approval.priority === 'High' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'
-                        }`}>
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${approval.priority === 'High' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'
+                          }`}>
                           {approval.priority || 'Normal'}
                         </span>
                         <div className="text-[10px] text-slate-400 mt-1">
@@ -702,7 +714,7 @@ export const ApprovalManagement = () => {
       {selectedApproval && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4">
           <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto relative border border-slate-100 flex flex-col space-y-3.5 sm:space-y-4">
-            
+
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -810,7 +822,7 @@ export const ApprovalManagement = () => {
                   Payment Calculation (Backend Auto-Calculated)
                 </h4>
               </div>
-              
+
               <div className="grid grid-cols-3 gap-2 text-xs items-center bg-white p-2 rounded-lg border border-amber-100">
                 <div>
                   <span className="text-slate-500 block text-[10px]">Rate ({selectedApproval.currentStage})</span>
@@ -908,7 +920,7 @@ export const ApprovalManagement = () => {
       {showBulkApproveModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-2 sm:p-4 md:p-5">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[94vh] sm:max-h-[90vh] overflow-hidden flex flex-col border border-slate-100">
-            
+
             {/* Modal Header */}
             <div className="p-3.5 sm:p-5 border-b border-slate-100 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5 sm:gap-3">
@@ -938,7 +950,7 @@ export const ApprovalManagement = () => {
 
             {/* Modal Body - Scrollable */}
             <div className="p-3 sm:p-6 overflow-y-auto space-y-4">
-              
+
               {/* Aggregated Totals Grid */}
               {backendSummary ? (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-xs">

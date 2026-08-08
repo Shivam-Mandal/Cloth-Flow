@@ -677,6 +677,12 @@ export default function InventoryWorkspace({
 
   useEffect(() => {
     loadInventory();
+
+    const handleGlobalRefresh = () => {
+      loadInventory();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
   }, [status, selectedStyle, startDate, endDate]);
 
   const isFiltered = Boolean(search || status !== 'all' || selectedStyle !== 'all' || startDate || endDate);

@@ -1,7 +1,32 @@
-import React from 'react';
-import { Activity, Clock, CheckCircle, AlertCircle, Users } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Activity, Clock, CheckCircle, AlertCircle, Users, RotateCw } from 'lucide-react';
 
 export const ProcessTracking = () => {
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setLoading(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      setLoading(false);
+    }, 400);
+  };
+
+  useEffect(() => {
+    const handleGlobalRefresh = () => {
+      handleRefresh();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
+  }, []);
+
   const processStages = [
     { name: 'Cutting', orders: 8, workers: 5, efficiency: 85, avgTime: '2.5h', status: 'efficient' },
     { name: 'Stitching', orders: 12, workers: 8, efficiency: 70, avgTime: '4.2h', status: 'bottleneck' },
@@ -32,14 +57,37 @@ export const ProcessTracking = () => {
           <h1 className="text-3xl font-bold text-gray-900">Process Tracking</h1>
           <p className="text-gray-600 mt-1">Monitor production stages and efficiency</p>
         </div>
-        <div className="flex items-center space-x-2 text-sm text-gray-600">
-          <Clock className="w-4 h-4" />
-          <span>Real-time updates</span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer"
+          >
+            <RotateCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+            <Clock className="w-4 h-4 text-blue-600" />
+            <span>Real-time updates</span>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        {processStages.map((stage, index) => (
+        {loading ? (
+          Array.from({ length: 4 }).map((_, idx) => (
+            <div key={idx} className="bg-white p-3.5 sm:p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse space-y-4">
+              <div className="flex justify-between items-center"><div className="h-5 w-24 bg-slate-200 rounded" /><div className="h-5 w-5 bg-slate-200 rounded-full" /></div>
+              <div className="space-y-3">
+                <div className="h-4 w-full bg-slate-200 rounded" />
+                <div className="h-4 w-3/4 bg-slate-200 rounded" />
+                <div className="h-2 w-full bg-slate-200 rounded-full" />
+                <div className="h-4 w-1/2 bg-slate-200 rounded" />
+              </div>
+            </div>
+          ))
+        ) : (
+          processStages.map((stage, index) => (
           <div key={stage.name} className="bg-white p-3.5 sm:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all">
 
             <div className="flex items-center justify-between mb-4">
@@ -87,7 +135,8 @@ export const ProcessTracking = () => {
               </div>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

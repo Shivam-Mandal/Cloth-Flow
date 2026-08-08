@@ -288,7 +288,8 @@ import {
   Shirt,
   Upload,
   ImageIcon,
-  X
+  X,
+  RotateCw
 } from 'lucide-react';
 import stockService from '../services/stockServices';
 import PaginationControls from '../ui/PaginationControls';
@@ -371,6 +372,7 @@ const getColorHex = (color) => {
 
 export const StockManagement = () => {
   const [stocks, setStocks] = useState([]);
+  const [loadingStocks, setLoadingStocks] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingStock, setEditingStock] = useState(null);
   const [savingStock, setSavingStock] = useState(false);
@@ -379,17 +381,26 @@ export const StockManagement = () => {
   const [selectedVendor, setSelectedVendor] = useState('all');
   const [newStock, setNewStock] = useState(emptyStockForm);
 
-  // Fetch stocks on mount
-  useEffect(() => {
-    async function loadStocks() {
-      try {
-        const data = await stockService.fetchStocks();
-        setStocks(data);
-      } catch (err) {
-        console.error('Failed to load stocks', err);
-      }
+  const loadStocks = async () => {
+    setLoadingStocks(true);
+    try {
+      const data = await stockService.fetchStocks();
+      setStocks(data || []);
+    } catch (err) {
+      console.error('Failed to load stocks', err);
+    } finally {
+      setLoadingStocks(false);
     }
+  };
+
+  useEffect(() => {
     loadStocks();
+
+    const handleGlobalRefresh = () => {
+      loadStocks();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
   }, []);
 
   const vendors = Array.from(new Set(stocks.map((s) => s.vendor).filter(Boolean)));
@@ -587,13 +598,24 @@ export const StockManagement = () => {
           <h1 className="text-3xl font-bold text-gray-900">Stock Management</h1>
           <p className="text-gray-600 mt-1">Manage raw cloth inventory</p>
         </div>
-        <button
-          onClick={openAddStock}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Add Stock</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={loadStocks}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer"
+            title="Force refresh stock data"
+          >
+            <RotateCw className="w-4 h-4" />
+            Refresh
+          </button>
+          <button
+            onClick={openAddStock}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Add Stock</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
@@ -704,7 +726,29 @@ export const StockManagement = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {paginatedStocks.map((stock) => {
+              {loadingStocks ? (
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse">
+                    <td className="px-6 py-4"><div className="h-10 w-10 bg-slate-200 rounded-lg" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-28 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-24 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-24 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-24 bg-slate-200 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
+                  </tr>
+                ))
+              ) : paginatedStocks.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-6 py-12 text-center text-sm text-gray-500">
+                    No stocks available.
+                  </td>
+                </tr>
+              ) : (
+                paginatedStocks.map((stock) => {
                 const displayStock = getDisplayStock(stock);
                 const keyId = getStockId(displayStock);
                 return (
@@ -774,7 +818,8 @@ export const StockManagement = () => {
                     </td>
                   </tr>
                 );
-              })}
+              })
+              )}
             </tbody>
           </table>
         </div>

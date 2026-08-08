@@ -53,7 +53,7 @@ export const Overview = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div 
+      <div
 
 
 
@@ -110,7 +110,7 @@ export const Overview = () => {
       {/* Approval Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         {/* Pending Approvals */}
-        <div 
+        <div
 
 
           className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-lg"
@@ -128,9 +128,13 @@ export const Overview = () => {
           </div>
 
           {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-600 mx-auto"></div>
-              <p className="text-gray-500 mt-3">Loading...</p>
+            <div className="space-y-3 py-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-4 bg-gray-50 rounded-xl animate-pulse space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-1/2" />
+                  <div className="h-3 bg-gray-200 rounded w-1/3" />
+                </div>
+              ))}
             </div>
           ) : pendingApprovals.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
@@ -143,7 +147,7 @@ export const Overview = () => {
           ) : (
             <div className="space-y-4 max-h-80 overflow-y-auto">
               {pendingApprovals.slice(0, 5).map((approval, index) => (
-                <div 
+                <div
                   key={approval._id}
 
 
@@ -178,7 +182,7 @@ export const Overview = () => {
         </div>
 
         {/* Recent Approval History */}
-        <div 
+        <div
           className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-lg"
         >
           <div className="flex items-center justify-between mb-6">
@@ -194,9 +198,13 @@ export const Overview = () => {
           </div>
 
           {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-gray-500 mt-3">Loading...</p>
+            <div className="space-y-3 py-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-4 bg-gray-50 rounded-xl animate-pulse space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-1/2" />
+                  <div className="h-3 bg-gray-200 rounded w-1/3" />
+                </div>
+              ))}
             </div>
           ) : recentHistory.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
@@ -209,17 +217,16 @@ export const Overview = () => {
           ) : (
             <div className="space-y-4 max-h-80 overflow-y-auto">
               {recentHistory.map((item, index) => (
-                <div 
+                <div
                   key={item._id}
 
 
                   className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100"
                 >
                   <div className="flex items-center space-x-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      item.action === 'approved' ? 'bg-green-100' :
-                      item.action === 'rejected' ? 'bg-red-100' : 'bg-blue-100'
-                    }`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.action === 'approved' ? 'bg-green-100' :
+                        item.action === 'rejected' ? 'bg-red-100' : 'bg-blue-100'
+                      }`}>
                       {item.action === 'approved' ? (
                         <Check className="w-5 h-5 text-green-600" />
                       ) : item.action === 'rejected' ? (
@@ -240,10 +247,9 @@ export const Overview = () => {
                     {item.amount > 0 && (
                       <p className="font-bold text-green-600 text-lg">Rs.{item.amount}</p>
                     )}
-                    <span className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${
-                      item.action === 'approved' ? 'bg-green-100 text-green-800' :
-                      item.action === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                    }`}>
+                    <span className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${item.action === 'approved' ? 'bg-green-100 text-green-800' :
+                        item.action === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
                       {item.action}
                     </span>
                   </div>
@@ -274,9 +280,8 @@ const StatCard = ({ title, value, changeText, icon, trend = 'up', color = 'blue'
         <div className="flex-1 min-w-0">
           <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2 truncate">{title}</p>
           <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-0.5 sm:mb-1 truncate">{value}</p>
-          <div className={`text-xs sm:text-sm font-medium truncate ${
-            trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-600'
-          }`}>
+          <div className={`text-xs sm:text-sm font-medium truncate ${trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-600'
+            }`}>
             {changeText}
           </div>
         </div>
@@ -295,7 +300,7 @@ import MobileBottomNav from '../navigation/MobileBottomNav';
 export default function AdminDashboard() {
   const { user, loading, initialLoadDone, logout } = useUser();
   const { sidebarOpen } = useLayout();
-  
+
   // Show loading only until first fetch is done
   if (!initialLoadDone) {
     return (
@@ -313,9 +318,8 @@ export default function AdminDashboard() {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden relative">
       <Sidebar />
-      <div className={`flex-1 flex flex-col ${
-        sidebarOpen ? 'lg:ml-0' : 'ml-0'
-      } min-w-0`}>
+      <div className={`flex-1 flex flex-col ${sidebarOpen ? 'lg:ml-0' : 'ml-0'
+        } min-w-0`}>
         <Topbar user={user} onLogout={logout} />
         <main className="flex-1 overflow-auto p-3 sm:p-6 pb-24 lg:pb-6">
           <div className="max-w-[1600px] mx-auto w-full">

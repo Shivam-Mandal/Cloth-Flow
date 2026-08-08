@@ -1,7 +1,22 @@
-import React from 'react';
-import { TrendingUp, Award, Clock, Target, Calendar } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { TrendingUp, Award, Clock, Target, Calendar, RotateCw } from 'lucide-react';
 
 export const WorkProgress = () => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 500);
+  };
+
+  useEffect(() => {
+    const handleGlobalRefresh = () => {
+      handleRefresh();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
+  }, []);
+
   const weeklyData = [
     { day: 'Mon', pieces: 28, hours: 8 },
     { day: 'Tue', pieces: 32, hours: 8 },
@@ -29,6 +44,14 @@ export const WorkProgress = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Progress</h1>
           <p className="text-gray-600 mt-1">Track your performance and achievements</p>
         </div>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer"
+        >
+          <RotateCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">

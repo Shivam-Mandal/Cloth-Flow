@@ -4,7 +4,7 @@ import AssignedTasksTable from "./AssignedTasksTable";
 import { useUser } from "../context/UserContext";
 import { fetchWorkerPendingApprovals, fetchWorkerCompletedWork } from "../services/approvalServices";
 import { fetchAssignedForMe } from "../services/assignmentServices";
-import { Clock, CheckCircle, IndianRupee, Target, Award, Activity } from "lucide-react";
+import { Clock, CheckCircle, IndianRupee, Target, Award, Activity, RotateCw } from "lucide-react";
 import { toast } from "react-toastify";
 import { useSocket } from "../../hooks/useSocket";
 // motion removed
@@ -141,6 +141,11 @@ export default function WorkerOverview() {
       }
     });
 
+    const handleGlobalRefresh = () => {
+      refreshOverview({ force: true });
+    };
+    window.addEventListener("app:refresh", handleGlobalRefresh);
+
     const revalidateVisibleState = () => {
       if (document.visibilityState === "visible") {
         refreshOverview({ silent: true });
@@ -152,6 +157,7 @@ export default function WorkerOverview() {
 
     return () => {
       unsubscribe();
+      window.removeEventListener("app:refresh", handleGlobalRefresh);
       window.removeEventListener("focus", revalidateVisibleState);
       document.removeEventListener("visibilitychange", revalidateVisibleState);
     };
@@ -176,14 +182,25 @@ export default function WorkerOverview() {
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">My Dashboard</h1>
           <p className="text-sm text-gray-600 mt-1 sm:mt-2">Track your tasks and earnings</p>
         </div>
-        <div className="text-right">
-          <div className="text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg">
-            {new Date().toLocaleDateString("en-US", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => refreshOverview({ force: true })}
+            disabled={loading}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+          >
+            <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <div className="text-right">
+            <div className="text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg">
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -231,11 +248,10 @@ export default function WorkerOverview() {
               <button
                 key={tabItem.id}
                 onClick={() => setTab(tabItem.id)}
-                className={`flex items-center space-x-1.5 sm:space-x-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl text-xs sm:text-sm font-medium ${
-                  tab === tabItem.id
+                className={`flex items-center space-x-1.5 sm:space-x-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl text-xs sm:text-sm font-medium ${tab === tabItem.id
                     ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg"
                     : "bg-gray-50 hover:bg-gray-100 text-gray-700"
-                }`}
+                  }`}
               >
                 <Icon className="w-4 h-4" />
                 <span>{tabItem.label}</span>
@@ -259,9 +275,16 @@ export default function WorkerOverview() {
           {tab === "approval" && (
             <div>
               {loading ? (
-                <div className="text-center py-12">
-                  <Spinner size="lg" className="mx-auto mb-4" />
-                  <p className="text-gray-500">Loading pending approvals...</p>
+                <div className="space-y-4 py-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="p-4 bg-white border border-gray-200 rounded-xl animate-pulse flex items-center justify-between">
+                      <div className="space-y-2 flex-1">
+                        <div className="h-4 bg-gray-200 rounded w-1/3" />
+                        <div className="h-3 bg-gray-200 rounded w-1/4" />
+                      </div>
+                      <div className="h-6 bg-gray-200 rounded w-16" />
+                    </div>
+                  ))}
                 </div>
               ) : pendingApprovals.length === 0 ? (
                 <EmptyState
@@ -298,9 +321,16 @@ export default function WorkerOverview() {
           {tab === "added" && (
             <div>
               {loading ? (
-                <div className="text-center py-12">
-                  <Spinner size="lg" className="mx-auto mb-4" />
-                  <p className="text-gray-500">Loading completed work...</p>
+                <div className="space-y-4 py-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="p-4 bg-white border border-gray-200 rounded-xl animate-pulse flex items-center justify-between">
+                      <div className="space-y-2 flex-1">
+                        <div className="h-4 bg-gray-200 rounded w-1/3" />
+                        <div className="h-3 bg-gray-200 rounded w-1/4" />
+                      </div>
+                      <div className="h-6 bg-gray-200 rounded w-16" />
+                    </div>
+                  ))}
                 </div>
               ) : completedWork.length === 0 ? (
                 <EmptyState

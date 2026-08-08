@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle, IndianRupee, Calendar, TrendingUp } from 'lucide-react';
+import { CheckCircle, IndianRupee, Calendar, TrendingUp, RotateCw } from 'lucide-react';
 import { fetchWorkerCompletedWork } from '../services/approvalServices';
 import { toast } from 'react-toastify';
 import PaginationControls from '../ui/PaginationControls';
@@ -34,7 +34,15 @@ export const WorkerCompletedWork = () => {
     }
   };
 
-  useEffect(() => { loadCompletedWork(); }, []);
+  useEffect(() => {
+    loadCompletedWork();
+
+    const handleGlobalRefresh = () => {
+      loadCompletedWork();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
+  }, []);
 
   const {
     currentPage,
@@ -52,6 +60,15 @@ export const WorkerCompletedWork = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Completed Work</h1>
           <p className="text-gray-600 mt-1">Approved work and earnings</p>
         </div>
+        <button
+          type="button"
+          onClick={loadCompletedWork}
+          disabled={loading}
+          className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+        >
+          <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
       {/* Stats Cards */}

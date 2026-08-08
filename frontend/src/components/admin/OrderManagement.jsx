@@ -18,7 +18,8 @@ import {
   Store,
   Timer,
   Trash2,
-  X
+  X,
+  RotateCw
 } from 'lucide-react';
 import * as orderService from '../services/orderServices';
 import * as styleService from '../services/styleServices';
@@ -134,48 +135,52 @@ export const OrderManagement = () => {
   const [photoMap, setPhotoMap] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    const fetchStyles = async () => {
-      try {
-        const data = await styleService.fetchStyles();
-        setStyles(data || []);
-        setPhotoMap((data || []).reduce((map, style) => {
-          map[style._id || style.id] = getStylePhoto(style);
-          return map;
-        }, {}));
-      } catch (err) {
-        console.error('Failed to fetch styles:', err);
-      }
-    };
-    fetchStyles();
-  }, []);
+  const [loading, setLoading] = useState(true);
+
+  const fetchOrders = async () => {
+    try {
+      const res = await orderService.getOrders();
+      setOrders(normalizeOrdersResponse(res).map(normalizeOrder));
+    } catch (err) {
+      console.error('Failed to fetch orders:', err);
+    }
+  };
+
+  const loadAllData = async () => {
+    setLoading(true);
+    try {
+      await Promise.allSettled([
+        (async () => {
+          const data = await styleService.fetchStyles();
+          setStyles(data || []);
+          setPhotoMap((data || []).reduce((map, style) => {
+            map[style._id || style.id] = getStylePhoto(style);
+            return map;
+          }, {}));
+        })(),
+        (async () => {
+          const [fetchedVendors, fetchedStocks] = await Promise.all([
+            stockService.fetchVendors(),
+            stockService.fetchStocks()
+          ]);
+          setVendors(fetchedVendors || []);
+          setStocks(fetchedStocks || []);
+        })(),
+        fetchOrders()
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchVendorsAndStocks = async () => {
-      try {
-        const [fetchedVendors, fetchedStocks] = await Promise.all([
-          stockService.fetchVendors(),
-          stockService.fetchStocks()
-        ]);
-        setVendors(fetchedVendors || []);
-        setStocks(fetchedStocks || []);
-      } catch (err) {
-        console.error('Failed to fetch vendors/stocks:', err);
-      }
-    };
-    fetchVendorsAndStocks();
-  }, []);
+    loadAllData();
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const res = await orderService.getOrders();
-        setOrders(normalizeOrdersResponse(res).map(normalizeOrder));
-      } catch (err) {
-        console.error('Failed to fetch orders:', err);
-      }
+    const handleGlobalRefresh = () => {
+      loadAllData();
     };
-    fetchOrders();
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
   }, []);
 
   const selectedStyle = styles.find((style) => style._id === selectedStyleId || style.id === selectedStyleId);
@@ -352,14 +357,25 @@ export const OrderManagement = () => {
           <h1 className="text-3xl font-bold text-gray-900">Order Management</h1>
           <p className="mt-1 text-gray-600">Create and track production orders</p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateOrder}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
-        >
-          <Plus className="h-5 w-5" />
-          Create Order
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={loadAllData}
+            disabled={loading}
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+          >
+            <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button
+            type="button"
+            onClick={openCreateOrder}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+          >
+            <Plus className="h-5 w-5" />
+            Create Order
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
@@ -410,7 +426,21 @@ export const OrderManagement = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {orders.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse">
+                    <td className="px-3 py-3"><div className="h-12 w-12 bg-slate-200 rounded-md" /></td>
+                    <td className="px-3 py-3"><div className="h-4 w-24 bg-slate-200 rounded" /></td>
+                    <td className="px-3 py-3"><div className="h-4 w-28 bg-slate-200 rounded" /></td>
+                    <td className="px-3 py-3"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
+                    <td className="px-3 py-3"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
+                    <td className="px-3 py-3"><div className="h-4 w-24 bg-slate-200 rounded" /></td>
+                    <td className="px-3 py-3"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
+                    <td className="px-3 py-3"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
+                    <td className="px-3 py-3"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
+                  </tr>
+                ))
+              ) : orders.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-10 text-center text-gray-500">
                     No orders available

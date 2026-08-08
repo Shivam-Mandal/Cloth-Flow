@@ -19,11 +19,11 @@ export const WorkerTopbar = ({ user, onLogout }) => {
     { id: 2, title: 'Task approved', time: '15 min ago', type: 'approval' },
   ];
 
-  const timeString = currentTime.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
+  const timeString = currentTime.toLocaleTimeString('en-US', {
+    hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: true 
+    hour12: true
   });
 
   return (
@@ -31,19 +31,19 @@ export const WorkerTopbar = ({ user, onLogout }) => {
       <div className="flex items-center justify-between">
         {/* Left Section */}
         <div className="flex items-center space-x-4 sm:space-x-6">
-          <button 
+          <button
             onClick={toggleSidebar}
             className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
             aria-label="Toggle sidebar"
           >
             <Menu className="w-5 h-5" />
           </button>
-          
+
           <div className="flex items-center space-x-2 text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
             <Clock className="w-5 h-5 text-green-600" />
             <span className="font-mono font-medium text-sm sm:text-base">{timeString}</span>
           </div>
-          
+
           <div className="hidden md:block">
             <p className="text-sm text-gray-600">
               Welcome back, <span className="font-semibold text-gray-900">{user?.name || 'Worker'}</span>
@@ -79,31 +79,31 @@ export const WorkerTopbar = ({ user, onLogout }) => {
                 {notifications.length}
               </span>
             </button>
-            
+
             {/* Notifications Dropdown */}
 
-              {showNotifications && (
-                <div
-                  className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
-                >
-                  <div className="p-4 border-b border-gray-100">
-                    <h3 className="font-semibold text-gray-900">Notifications</h3>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {notifications.map((notification) => (
-                      <div key={notification.id} className="p-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
-                        <p className="text-sm font-medium text-gray-900">{notification.title}</p>
-                        <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="p-3 border-t border-gray-100">
-                    <button className="text-sm text-green-600 hover:text-green-800 font-medium">
-                      View all notifications
-                    </button>
-                  </div>
+            {showNotifications && (
+              <div
+                className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
+              >
+                <div className="p-4 border-b border-gray-100">
+                  <h3 className="font-semibold text-gray-900">Notifications</h3>
                 </div>
-              )}
+                <div className="max-h-64 overflow-y-auto">
+                  {notifications.map((notification) => (
+                    <div key={notification.id} className="p-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
+                      <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 border-t border-gray-100">
+                  <button className="text-sm text-green-600 hover:text-green-800 font-medium">
+                    View all notifications
+                  </button>
+                </div>
+              </div>
+            )}
 
           </div>
 
@@ -122,50 +122,50 @@ export const WorkerTopbar = ({ user, onLogout }) => {
               </div>
               <ChevronDown className="w-4 h-4 text-gray-500" />
             </button>
-            
+
             {/* User Dropdown */}
 
-              {showUserMenu && (
-                <div
-                  className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
-                >
-                  <div className="p-3 border-b border-gray-100">
-                    <p className="font-medium text-gray-900">{user?.name || 'Worker'}</p>
-                    <p className="text-sm text-gray-500">{user?.email || 'worker@company.com'}</p>
-                  </div>
-                  <div className="py-2">
-                    <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
-                      <UserIcon className="w-4 h-4" />
-                      <span>Profile</span>
-                    </button>
-                    <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
-                      <Settings className="w-4 h-4" />
-                      <span>Settings</span>
-                    </button>
-                  </div>
-                  <div className="border-t border-gray-100 py-2">
-                    <button
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        onLogout?.();
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Sign out</span>
-                    </button>
-                  </div>
+            {showUserMenu && (
+              <div
+                className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
+              >
+                <div className="p-3 border-b border-gray-100">
+                  <p className="font-medium text-gray-900">{user?.name || 'Worker'}</p>
+                  <p className="text-sm text-gray-500">{user?.email || 'worker@company.com'}</p>
                 </div>
-              )}
+                <div className="py-2">
+                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                    <UserIcon className="w-4 h-4" />
+                    <span>Profile</span>
+                  </button>
+                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                    <Settings className="w-4 h-4" />
+                    <span>Settings</span>
+                  </button>
+                </div>
+                <div className="border-t border-gray-100 py-2">
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      onLogout?.();
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Sign out</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
           </div>
         </div>
       </div>
-      
+
       {/* Click outside to close dropdowns */}
       {(showUserMenu || showNotifications) && (
-        <div 
-          className="fixed inset-0 z-40" 
+        <div
+          className="fixed inset-0 z-40"
           onClick={() => {
             setShowUserMenu(false);
             setShowNotifications(false);

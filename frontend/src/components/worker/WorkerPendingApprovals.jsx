@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, AlertCircle } from 'lucide-react';
+import { Clock, AlertCircle, RotateCw } from 'lucide-react';
 import { fetchWorkerPendingApprovals } from '../services/approvalServices';
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
@@ -23,7 +23,15 @@ export const WorkerPendingApprovals = () => {
     }
   };
 
-  useEffect(() => { loadPendingWork(); }, []);
+  useEffect(() => {
+    loadPendingWork();
+
+    const handleGlobalRefresh = () => {
+      loadPendingWork();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
+  }, []);
 
   const {
     currentPage,
@@ -41,7 +49,18 @@ export const WorkerPendingApprovals = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Pending Approvals</h1>
           <p className="text-gray-600 mt-1">Work submitted for admin review</p>
         </div>
-        <div className="text-sm text-gray-600">{pendingWork.length} pending</div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={loadPendingWork}
+            disabled={loading}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+          >
+            <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <div className="text-sm text-gray-600">{pendingWork.length} pending</div>
+        </div>
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{String(error)}</div>}

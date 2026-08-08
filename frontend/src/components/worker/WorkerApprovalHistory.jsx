@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { History, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react';
+import { History, CheckCircle, XCircle, Clock, TrendingUp, RotateCw } from 'lucide-react';
 import { fetchWorkerApprovalHistory } from '../services/approvalServices';
 import { toast } from 'react-toastify';
 
@@ -37,7 +37,15 @@ export const WorkerApprovalHistory = () => {
     }
   };
 
-  useEffect(() => { loadHistory(currentPage); }, [currentPage]);
+  useEffect(() => {
+    loadHistory(currentPage);
+
+    const handleGlobalRefresh = () => {
+      loadHistory(currentPage);
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
+  }, [currentPage]);
 
   const getActionIcon = (action) => {
     switch (action) {
@@ -64,6 +72,15 @@ export const WorkerApprovalHistory = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Approval History</h1>
           <p className="text-gray-600 mt-1">Track your submissions and approval status</p>
         </div>
+        <button
+          type="button"
+          onClick={() => loadHistory(currentPage)}
+          disabled={loading}
+          className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+        >
+          <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
       {/* Stats Cards */}
@@ -113,9 +130,21 @@ export const WorkerApprovalHistory = () => {
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         {loading ? (
-          <div className="text-center py-8">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <div className="text-sm text-gray-500">Loading history...</div>
+          <div className="space-y-4 py-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="border border-gray-200 rounded-lg p-4 animate-pulse space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 bg-gray-200 rounded-full" />
+                  <div className="h-4 bg-gray-200 rounded w-1/4" />
+                  <div className="h-3 bg-gray-200 rounded w-1/5 ml-auto" />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="h-3 bg-gray-200 rounded" />
+                  <div className="h-3 bg-gray-200 rounded" />
+                  <div className="h-3 bg-gray-200 rounded" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : history.length === 0 ? (
           <div className="text-center py-8">

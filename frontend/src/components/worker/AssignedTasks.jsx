@@ -1,6 +1,6 @@
 // src/components/AssignedTasks.jsx
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { CheckCircle, Clock, Play, Pause } from 'lucide-react';
+import { CheckCircle, Clock, Play, Pause, RotateCw } from 'lucide-react';
 import {
   fetchAssignedForMe,
   releaseAssignment,
@@ -49,6 +49,11 @@ export const AssignedTasks = () => {
       }
     });
 
+    const handleGlobalRefresh = () => {
+      loadMine();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+
     const revalidateVisibleState = () => {
       if (document.visibilityState === 'visible') {
         refreshIfStale();
@@ -60,6 +65,7 @@ export const AssignedTasks = () => {
 
     return () => {
       unsubscribe();
+      window.removeEventListener('app:refresh', handleGlobalRefresh);
       window.removeEventListener('focus', revalidateVisibleState);
       document.removeEventListener('visibilitychange', revalidateVisibleState);
     };
@@ -178,14 +184,33 @@ export const AssignedTasks = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Selected Tasks</h1>
           <p className="text-gray-600 mt-1">Tasks you have claimed</p>
         </div>
-        <div className="text-sm text-gray-600">{mine.length} tasks</div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={loadMine}
+            disabled={loading.fetch}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+          >
+            <RotateCw className={`w-4 h-4 ${loading.fetch ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <div className="text-sm text-gray-600">{mine.length} tasks</div>
+        </div>
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{String(error)}</div>}
 
       <div className="bg-white p-4 rounded-lg border border-gray-200">
         {loading.fetch ? (
-          <div className="text-sm text-gray-500">Loading your tasks...</div>
+          <div className="space-y-4 animate-pulse">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <div key={idx} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <div className="flex justify-between items-center"><div className="h-5 w-36 bg-slate-200 rounded" /><div className="h-5 w-20 bg-slate-200 rounded-full" /></div>
+                <div className="h-4 w-1/2 bg-slate-200 rounded" />
+                <div className="h-10 bg-slate-200 rounded-lg" />
+              </div>
+            ))}
+          </div>
         ) : mine.length === 0 ? (
           <p className="text-sm text-gray-600">You haven't selected any tasks yet.</p>
         ) : (
