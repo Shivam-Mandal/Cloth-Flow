@@ -14,5 +14,7 @@ router.post('/login', authRateLimit, auth.login);
 router.post('/logout', auth.logout);
 router.post('/refresh-token', authRateLimit, auth.refreshTokenHandler);
 router.get('/me', verifyAccessToken, auth.me);
+router.patch('/profile', verifyAccessToken, auth.updateProfile);
+router.patch('/password', authRateLimit, verifyAccessToken, auth.changePassword);
 
 export { router as authRouter };

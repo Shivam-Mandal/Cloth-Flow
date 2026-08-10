@@ -51,3 +51,30 @@ export const getCurrentUser = async () => {
     return { success: false, message: "Failed to get current user" };
   }
 };
+
+export const updateProfile = async ({ name, email }) => {
+  try {
+    const res = await api.patch("/auth/profile", { name, email });
+    return {
+      success: true,
+      message: res.data?.message || "Profile updated successfully",
+      user: res.data?.user || null,
+    };
+  } catch (err) {
+    const message = err?.response?.data?.message || err?.response?.data?.error || "Profile update failed";
+    return { success: false, message };
+  }
+};
+
+export const changePassword = async ({ currentPassword, newPassword }) => {
+  try {
+    const res = await api.patch("/auth/password", { currentPassword, newPassword });
+    return {
+      success: true,
+      message: res.data?.message || "Password updated successfully",
+    };
+  } catch (err) {
+    const message = err?.response?.data?.message || err?.response?.data?.error || "Password update failed";
+    return { success: false, message };
+  }
+};

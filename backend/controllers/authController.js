@@ -24,6 +24,33 @@ function createRefreshToken(payload) {
   return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: REFRESH_EXP });
 }
 
+const findAuthenticatedUser = async (userId, includePassword = false) => {
+  const projection = includePassword ? '' : '-password -refreshToken';
+  let user = await AdminModel.findById(userId).select(projection);
+  if (user) return { user, model: AdminModel, role: 'admin' };
+
+  user = await WorkerModel.findById(userId).select(projection);
+  if (user) return { user, model: WorkerModel, role: 'worker' };
+
+  return { user: null, model: null, role: null };
+};
+
+const serializeUser = (user) => {
+  const data = user.toObject ? user.toObject() : { ...user };
+  delete data.password;
+  delete data.refreshToken;
+  return data;
+};
+
+const isEmailTakenByAnotherUser = async (email, currentUserId) => {
+  const [admin, worker] = await Promise.all([
+    AdminModel.findOne({ email }).select('_id').lean(),
+    WorkerModel.findOne({ email }).select('_id').lean()
+  ]);
+
+  return [admin, worker].some((record) => record && String(record._id) !== String(currentUserId));
+};
+
 // Signup
 export const signup = async (req, res) => {
   return res.status(403).json({
@@ -189,4 +216,76 @@ export const me = async (req, res) => {
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
-}
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+    const name = String(req.body?.name || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
+
+    if (!name || !email) {
+      return res.status(400).json({ success: false, message: 'Name and email are required' });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: 'Enter a valid email address' });
+    }
+
+    const { user } = await findAuthenticatedUser(req.user.id, true);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (await isEmailTakenByAnotherUser(email, user._id)) {
+      return res.status(409).json({ success: false, message: 'Email is already in use' });
+    }
+
+    user.name = name;
+    user.email = email;
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: serializeUser(user)
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message || 'Server error' });
+  }
+};
+
+export const changePassword = async (req, res) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+    const currentPassword = String(req.body?.currentPassword || '');
+    const newPassword = String(req.body?.newPassword || '');
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long' });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ success: false, message: 'New password must be different from current password' });
+    }
+
+    const { user } = await findAuthenticatedUser(req.user.id, true);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    return res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message || 'Server error' });
+  }
+};

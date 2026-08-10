@@ -1,6 +1,6 @@
 // src/utils/Topbar.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, Search, LogOut, User as UserIcon, Settings, ChevronDown, Menu, ShoppingCart, Shirt, Package, Users, LayoutDashboard, CheckCircle, Boxes, BarChart3 } from 'lucide-react';
+import { Bell, Search, LogOut, User as UserIcon, ChevronDown, Menu, ShoppingCart, Shirt, Package, Users, LayoutDashboard, CheckCircle, Boxes, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 // motion removed
 import { useLayout } from '../context/LayoutContext';
@@ -8,6 +8,8 @@ import * as orderService from '../services/orderServices';
 import * as styleService from '../services/styleServices';
 import stockService from '../services/stockServices';
 import { fetchUsers } from '../services/userServices';
+
+import ProfileModal from '../modals/ProfileModal';
 
 const staticSearchItems = [
   { id: 'page-overview', type: 'Page', title: 'Dashboard', subtitle: 'Dashboard summary', path: '/admin', icon: LayoutDashboard },
@@ -40,6 +42,7 @@ const Topbar = ({ user = {}, onLogout }) => {
   const searchRef = useRef(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchItems, setSearchItems] = useState(staticSearchItems);
@@ -240,14 +243,6 @@ const Topbar = ({ user = {}, onLogout }) => {
             <Search className="w-5 h-5" />
           </button>
 
-          {/* Quick Actions */}
-          <div className="hidden md:flex items-center space-x-2">
-            <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200">
-              <Settings className="w-5 h-5" />
-            </button>
-          </div>
-
-
           {/* Notifications */}
           <div className="relative">
             <button
@@ -265,10 +260,6 @@ const Topbar = ({ user = {}, onLogout }) => {
 
             {showNotifications && (
               <div
-
-
-
-
                 className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
               >
                 <div className="p-4 border-b border-gray-100">
@@ -316,10 +307,6 @@ const Topbar = ({ user = {}, onLogout }) => {
 
             {showUserMenu && (
               <div
-
-
-
-
                 className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 z-50"
               >
                 <div className="p-3 border-b border-gray-100">
@@ -327,13 +314,15 @@ const Topbar = ({ user = {}, onLogout }) => {
                   <p className="text-sm text-gray-500">{user?.email || 'Signed in user'}</p>
                 </div>
                 <div className="py-2">
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      setShowProfileModal(true);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                  >
                     <UserIcon className="w-4 h-4" />
                     <span>Profile</span>
-                  </button>
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
-                    <Settings className="w-4 h-4" />
-                    <span>Settings</span>
                   </button>
                 </div>
                 <div className="border-t border-gray-100 py-2">
@@ -421,6 +410,12 @@ const Topbar = ({ user = {}, onLogout }) => {
           }}
         />
       )}
+
+      {/* Profile Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
     </header>
   );
 };
