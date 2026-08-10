@@ -290,8 +290,25 @@ const createAssignmentsForStage = async (orderDoc, stage, workersCount = 1, opts
  * createNextStageAssignments(orderId, stage, workersCount, opts = { session, distributionMode })
  * session-aware.
  */
+export const buildReadySubOrderQuery = ({ orderId, currentStage, subOrderId = null }) => {
+  const query = {
+    order: orderId,
+    progress: 100,
+    currentStage,
+    status: 'approved'
+  };
+
+  if (subOrderId) {
+    if (!mongoose.Types.ObjectId.isValid(String(subOrderId))) throw new Error('Invalid subOrderId');
+    query._id = subOrderId;
+  }
+
+  return query;
+};
+
 export const createNextStageAssignments = async (orderId, currentStage, opts = {}) => {
   const session = opts.session || null;
+  const subOrderId = opts.subOrderId || null;
 
   if (!orderId) return [];
   if (typeof orderId === 'object' && orderId._id) orderId = orderId._id;
@@ -306,11 +323,9 @@ export const createNextStageAssignments = async (orderId, currentStage, opts = {
   }
 
   // Find subOrders that have completed the currentStage (progress === 100)
-  const readySubOrders = await SubOrder.find({
-    order: orderId,
-    progress: 100,
-    currentStage: currentStage
-  }).session(session).lean();
+  const readySubOrders = await SubOrder.find(
+    buildReadySubOrderQuery({ orderId, currentStage, subOrderId })
+  ).session(session).lean();
 
   if (!readySubOrders || readySubOrders.length === 0) {
     return [];
@@ -436,7 +451,16 @@ export const createOrder = async (req, res) => {
     const order = new Order({
       orderId: `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
       style: style._id,
-      styleSnapshot: { name: style.name, sizes: style.sizes, colors: style.colors },
+      styleSnapshot: {
+        name: style.name,
+        sizes: style.sizes,
+        colors: style.colors,
+        steps: (style.steps || []).map((step) => ({
+          stageId: step.stageId,
+          label: step.label,
+          price: Number(step.price) || 0
+        }))
+      },
       pieces,
       totalQuantity,
       stages: stages.map(normalizeStageLabel),

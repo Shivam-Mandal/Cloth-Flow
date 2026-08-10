@@ -194,6 +194,62 @@ const shortId = (val) => {
   return s.length <= 6 ? s : s.slice(-6);
 };
 
+const colorMap = {
+  black: '#111827',
+  blue: '#2563eb',
+  green: '#16a34a',
+  orange: '#f97316',
+  purple: '#7c3aed',
+  red: '#ef4444',
+  white: '#ffffff',
+  yellow: '#eab308',
+  navy: '#1e3a8a',
+  pink: '#ec4899',
+  gray: '#6b7280',
+  grey: '#6b7280',
+  brown: '#78350f',
+  beige: '#f5f5dc',
+  maroon: '#800000',
+  cyan: '#06b6d4',
+  teal: '#0d9488',
+  indigo: '#4f46e5',
+  violet: '#8b5cf6',
+  amber: '#f59e0b',
+  rose: '#f43f5e',
+  emerald: '#10b981',
+  sky: '#0284c7'
+};
+
+const getColorHex = (name) => {
+  if (!name || name === '—') return null;
+  const key = String(name).trim().toLowerCase();
+  if (colorMap[key]) return colorMap[key];
+  if (/^#([0-9a-f]{3}){1,2}$/i.test(key)) return key;
+  if (/^rgb/i.test(key)) return key;
+  return key;
+};
+
+const ColorBadge = ({ color }) => {
+  if (!color || color === '—') return <span>—</span>;
+  const hex = getColorHex(color);
+  const isLight = hex && (hex.toLowerCase() === '#ffffff' || hex.toLowerCase() === 'white' || hex.toLowerCase() === '#f8fafc');
+
+  return (
+    <div className="inline-flex items-center gap-1.5 font-medium">
+      {hex && (
+        <span
+          className={`h-3 w-3 rounded-full shrink-0 ${
+            isLight ? 'border border-gray-300' : 'border border-black/10'
+          }`}
+          style={{ backgroundColor: hex }}
+          title={color}
+        />
+      )}
+      <span>{color}</span>
+    </div>
+  );
+};
+
 /* -------------------------
    Row component (memoized) — uses getPhotoUrl for rendering
    ------------------------- */
@@ -208,8 +264,8 @@ const TaskRow = React.memo(({
   onOpenGallery, // (images: string[], startIndex:number)
   allowMultipleClaims = false
 }) => {
-  const resolved = useMemo(() => resolveAllImages(chunk), [chunk?._id]); // depend only on id
-  const candidates = resolved.candidates || [exampleThumb];
+  const resolved = useMemo(() => resolveAllImages(chunk), [chunk]);
+  const candidates = useMemo(() => resolved.candidates || [exampleThumb], [resolved.candidates]);
 
   // map candidates -> thumbnail URLs using getPhotoUrl (same semantics as StyleManagement)
   const thumbs = useMemo(() => candidates.map(c => {
@@ -221,6 +277,9 @@ const TaskRow = React.memo(({
 
   const firstThumb = thumbs[0] || exampleThumb;
   const { sku, color, size, pieces } = useMemo(() => extractSkuColorSize(chunk, orderKey), [chunk, orderKey]);
+  const styleName = chunk.order?.styleSnapshot?.name || chunk.order?.style?.name || chunk.style?.name || chunk.subOrder?.styleName || '—';
+  const fabricName = chunk.order?.fabric || chunk.order?.styleSnapshot?.fabric || chunk.order?.style?.fabric || chunk.subOrder?.fabric || chunk.fabric || '—';
+
   const subOrderCode = useMemo(() => getSubOrderCode(chunk), [chunk]);
   const subOrderShort = subOrderCode || shortId(chunk?.subOrder?._id || chunk?.subOrder || chunk?._id);
   const disabled = (Boolean(activeAssignedId) && !allowMultipleClaims) || claimingId === chunk._id || !workerId;
@@ -275,8 +334,13 @@ const TaskRow = React.memo(({
         <div className="text-xs text-gray-500 mt-1">Order: {orderKey || '—'}</div>
       </td>
 
+      <td className="px-3 py-2 align-top text-sm font-medium text-gray-900">{styleName}</td>
+      <td className="px-3 py-2 align-top text-sm text-gray-700">{fabricName}</td>
+
       <td className="px-3 py-2 align-top text-sm">{pieces}</td>
-      <td className="px-3 py-2 align-top text-sm">{color}</td>
+      <td className="px-3 py-2 align-top text-sm">
+        <ColorBadge color={color} />
+      </td>
       <td className="px-3 py-2 align-top text-sm">{size}</td>
 
       <td className="px-3 py-2 align-top text-sm">
@@ -444,7 +508,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
   }, [fetchAvailable, loadAssignedForMe]);
 
   // Open gallery with array of image URLs (or candidates). startIndex optional.
-  const verifyUrls = async (urls) => {
+  const verifyUrls = useCallback(async (urls) => {
     // verify each URL exists (HEAD request). Cloudinary supports HEAD with CORS.
     const checks = await Promise.all(urls.map(async (u) => {
       try {
@@ -455,9 +519,9 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
       }
     }));
     return checks.filter(Boolean);
-  };
+  }, []);
 
-  const openGallery = async (imgs = [], startIndex = 0) => {
+  const openGallery = useCallback(async (imgs = [], startIndex = 0) => {
     setGalleryLoading(true);
     // Normalize input to array and resolve to full-size URLs
     const raw = Array.isArray(imgs) ? imgs : [imgs];
@@ -492,11 +556,19 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
     setGalleryIndex(Math.max(0, Math.min(startIndex || 0, final.length - 1)));
     setGalleryOpen(true);
     setGalleryLoading(false);
-  };
+  }, [verifyUrls]);
 
-  const closeGallery = () => { setGalleryOpen(false); setGalleryImages([]); setGalleryIndex(0); };
-  const gotoNext = () => setGalleryIndex(i => (galleryImages.length ? (i + 1) % galleryImages.length : 0));
-  const gotoPrev = () => setGalleryIndex(i => (galleryImages.length ? (i - 1 + galleryImages.length) % galleryImages.length : 0));
+  const closeGallery = useCallback(() => {
+    setGalleryOpen(false);
+    setGalleryImages([]);
+    setGalleryIndex(0);
+  }, []);
+  const gotoNext = useCallback(() => {
+    setGalleryIndex(i => (galleryImages.length ? (i + 1) % galleryImages.length : 0));
+  }, [galleryImages.length]);
+  const gotoPrev = useCallback(() => {
+    setGalleryIndex(i => (galleryImages.length ? (i - 1 + galleryImages.length) % galleryImages.length : 0));
+  }, [galleryImages.length]);
 
   // keyboard navigation for modal
   useEffect(() => {
@@ -508,7 +580,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [galleryOpen, galleryImages.length]);
+  }, [galleryOpen, closeGallery, gotoNext, gotoPrev]);
 
   useEffect(() => {
     const unsubscribe = subscribeWorkerDataRefresh(({ scope, force }) => {
@@ -587,6 +659,8 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
               <tr className="text-left text-sm text-gray-600">
                 <th className="px-3 py-2">Photo</th>
                 <th className="px-3 py-2">SKU / Order</th>
+                <th className="px-3 py-2">Style</th>
+                <th className="px-3 py-2">Fabric</th>
                 <th className="px-3 py-2">Pieces</th>
                 <th className="px-3 py-2">Color</th>
                 <th className="px-3 py-2">Size</th>
@@ -613,7 +687,7 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
 
               {tableRows.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">No available tasks</td>
+                  <td colSpan={9} className="px-3 py-6 text-center text-sm text-gray-500">No available tasks</td>
                 </tr>
               ) : tableRows.map(({ orderKey, chunk }) => (
                 <TaskRow

@@ -60,7 +60,7 @@ export const LoginForm = () => {
   ];
 
   const demoCredentials = [
-    { role: "Admin", email: "admin@company.com", password: "admin123", icon: User },
+    { role: "Admin", email: "admin@gmail.com", password: "admin123", icon: User },
     { role: "Worker", email: "testworker@clothflow.com", password: "password123", icon: Users },
   ];
 

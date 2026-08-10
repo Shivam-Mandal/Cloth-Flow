@@ -87,7 +87,7 @@ export const ProcessTracking = () => {
             </div>
           ))
         ) : (
-          processStages.map((stage, index) => (
+          processStages.map((stage) => (
           <div key={stage.name} className="bg-white p-3.5 sm:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all">
 
             <div className="flex items-center justify-between mb-4">

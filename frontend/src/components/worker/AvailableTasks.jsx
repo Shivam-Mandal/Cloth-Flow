@@ -1,5 +1,5 @@
   // src/components/AvailableTasks.jsx
-  import React, { useEffect, useState, useMemo, useRef } from 'react';
+  import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
   import PropTypes from 'prop-types';
   import { Package, AlertCircle, Plus, Filter, RotateCw } from 'lucide-react';
   import {
@@ -33,10 +33,10 @@
     const [, setAssignedLoading] = useState(true);
     const lastRefreshRef = useRef(0);
 
-    const normalize = (s) => (s === null || s === undefined ? '' : String(s).trim().toLowerCase());
+    const normalize = useCallback((s) => (s === null || s === undefined ? '' : String(s).trim().toLowerCase()), []);
 
     // load worker profile
-    const loadWorker = async () => {
+    const loadWorker = useCallback(async () => {
       if (initialWorkerCategory) {
         setWorkerCategory(initialWorkerCategory);
         setAllowMultipleClaims(Boolean(user?.allowMultipleClaims));
@@ -71,10 +71,10 @@
       } finally {
         setWorkerLoading(false);
       }
-    };
+    }, [initialWorkerCategory, user?.allowMultipleClaims, workerId]);
 
     // load available tasks with robust fallbacks
-    const load = async (isManualRefresh = false) => {
+    const load = useCallback(async (isManualRefresh = false) => {
       // If we're still resolving worker info, skip fetch (avoid setting loading stuck)
       if (workerLoading) {
         // ensure UI doesn't show permanent loading
@@ -139,9 +139,9 @@
       } finally {
         setLoading(false);
       }
-    };
+    }, [normalize, workerCategory, workerLoading]);
 
-    const loadAssignedForMe = async () => {
+    const loadAssignedForMe = useCallback(async () => {
       try {
         setAssignedLoading(true);
         const data = await fetchAssignedForMe({ status: 'assigned' });
@@ -153,7 +153,7 @@
       } finally {
         setAssignedLoading(false);
       }
-    };
+    }, []);
 
     // bootstrap: run when workerId or initialWorkerCategory changes
     useEffect(() => {
@@ -167,7 +167,7 @@
       };
       bootstrap();
       return () => { mounted = false; };
-    }, [workerId, initialWorkerCategory]);
+    }, [initialWorkerCategory, load, loadAssignedForMe, loadWorker, workerId]);
 
     useEffect(() => {
       const refreshIfStale = async ({ force = false } = {}) => {
@@ -205,7 +205,7 @@
         window.removeEventListener('focus', revalidateVisibleState);
         document.removeEventListener('visibilitychange', revalidateVisibleState);
       };
-    }, [workerCategory, workerId, workerLoading]);
+    }, [load, loadAssignedForMe, workerCategory, workerId, workerLoading]);
 
     // derive UI lists (filter out falsy)
     const processes = useMemo(() => {
@@ -229,7 +229,7 @@
         map.set(orderKey, group);
       }
       return Array.from(map.values());
-    }, [assignments]);
+    }, [assignments, normalize]);
 
     const filtered = grouped.filter(g =>
       (selectedProcess === 'all' || g.process === selectedProcess) &&

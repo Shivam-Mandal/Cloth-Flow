@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Boxes,
   Search,
@@ -46,74 +46,8 @@ const getColorHex = (colorName = '') => {
   return '#8b5cf6';
 };
 
-const StyleInventorySummaryTable = ({ inventory = [], onOpenDetails }) => {
-  const styleSummaries = useMemo(() => {
-    const map = new Map();
-
-    inventory.forEach((item) => {
-      const styleName = item.order?.style?.name || item.name || 'Unnamed Style';
-      const styleId = item.order?.style?._id?.toString() || item.order?.style?.toString() || styleName;
-      const stylePhoto = item.image || (Array.isArray(item.photos) && item.photos[0]) || null;
-
-      if (!map.has(styleId)) {
-        map.set(styleId, {
-          id: styleId,
-          name: styleName,
-          photo: stylePhoto,
-          variantsSet: new Set(),
-          colorsMap: new Map(),
-          availablePieces: 0,
-          totalPieces: 0,
-          subOrdersCount: 0
-        });
-      }
-
-      const entry = map.get(styleId);
-      if (!entry.photo && stylePhoto) {
-        entry.photo = stylePhoto;
-      }
-
-      const avail = Number(item.availablePieces) || 0;
-      const total = Number(item.totalSubmittedPieces) || Number(item.totalCompletedPieces) || Number(item.approvedPieces) || Number(item.submittedPieces) || 0;
-
-      entry.availablePieces += avail;
-      entry.totalPieces += total;
-      entry.subOrdersCount += 1;
-
-      if (item.pieces && typeof item.pieces === 'object') {
-        Object.entries(item.pieces).forEach(([colorName, sizes]) => {
-          if (!colorName) return;
-          const normalizedColor = colorName.trim();
-
-          if (typeof sizes === 'number') {
-            const qty = Number(sizes) || 0;
-            entry.variantsSet.add('Standard');
-            const currentQty = entry.colorsMap.get(normalizedColor) || 0;
-            entry.colorsMap.set(normalizedColor, currentQty + qty);
-          } else if (sizes && typeof sizes === 'object') {
-            Object.entries(sizes).forEach(([sizeName, qty]) => {
-              const numQty = Number(qty) || 0;
-              if (sizeName) {
-                entry.variantsSet.add(sizeName.trim());
-              }
-              const currentQty = entry.colorsMap.get(normalizedColor) || 0;
-              entry.colorsMap.set(normalizedColor, currentQty + numQty);
-            });
-          }
-        });
-      }
-    });
-
-    return Array.from(map.values()).map((style) => ({
-      ...style,
-      totalVariants: style.variantsSet.size > 0 ? style.variantsSet.size : 1,
-      totalColors: style.colorsMap.size > 0 ? style.colorsMap.size : 1,
-      variantsList: style.variantsSet.size > 0 ? Array.from(style.variantsSet) : ['Standard'],
-      colorsList: style.colorsMap.size > 0
-        ? Array.from(style.colorsMap.entries()).map(([color, count]) => ({ color, count }))
-        : [{ color: 'Default', count: style.availablePieces }]
-    }));
-  }, [inventory]);
+const StyleInventorySummaryTable = ({ styleSummaries = [], onOpenDetails }) => {
+  const [bifurcationStyle, setBifurcationStyle] = useState(null);
 
   if (!styleSummaries || styleSummaries.length === 0) {
     return null;
@@ -191,10 +125,10 @@ const StyleInventorySummaryTable = ({ inventory = [], onOpenDetails }) => {
                   <span>Available Pieces</span>
                 </div>
               </th>
-              <th className="py-3 px-4 min-w-[150px]">
-                <div className="flex items-center gap-1.5 text-slate-700">
-                  <Boxes className="h-4 w-4 text-violet-500" />
-                  <span>Total Pieces per Style</span>
+              <th className="py-3 px-4 text-right min-w-[120px]">
+                <div className="flex items-center justify-end gap-1.5 text-slate-700">
+                  <Eye className="h-4 w-4 text-violet-500" />
+                  <span>Action</span>
                 </div>
               </th>
             </tr>
@@ -297,12 +231,16 @@ const StyleInventorySummaryTable = ({ inventory = [], onOpenDetails }) => {
                     )}
                   </td>
 
-                  {/* Total Pieces per Style */}
-                  <td className="py-3.5 px-4 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 font-bold text-slate-800 border border-slate-200">
-                      <Boxes className="h-3.5 w-3.5 text-violet-500" />
-                      <span>{style.totalPieces} Pcs Total</span>
-                    </span>
+                  {/* Action Column */}
+                  <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => setBifurcationStyle(style)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-600 hover:text-white border border-violet-200 transition active:scale-95 shadow-2xs cursor-pointer"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      <span>View Details</span>
+                    </button>
                   </td>
                 </tr>
               );
@@ -392,39 +330,143 @@ const StyleInventorySummaryTable = ({ inventory = [], onOpenDetails }) => {
               </div>
 
               {/* Stock Quantities Footer */}
-              <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-medium">Available</span>
-                  {isOutOfStock ? (
-                    <span className="inline-flex items-center gap-1 font-bold text-rose-700">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      0 Pcs
-                    </span>
-                  ) : isLowStock ? (
-                    <span className="inline-flex items-center gap-1 font-bold text-amber-700">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      {style.availablePieces} Pcs
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
-                      <Package className="h-3.5 w-3.5 text-violet-500" />
-                      {style.availablePieces} Pcs
-                    </span>
-                  )}
-                </div>
-
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400 block font-medium">Total Pieces</span>
-                  <span className="inline-flex items-center gap-1 font-bold text-slate-900">
-                    <Boxes className="h-3.5 w-3.5 text-violet-500" />
-                    {style.totalPieces} Pcs
+              <div className="border-t border-slate-100 pt-2.5 text-xs">
+                <span className="text-[10px] text-slate-400 block font-medium">Available</span>
+                {isOutOfStock ? (
+                  <span className="inline-flex items-center gap-1 font-bold text-rose-700">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    0 Pcs
                   </span>
-                </div>
+                ) : isLowStock ? (
+                  <span className="inline-flex items-center gap-1 font-bold text-amber-700">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    {style.availablePieces} Pcs
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
+                    <Package className="h-3.5 w-3.5 text-violet-500" />
+                    {style.availablePieces} Pcs
+                  </span>
+                )}
               </div>
+
+              <button
+                type="button"
+                onClick={() => setBifurcationStyle(style)}
+                className="w-full mt-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-violet-700 active:scale-[0.98] shadow-xs cursor-pointer"
+              >
+                <Eye className="h-3.5 w-3.5 text-violet-200" />
+                <span>View Details</span>
+              </button>
             </div>
           );
         })}
       </div>
+
+      {/* Style Size & Color Bifurcation Modal */}
+      {bifurcationStyle && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-2 sm:p-4 backdrop-blur-md transition-all animate-in fade-in duration-200">
+          <div className="relative max-h-[92vh] sm:max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl sm:rounded-3xl bg-white shadow-2xl border border-slate-100 flex flex-col">
+            {/* Modal Header */}
+            <div className="sticky top-0 z-20 overflow-hidden bg-gradient-to-r from-slate-950 via-slate-900 to-violet-950 px-4 py-4 sm:px-6 text-white border-b border-white/10 flex items-center justify-between gap-3 shadow-md">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10 border border-white/15">
+                  {bifurcationStyle.photo ? (
+                    <img src={bifurcationStyle.photo} alt={bifurcationStyle.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <Tag className="h-5 w-5 text-violet-300" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base sm:text-xl font-bold tracking-tight text-white truncate">
+                      {bifurcationStyle.name}
+                    </h2>
+                    <span className="rounded-full bg-violet-500/20 px-2.5 py-0.5 text-xs font-semibold text-violet-200 border border-violet-400/30 shrink-0">
+                      Size & Color Bifurcation
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300">Detailed breakdown of piece quantities across sizes and colors</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setBifurcationStyle(null)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20 active:scale-95 shrink-0"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto p-4 sm:p-6 space-y-6 flex-1 bg-slate-50/50">
+              {/* Metric Badges */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Style Pieces</p>
+                  <p className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">{bifurcationStyle.totalPieces} Pcs</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Available Stock</p>
+                  <p className="text-xl sm:text-2xl font-bold text-emerald-600 mt-0.5">{bifurcationStyle.availablePieces} Pcs</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Colors</p>
+                  <p className="text-xl sm:text-2xl font-bold text-violet-600 mt-0.5">{bifurcationStyle.totalColors}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Sizes / Variants</p>
+                  <p className="text-xl sm:text-2xl font-bold text-violet-600 mt-0.5">{bifurcationStyle.totalVariants}</p>
+                </div>
+              </div>
+
+              {/* Detailed Matrix Table */}
+              <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/70 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                        <th className="py-2.5 px-4">Color</th>
+                        <th className="py-2.5 px-4">Size / Variant</th>
+                        <th className="py-2.5 px-4 text-right">Quantity (Pcs)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                      {bifurcationStyle.breakdownList.map((row, i) => {
+                        const hex = getColorHex(row.color);
+                        const isLight = hex.toLowerCase() === '#ffffff' || hex.toLowerCase() === '#f8fafc';
+
+                        return (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <td className="py-2.5 px-4 font-semibold text-slate-900">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`h-2.5 w-2.5 rounded-full shrink-0 ${isLight ? 'border border-slate-300' : ''}`}
+                                  style={{ backgroundColor: hex }}
+                                />
+                                <span>{row.color}</span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <span className="inline-block rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-800 border border-slate-200">
+                                {row.size}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-bold text-slate-900">
+                              {row.count} Pcs
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };
@@ -459,64 +501,6 @@ const prettify = (value) => String(value || 'unknown').replace(/_/g, ' ');
 const formatDate = (value) => {
   if (!value) return 'N/A';
   return new Date(value).toLocaleString();
-};
-
-const buildPiecesBreakdown = (pieces = {}, targetPieces = null) => {
-  const entries = [];
-  if (!pieces || typeof pieces !== 'object') return entries;
-
-  let rawTotal = 0;
-  Object.values(pieces).forEach((sizes) => {
-    if (typeof sizes === 'number') {
-      rawTotal += Number(sizes) || 0;
-    } else if (sizes && typeof sizes === 'object') {
-      Object.values(sizes).forEach((qty) => {
-        rawTotal += Number(qty) || 0;
-      });
-    }
-  });
-
-  const targetTotal = (targetPieces !== null && targetPieces !== undefined)
-    ? Number(targetPieces)
-    : rawTotal;
-
-  const scaleFactor = (rawTotal > 0 && targetTotal !== rawTotal) ? (targetTotal / rawTotal) : 1;
-
-  let accumulated = 0;
-  const tempEntries = [];
-
-  Object.entries(pieces).forEach(([color, sizes]) => {
-    if (typeof sizes === 'number') {
-      const rawCount = Number(sizes) || 0;
-      if (rawCount > 0) {
-        tempEntries.push({ color, size: 'Standard', rawCount });
-      }
-      return;
-    }
-    if (!sizes || typeof sizes !== 'object') return;
-    Object.entries(sizes).forEach(([size, qty]) => {
-      const rawCount = Number(qty) || 0;
-      if (rawCount > 0) {
-        tempEntries.push({ color, size, rawCount });
-      }
-    });
-  });
-
-  tempEntries.forEach((item, index) => {
-    let count = Math.round(item.rawCount * scaleFactor);
-    if (index === tempEntries.length - 1 && scaleFactor !== 1) {
-      count = Math.max(0, targetTotal - accumulated);
-    }
-    accumulated += count;
-    entries.push({
-      color: item.color,
-      size: item.size,
-      count,
-      label: item.size === 'Standard' ? `${item.color}: ${count}` : `${item.color} / ${item.size}: ${count}`
-    });
-  });
-
-  return entries;
 };
 
 const InventoryImageGallery = ({ item }) => {
@@ -626,6 +610,14 @@ export default function InventoryWorkspace({
     : 'from-slate-950 via-slate-900 to-cyan-950';
 
   const [inventory, setInventory] = useState([]);
+  const [styleSummaries, setStyleSummaries] = useState([]);
+  const [inventorySummary, setInventorySummary] = useState({
+    totalSubOrders: 0,
+    totalPieces: 0,
+    approvedPieces: 0,
+    availablePieces: 0,
+    damagedPieces: 0
+  });
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState(null);
   const [error, setError] = useState(null);
@@ -639,7 +631,7 @@ export default function InventoryWorkspace({
   const [selectedItem, setSelectedItem] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-  const loadInventory = async () => {
+  const loadInventory = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -655,6 +647,14 @@ export default function InventoryWorkspace({
         setStylesList(res.styles);
       }
       setInventory(items);
+      setStyleSummaries(Array.isArray(res.styleSummaries) ? res.styleSummaries : []);
+      setInventorySummary(res.summary || {
+        totalSubOrders: 0,
+        totalPieces: 0,
+        approvedPieces: 0,
+        availablePieces: 0,
+        damagedPieces: 0
+      });
       setEditorState((prev) => {
         const next = { ...prev };
         items.forEach((item) => {
@@ -673,7 +673,7 @@ export default function InventoryWorkspace({
     } finally {
       setLoading(false);
     }
-  };
+  }, [endDate, search, selectedStyle, startDate, status]);
 
   useEffect(() => {
     loadInventory();
@@ -683,7 +683,7 @@ export default function InventoryWorkspace({
     };
     window.addEventListener('app:refresh', handleGlobalRefresh);
     return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
-  }, [status, selectedStyle, startDate, endDate]);
+  }, [loadInventory]);
 
   const isFiltered = Boolean(search || status !== 'all' || selectedStyle !== 'all' || startDate || endDate);
 
@@ -694,20 +694,6 @@ export default function InventoryWorkspace({
     setStartDate('');
     setEndDate('');
   };
-
-  const summary = useMemo(() => {
-    return inventory.reduce(
-      (acc, item) => {
-        acc.totalSubOrders += 1;
-        acc.totalPieces += Number(item.totalSubmittedPieces) || Number(item.totalCompletedPieces) || Number(item.approvedPieces) || Number(item.submittedPieces) || 0;
-        acc.approvedPieces += Number(item.totalCompletedPieces) || 0;
-        acc.availablePieces += Number(item.availablePieces) || 0;
-        acc.damagedPieces += Number(item.totalDamagedPieces) || 0;
-        return acc;
-      },
-      { totalSubOrders: 0, totalPieces: 0, approvedPieces: 0, availablePieces: 0, damagedPieces: 0 }
-    );
-  }, [inventory]);
 
   const {
     currentPage,
@@ -766,12 +752,7 @@ export default function InventoryWorkspace({
 
   const getPrimaryColor = (pieces = {}) => Object.keys(pieces || {})[0] || 'N/A';
   const getTotalSubmittedPieces = (item = {}) => {
-    const totalSubmittedPieces = Number(item.totalSubmittedPieces) || Number(item.totalCompletedPieces) || Number(item.approvedPieces) || Number(item.submittedPieces) || 0;
-    if (totalSubmittedPieces > 0) return totalSubmittedPieces;
-
-    const completedPieces = Number(item.totalCompletedPieces) || Number(item.approvedPieces) || 0;
-    const damagedPieces = Number(item.totalDamagedPieces) || Number(item.faultyPieces) || 0;
-    return completedPieces + damagedPieces;
+    return Number(item.totalSubmittedPieces) || 0;
   };
 
   return (
@@ -800,9 +781,9 @@ export default function InventoryWorkspace({
 
       <section className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3">
         {[
-          { label: 'Stored Suborders', value: summary.totalSubOrders, icon: ClipboardList, tone: 'from-cyan-500 to-blue-500' },
-          { label: 'Total Pieces Submitted', value: summary.totalPieces, icon: Boxes, tone: 'from-emerald-500 to-teal-500' },
-          { label: 'Actual Quantity Present', value: summary.availablePieces, icon: Tag, tone: 'from-violet-500 to-fuchsia-500' }
+          { label: 'Stored Suborders', value: inventorySummary.totalSubOrders, icon: ClipboardList, tone: 'from-cyan-500 to-blue-500' },
+          { label: 'Total Pieces Submitted', value: inventorySummary.totalPieces, icon: Boxes, tone: 'from-emerald-500 to-teal-500' },
+          { label: 'Actual Quantity Present', value: inventorySummary.availablePieces, icon: Tag, tone: 'from-violet-500 to-fuchsia-500' }
         ].map((card, idx) => {
           const Icon = card.icon;
           return (
@@ -943,7 +924,7 @@ export default function InventoryWorkspace({
           <p className="mt-2 text-sm text-slate-500">Final-stage approved suborders will appear here.</p>
         </div>
       ) : (
-        <StyleInventorySummaryTable inventory={inventory} onOpenDetails={() => setIsDetailsOpen(true)} />
+        <StyleInventorySummaryTable styleSummaries={styleSummaries} onOpenDetails={() => setIsDetailsOpen(true)} />
       )}
 
       {/* Detailed Inventory Modal */}
@@ -1191,7 +1172,7 @@ export default function InventoryWorkspace({
       {selectedItem && (() => {
         const item = selectedItem;
         const totalSubmittedPieces = getTotalSubmittedPieces(item);
-        const piecesBreakdown = buildPiecesBreakdown(item.pieces, totalSubmittedPieces);
+        const piecesBreakdown = Array.isArray(item.piecesBreakdown) ? item.piecesBreakdown : [];
         const form = editorState[item._id] || {
           inventoryStatus: item.inventoryStatus || 'packed',
           inventoryLocation: item.inventoryLocation || '',

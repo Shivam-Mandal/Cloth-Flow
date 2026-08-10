@@ -17,6 +17,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { csrfProtection } from './middlewares/csrfMiddleware.js';
 import { rejectUnsafeKeys } from './middlewares/sanitizeMiddleware.js';
+import { requestIdMiddleware } from './middlewares/requestIdMiddleware.js';
 import AssignedRouter from './routes/assignmentRoutes.js';
 import WorkerRouter from './routes/workerRoutes.js';
 import approvalRouter from './routes/approvalRoutes.js';
@@ -24,7 +25,9 @@ import subOrderRouter from './routes/subOrderRoutes.js';
 import userRouter from './routes/userRoutes.js';
 import stageRouter from './routes/stageRoutes.js';
 import uploadRouter from './routes/uploadRoutes.js';
+import { validateRuntimeEnv } from './config/env.js';
 dotenv.config({ path: new URL('./.env', import.meta.url), quiet: true });
+validateRuntimeEnv();
 
 const app = express();
 const server = createServer(app);
@@ -82,10 +85,12 @@ const __dirname = path.dirname(__filename);
 // --- Security & Parsing Middlewares (register early) ---
 app.set('trust proxy', 1); // trust first proxy
 app.use(helmet());
+app.use(requestIdMiddleware);
+morgan.token('id', (req) => req.id || '-');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(morgan('combined'));
+app.use(morgan(':id :remote-addr - :remote-user [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"'));
 
 app.use(cors({
   origin: function (origin, callback) {

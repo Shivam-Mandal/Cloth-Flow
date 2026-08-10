@@ -1,5 +1,5 @@
 // src/utils/Topbar.jsx
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, Search, LogOut, User as UserIcon, Settings, ChevronDown, Menu, ShoppingCart, Shirt, Package, Users, LayoutDashboard, CheckCircle, Boxes, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 // motion removed
@@ -44,7 +44,7 @@ const Topbar = ({ user = {}, onLogout }) => {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchItems, setSearchItems] = useState(staticSearchItems);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [searchLoaded, setSearchLoaded] = useState(false);
+  const [lastLoadedQuery, setLastLoadedQuery] = useState('');
 
   const notifications = [
     { id: 1, title: 'New order received', time: '2 min ago', type: 'order' },
@@ -52,15 +52,16 @@ const Topbar = ({ user = {}, onLogout }) => {
     { id: 3, title: 'Stock level low', time: '10 min ago', type: 'warning' },
   ];
 
-  const loadSearchItems = async () => {
-    if (searchLoaded || searchLoading) return;
+  const loadSearchItems = useCallback(async (query) => {
+    const normalizedQuery = query.trim();
+    if (normalizedQuery.length < 2 || searchLoading || lastLoadedQuery === normalizedQuery) return;
 
     setSearchLoading(true);
     const [ordersResult, stylesResult, stocksResult, usersResult] = await Promise.allSettled([
-      orderService.getOrders(),
-      styleService.fetchStyles(),
-      stockService.fetchStocks(),
-      fetchUsers()
+      orderService.getOrders({ q: normalizedQuery, limit: 8 }),
+      styleService.fetchStyles({ q: normalizedQuery, limit: 8 }),
+      stockService.fetchStocks({ q: normalizedQuery, limit: 8 }),
+      fetchUsers({ q: normalizedQuery, limit: 8 })
     ]);
 
     const orders = ordersResult.status === 'fulfilled' ? normalizeOrdersResponse(ordersResult.value) : [];
@@ -104,9 +105,9 @@ const Topbar = ({ user = {}, onLogout }) => {
         icon: Users
       }))
     ]);
-    setSearchLoaded(true);
+    setLastLoadedQuery(normalizedQuery);
     setSearchLoading(false);
-  };
+  }, [lastLoadedQuery, searchLoading]);
 
   const filteredSearchItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -138,6 +139,21 @@ const Topbar = ({ user = {}, onLogout }) => {
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, []);
 
+  useEffect(() => {
+    if (!searchFocused) return;
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchItems(staticSearchItems);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      loadSearchItems(query);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [loadSearchItems, searchFocused, searchQuery]);
+
   const handleSearchSelect = (item) => {
     navigate(item.path);
     setSearchQuery('');
@@ -168,7 +184,6 @@ const Topbar = ({ user = {}, onLogout }) => {
                 onChange={(event) => setSearchQuery(event.target.value)}
                 onFocus={() => {
                   setSearchFocused(true);
-                  loadSearchItems();
                 }}
                 placeholder="Search orders, workers, or tasks..."
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 focus:bg-white transition-all duration-200"
@@ -411,4 +426,3 @@ const Topbar = ({ user = {}, onLogout }) => {
 };
 
 export default Topbar;
-

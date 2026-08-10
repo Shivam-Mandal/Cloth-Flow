@@ -4,6 +4,26 @@ import { Stock } from '../models/Stock.js';
 const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const STOCK_SORT_FIELDS = new Set(['vendor', 'quantityKg', 'unitPrice', 'sizeMm', 'fabric', 'dateAdded', 'createdAt', 'updatedAt']);
 
+export const parseNonNegativeNumber = (value, fieldName, { required = false } = {}) => {
+  if (value === undefined || value === null || value === '') {
+    if (required) {
+      const error = new Error(`${fieldName} is required`);
+      error.status = 400;
+      throw error;
+    }
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    const error = new Error(`${fieldName} must be a non-negative number`);
+    error.status = 400;
+    throw error;
+  }
+
+  return parsed;
+};
+
 /**
  * GET /api/stocks
  * Query params (optional):
@@ -114,6 +134,10 @@ export const createStock = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
+    const parsedQuantityKg = parseNonNegativeNumber(quantityKg, 'quantityKg', { required: true });
+    const parsedUnitPrice = parseNonNegativeNumber(unitPrice, 'unitPrice', { required: true });
+    const parsedSizeMm = parseNonNegativeNumber(sizeMm, 'sizeMm');
+
     const newStock = new Stock({
       vendor,
       color: {
@@ -122,16 +146,16 @@ export const createStock = async (req, res) => {
       },
       fabric: fabric ? String(fabric).trim() : '',
       image: image ? String(image).trim() : '',
-      quantityKg: Number(quantityKg),
-      unitPrice: Number(unitPrice),
-      sizeMm: sizeMm != null ? Number(sizeMm) : null
+      quantityKg: parsedQuantityKg,
+      unitPrice: parsedUnitPrice,
+      sizeMm: parsedSizeMm ?? null
     });
 
     await newStock.save();
     return res.status(201).json({ success: true, data: newStock });
   } catch (err) {
     console.error('createStock err:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    return res.status(err.status || 500).json({ success: false, message: err.status ? err.message : 'Server error' });
   }
 };
 
@@ -151,16 +175,16 @@ export const updateStock = async (req, res) => {
     };
     if (fabric !== undefined) update.fabric = String(fabric).trim();
     if (image !== undefined) update.image = String(image).trim();
-    if (quantityKg !== undefined) update.quantityKg = Number(quantityKg);
-    if (unitPrice !== undefined) update.unitPrice = Number(unitPrice);
-    if (sizeMm !== undefined) update.sizeMm = sizeMm === null ? null : Number(sizeMm);
+    if (quantityKg !== undefined) update.quantityKg = parseNonNegativeNumber(quantityKg, 'quantityKg', { required: true });
+    if (unitPrice !== undefined) update.unitPrice = parseNonNegativeNumber(unitPrice, 'unitPrice', { required: true });
+    if (sizeMm !== undefined) update.sizeMm = sizeMm === null || sizeMm === '' ? null : parseNonNegativeNumber(sizeMm, 'sizeMm');
 
     const stock = await Stock.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
     if (!stock) return res.status(404).json({ success: false, message: 'Stock not found' });
     return res.json({ success: true, data: stock });
   } catch (err) {
     console.error('updateStock err:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    return res.status(err.status || 500).json({ success: false, message: err.status ? err.message : 'Server error' });
   }
 };
 

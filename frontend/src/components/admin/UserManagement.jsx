@@ -18,8 +18,6 @@ import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import { dataCache } from '../../utils/dataCache';
 
-const fallbackWorkerTypes = ['Cutting', 'Printing', 'Stitching', 'Finishing', 'Packing', 'Inventory'];
-
 const generatePassword = () => {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$';
   let password = '';
@@ -39,7 +37,7 @@ const roleTone = (role) =>
 export default function UserManagement() {
   const cachedUsers = dataCache.getCache('users');
   const [users, setUsers] = useState(cachedUsers || []);
-  const [workerTypes, setWorkerTypes] = useState(fallbackWorkerTypes);
+  const [workerTypes, setWorkerTypes] = useState([]);
   const [loading, setLoading] = useState({ fetch: !cachedUsers, submit: false, update: false });
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
@@ -51,7 +49,7 @@ export default function UserManagement() {
     email: '',
     password: '',
     role: 'worker',
-    workerType: fallbackWorkerTypes[0],
+    workerType: '',
     allowMultipleClaims: false,
     autoApprove: false,
     allowExcessPieces: false,
@@ -63,7 +61,7 @@ export default function UserManagement() {
     email: '',
     password: generatePassword(),
     role: 'worker',
-    workerType: fallbackWorkerTypes[0],
+    workerType: '',
     allowMultipleClaims: false,
     autoApprove: false,
     allowExcessPieces: false,
@@ -80,12 +78,21 @@ export default function UserManagement() {
     try {
       const res = await fetchUsers();
       const fetched = res.users || [];
+      const availableWorkerTypes = res.availableWorkerTypes || [];
       setUsers(fetched);
       dataCache.setCache('users', fetched);
-      setWorkerTypes(res.availableWorkerTypes?.length ? res.availableWorkerTypes : fallbackWorkerTypes);
+      setWorkerTypes(availableWorkerTypes);
       setFormData((prev) => ({
         ...prev,
-        workerType: res.availableWorkerTypes?.[0] || prev.workerType || fallbackWorkerTypes[0]
+        workerType: availableWorkerTypes.includes(prev.workerType)
+          ? prev.workerType
+          : availableWorkerTypes[0] || ''
+      }));
+      setEditFormData((prev) => ({
+        ...prev,
+        workerType: availableWorkerTypes.includes(prev.workerType)
+          ? prev.workerType
+          : availableWorkerTypes[0] || ''
       }));
     } catch (e) {
       console.error('Failed to load users', e);
@@ -160,7 +167,7 @@ export default function UserManagement() {
       email: user.email || '',
       password: '',
       role: user.role || 'worker',
-      workerType: user.workerType || workerTypes[0] || fallbackWorkerTypes[0],
+      workerType: workerTypes.includes(user.workerType) ? user.workerType : workerTypes[0] || '',
       allowMultipleClaims: Boolean(user.allowMultipleClaims),
       autoApprove: Boolean(user.autoApprove),
       allowExcessPieces: Boolean(user.allowExcessPieces),
@@ -193,7 +200,7 @@ export default function UserManagement() {
         email: '',
         password: generatePassword(),
         role: 'worker',
-        workerType: workerTypes[0] || fallbackWorkerTypes[0],
+        workerType: workerTypes[0] || '',
         allowMultipleClaims: false,
         autoApprove: false,
         allowExcessPieces: false,
@@ -244,9 +251,7 @@ export default function UserManagement() {
     }
   };
 
-  const workerRoleHint = workerTypes.includes('Inventory')
-    ? 'Worker roles come from style stages, plus a dedicated Inventory role.'
-    : 'Worker roles come from style stages.';
+  const workerRoleHint = 'Worker types come from active Stage Management stages.';
 
   const copyCredentials = async () => {
     if (!creationResult?.credentials) return;
@@ -550,8 +555,13 @@ export default function UserManagement() {
                     <select
                       value={formData.workerType}
                       onChange={(e) => handleChange('workerType', e.target.value)}
+                      disabled={workerTypes.length === 0}
                       className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-sky-400 focus:bg-white"
+                      required
                     >
+                      {workerTypes.length === 0 && (
+                        <option value="">No active stages available</option>
+                      )}
                       {workerTypes.map((type) => (
                         <option key={type} value={type}>
                           {type}
@@ -675,7 +685,7 @@ export default function UserManagement() {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading.submit}
+                  disabled={loading.submit || (formData.role === 'worker' && workerTypes.length === 0)}
                   className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 sm:w-auto"
                 >
                   {loading.submit ? 'Creating user...' : 'Create User'}
@@ -749,8 +759,13 @@ export default function UserManagement() {
                     <select
                       value={editFormData.workerType}
                       onChange={(e) => handleEditChange('workerType', e.target.value)}
+                      disabled={workerTypes.length === 0}
                       className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-sky-400 focus:bg-white"
+                      required
                     >
+                      {workerTypes.length === 0 && (
+                        <option value="">No active stages available</option>
+                      )}
                       {workerTypes.map((type) => (
                         <option key={type} value={type}>
                           {type}
@@ -875,7 +890,7 @@ export default function UserManagement() {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading.update}
+                  disabled={loading.update || (editFormData.role === 'worker' && workerTypes.length === 0)}
                   className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 sm:w-auto"
                 >
                   {loading.update ? 'Saving user...' : 'Save Changes'}

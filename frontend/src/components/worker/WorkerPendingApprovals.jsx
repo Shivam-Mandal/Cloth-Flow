@@ -1,8 +1,174 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, AlertCircle, RotateCw } from 'lucide-react';
+import { Clock, RotateCw } from 'lucide-react';
 import { fetchWorkerPendingApprovals } from '../services/approvalServices';
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
+
+const colorMap = {
+  black: '#111827',
+  blue: '#2563eb',
+  green: '#16a34a',
+  orange: '#f97316',
+  purple: '#7c3aed',
+  red: '#ef4444',
+  white: '#ffffff',
+  yellow: '#eab308',
+  navy: '#1e3a8a',
+  pink: '#ec4899',
+  gray: '#6b7280',
+  grey: '#6b7280',
+  brown: '#78350f',
+  beige: '#f5f5dc',
+  maroon: '#800000',
+  cyan: '#06b6d4',
+  teal: '#0d9488',
+  indigo: '#4f46e5',
+  violet: '#8b5cf6',
+  amber: '#f59e0b',
+  rose: '#f43f5e',
+  emerald: '#10b981',
+  sky: '#0284c7'
+};
+
+const getColorHex = (name) => {
+  if (!name || name === '—') return null;
+  const key = String(name).trim().toLowerCase();
+  if (colorMap[key]) return colorMap[key];
+  if (/^#([0-9a-f]{3}){1,2}$/i.test(key)) return key;
+  if (/^rgb/i.test(key)) return key;
+  return key;
+};
+
+const ColorBadge = ({ color }) => {
+  if (!color || color === '—') return <span>—</span>;
+  const hex = getColorHex(color);
+  const isLight = hex && (hex.toLowerCase() === '#ffffff' || hex.toLowerCase() === 'white' || hex.toLowerCase() === '#f8fafc');
+
+  return (
+    <div className="inline-flex items-center gap-1.5 font-medium">
+      {hex && (
+        <span
+          className={`h-3 w-3 rounded-full shrink-0 ${
+            isLight ? 'border border-gray-300' : 'border border-black/10'
+          }`}
+          style={{ backgroundColor: hex }}
+          title={color}
+        />
+      )}
+      <span>{color}</span>
+    </div>
+  );
+};
+
+const extractCompletedWorkDetails = (work) => {
+  let color = '—';
+  let size = '—';
+
+  try {
+    if (work?.color || work?.size) {
+      color = work?.color || '—';
+      size = work?.size || '—';
+    } else if (work && work.pieces && typeof work.pieces === 'object' && !Array.isArray(work.pieces)) {
+      const colors = Object.keys(work.pieces);
+      if (colors.length > 0) {
+        color = colors[0];
+        const sizesObj = work.pieces[color] || {};
+        const sizes = Object.keys(sizesObj);
+        if (sizes.length > 0) size = sizes.join(', ');
+      }
+    } else if (Array.isArray(work?.pieces) && work.pieces.length > 0) {
+      const p = work.pieces[0];
+      color = p.color ?? p.colour ?? p.colorName ?? '—';
+      size = p.size ?? p.sizeName ?? '—';
+    } else if (work?.color) {
+      color = work.color;
+      size = work?.size || '—';
+    } else if (typeof work?.name === 'string') {
+      const parts = work.name.split('-');
+      if (parts.length >= 3) {
+        color = parts[1].trim();
+        size = parts[2].trim();
+      } else if (parts.length === 2) {
+        color = parts[1].trim();
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  const styleName = work?.styleName
+    || work?.order?.style?.name
+    || work?.order?.styleSnapshot?.name
+    || (typeof work?.name === 'string' && work.name.includes('-') ? work.name.split('-')[0] : work?.name)
+    || '—';
+
+  const fabricName = work?.fabric
+    || work?.order?.fabric
+    || work?.order?.styleSnapshot?.fabric
+    || work?.order?.style?.fabric
+    || '—';
+
+  const orderId = work?.order?.orderId || work?.orderId || '—';
+  const subOrderCode = work?.subOrderCode || work?.code || (work?._id ? String(work._id).slice(-6) : '—');
+  const stage = work?.currentStage || work?.stage || '—';
+
+  const completedPcs = work?.completedPieces ?? work?.approvedPieces ?? 0;
+  const damagedPcs = work?.damagedPieces ?? work?.faultyPieces ?? 0;
+
+  let totalTargetPcs = work?.totalPieces ?? work?.targetPieces ?? work?.totalPlannedPieces ?? 0;
+  if (!totalTargetPcs && work?.pieces) {
+    if (typeof work.pieces === 'number' && work.pieces > 0) {
+      totalTargetPcs = work.pieces;
+    } else if (Array.isArray(work.pieces) && work.pieces.length > 0) {
+      totalTargetPcs = work.pieces.reduce((acc, p) => acc + Number(p.count ?? p.qty ?? p.quantity ?? p.pieces ?? 0), 0);
+    } else if (typeof work.pieces === 'object') {
+      let sum = 0;
+      for (const col of Object.keys(work.pieces)) {
+        const sizes = work.pieces[col];
+        if (typeof sizes === 'number') sum += sizes;
+        else if (sizes && typeof sizes === 'object') {
+          for (const s of Object.keys(sizes)) {
+            sum += Number(sizes[s]) || 0;
+          }
+        }
+      }
+      if (sum > 0) totalTargetPcs = sum;
+    }
+  }
+
+  if (!totalTargetPcs && typeof work?.submittedPieces === 'number' && work.submittedPieces > 0) {
+    totalTargetPcs = work.submittedPieces;
+  }
+
+  if (!totalTargetPcs && (completedPcs + damagedPcs) > 0) {
+    totalTargetPcs = completedPcs + damagedPcs;
+  }
+
+  const donePcsDisplay = totalTargetPcs > 0 ? `${completedPcs} / ${totalTargetPcs}` : `${completedPcs}`;
+
+  const earnings = work?.calculatedPayment ?? work?.amount ?? work?.workerEarnings ?? 0;
+  const dateStr = work?.updatedAt || work?.createdAt
+    ? new Date(work.updatedAt || work.createdAt).toLocaleDateString()
+    : '—';
+  const statusLabel = work?.statusLabel || (work?.status === 'pending_approval' ? 'Pending' : work?.status || '—');
+
+  return {
+    color: String(color),
+    size: String(size),
+    styleName,
+    fabricName,
+    orderId,
+    subOrderCode,
+    stage,
+    completedPcs,
+    totalTargetPcs,
+    donePcsDisplay,
+    damagedPcs,
+    earnings,
+    dateStr,
+    statusLabel
+  };
+};
 
 export const WorkerPendingApprovals = () => {
   const [pendingWork, setPendingWork] = useState([]);
@@ -16,8 +182,8 @@ export const WorkerPendingApprovals = () => {
       const res = await fetchWorkerPendingApprovals();
       setPendingWork(res.approvals || []);
     } catch (e) {
-      console.error('Failed to load pending approvals', e);
-      setError(e?.response?.data?.message || e.message || 'Failed to load pending approvals');
+      console.error('Failed to load pending', e);
+      setError(e?.response?.data?.message || e.message || 'Failed to load pending');
     } finally {
       setLoading(false);
     }
@@ -46,7 +212,7 @@ export const WorkerPendingApprovals = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Pending Approvals</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Pending</h1>
           <p className="text-gray-600 mt-1">Work submitted for admin review</p>
         </div>
         <div className="flex items-center gap-3">
@@ -68,53 +234,64 @@ export const WorkerPendingApprovals = () => {
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         {loading ? (
           <div className="text-center py-8">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <div className="text-sm text-gray-500">Loading pending approvals...</div>
+            <div className="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <div className="text-sm text-gray-500">Loading pending...</div>
           </div>
         ) : pendingWork.length === 0 ? (
           <div className="text-center py-8">
             <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No work pending approval</p>
+            <p className="text-gray-600">No pending work</p>
             <p className="text-sm text-gray-500 mt-1">Completed work awaiting admin review will appear here</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {paginatedItems.map(item => (
-              <div key={item._id} className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-6 h-6 text-yellow-600 mt-1" />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h4 className="font-semibold text-lg">{item.name}</h4>
-                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
-                        Awaiting Approval
-                      </span>
-                      <span className="ml-auto text-lg font-bold text-green-600">₹{item.calculatedPayment ?? item.amount ?? 0}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
-                      <div>
-                        <span className="font-medium">Order ID:</span> {item.order?.orderId || item.orderId}
-                      </div>
-                      <div>
-                        <span className="font-medium">Stage:</span> {item.currentStage}
-                      </div>
-                      <div>
-                        <span className="font-medium">Completed:</span> {item.approvedPieces || 0}
-                      </div>
-                      <div>
-                        <span className="font-medium">Submitted:</span> {new Date(item.updatedAt).toLocaleDateString()}
-                      </div>
-                    </div>
-
-                    <div className="text-sm text-gray-500">
-                      <strong>Note:</strong> Your work has been submitted and is waiting for admin approval.
-                      Once approved, you'll receive payment and the next stage will begin.
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-3 py-3">SubOrder</th>
+                  <th className="px-3 py-3">Order ID</th>
+                  <th className="px-3 py-3">Style</th>
+                  <th className="px-3 py-3">Fabric</th>
+                  <th className="px-3 py-3">Stage</th>
+                  <th className="px-3 py-3 text-center">Done Pcs</th>
+                  <th className="px-3 py-3 text-center">Damaged</th>
+                  <th className="px-3 py-3">Color</th>
+                  <th className="px-3 py-3">Size</th>
+                  <th className="px-3 py-3">Submitted On</th>
+                  <th className="px-3 py-3 text-right">Est. Earnings</th>
+                  <th className="px-3 py-3 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {paginatedItems.map((approval) => {
+                  const details = extractCompletedWorkDetails(approval);
+                  return (
+                    <tr key={approval._id} className="hover:bg-amber-50/50 transition-colors">
+                      <td className="px-3 py-3 font-mono font-medium text-gray-900">{details.subOrderCode}</td>
+                      <td className="px-3 py-3 font-medium text-gray-800">{details.orderId}</td>
+                      <td className="px-3 py-3 font-medium text-gray-900">{details.styleName}</td>
+                      <td className="px-3 py-3 text-gray-700">{details.fabricName}</td>
+                      <td className="px-3 py-3 text-gray-700">{details.stage}</td>
+                      <td className="px-3 py-3 text-center font-semibold text-gray-900">{details.donePcsDisplay}</td>
+                      <td className="px-3 py-3 text-center text-red-600 font-medium">{details.damagedPcs}</td>
+                      <td className="px-3 py-3">
+                        <ColorBadge color={details.color} />
+                      </td>
+                      <td className="px-3 py-3 text-gray-700">{details.size}</td>
+                      <td className="px-3 py-3 text-gray-500 whitespace-nowrap">{details.dateStr}</td>
+                      <td className="px-3 py-3 text-right font-bold text-amber-700">
+                        ₹{Number(details.earnings).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                          {details.statusLabel}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 
@@ -124,7 +301,7 @@ export const WorkerPendingApprovals = () => {
           totalItems={totalItems}
           pageSize={pageSize}
           onPageChange={handlePageChange}
-          itemLabel="pending approvals"
+          itemLabel="pending"
         />
       </div>
 

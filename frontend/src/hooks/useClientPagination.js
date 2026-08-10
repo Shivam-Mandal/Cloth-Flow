@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 export const useClientPagination = (items = [], pageSize = 8) => {
   const [currentPage, setCurrentPage] = useState(1);
 
-  const safeItems = Array.isArray(items) ? items : [];
+  const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
   const totalPages = Math.max(1, Math.ceil(safeItems.length / pageSize));
 
   useEffect(() => {

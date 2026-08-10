@@ -8,6 +8,7 @@ import ApprovalHistory from '../models/ApprovalHistory.js';
 import { isLastStage, normalizeStageKey } from '../utils/workflow.js';
 import { approveWorkflowStage } from '../services/workflowService.js';
 
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Helper function to log approval history for submission
@@ -90,15 +91,20 @@ export const getAvailableForMe = async (req, res) => {
     const workerType = worker.workerType;
     if (!workerType) return res.status(400).json({ success: false, message: 'Worker type missing' });
 
-    const normalize = (value) => (value === null || value === undefined ? '' : String(value).trim().toLowerCase());
-    const normalizedWorkerType = normalize(workerType);
+    const workerTypeMatcher = new RegExp(`^${escapeRegex(workerType.trim())}$`, 'i');
 
     const assignments = await Assignment.find({
-      status: 'available'
+      status: 'available',
+      $or: [
+        { stage: workerTypeMatcher },
+        { category: workerTypeMatcher },
+        { requiredRole: workerTypeMatcher },
+        { requiredRoles: workerTypeMatcher }
+      ]
     })
       .populate({
         path: 'order',
-        select: 'orderId styleSnapshot priority deadline totalQuantity category stages style',
+        select: 'orderId styleSnapshot priority deadline totalQuantity category stages style fabric',
         populate: {
           path: 'style'
           // Don't select specific fields — include all, especially photos
@@ -108,25 +114,7 @@ export const getAvailableForMe = async (req, res) => {
       .sort({ createdAt: 1 })
       .lean();
 
-    const filteredAssignments = assignments.filter((assignment) => {
-      const stage = normalize(assignment.stage);
-      const category = normalize(assignment.category || assignment.order?.category || assignment.orderCategory);
-      const requiredRole = normalize(assignment.requiredRole);
-      const requiredRoles = Array.isArray(assignment.requiredRoles)
-        ? assignment.requiredRoles.map(normalize)
-        : assignment.requiredRoles
-          ? [normalize(assignment.requiredRoles)]
-          : [];
-
-      return (
-        stage === normalizedWorkerType ||
-        category === normalizedWorkerType ||
-        requiredRole === normalizedWorkerType ||
-        requiredRoles.includes(normalizedWorkerType)
-      );
-    });
-
-    return res.status(200).json({ success: true, assignments: filteredAssignments });
+    return res.status(200).json({ success: true, assignments });
   } catch (err) {
     console.error('getAvailableForMe error:', err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
@@ -221,6 +209,23 @@ export const getAssignmentById = async (req, res) => {
       }
     }).populate('subOrder');
     if (!a) return res.status(404).json({ error: 'Not found' });
+
+    if (req.user?.role === 'worker') {
+      const workerId = req.user?.id || req.user?._id;
+      const isAssignedWorker = String(a.worker || '') === String(workerId);
+      const isCompletedByWorker = String(a.completedBy || '') === String(workerId);
+      let isEligibleAvailableTask = false;
+
+      if (a.status === 'available') {
+        const worker = await WorkerModel.findById(workerId).select('workerType').lean();
+        isEligibleAvailableTask = worker?.workerType && normalizeStageKey(a.stage) === normalizeStageKey(worker.workerType);
+      }
+
+      if (!isAssignedWorker && !isCompletedByWorker && !isEligibleAvailableTask) {
+        return res.status(403).json({ error: 'Not allowed to view this assignment' });
+      }
+    }
+
     res.json(a);
   } catch (err) {
     console.error('getAssignmentById error:', err);
@@ -282,6 +287,7 @@ export const completeAssignment = async (req, res) => {
       const completedPieces = Number(req.body.completedPieces ?? 0);
       const damagedPieces = Number(req.body.damagedPieces ?? 0);
       const totalPieces = Number(assignment.totalPieces ?? 0);
+      const submittedPieces = completedPieces + damagedPieces;
       if (!Number.isInteger(completedPieces) || !Number.isInteger(damagedPieces) || completedPieces < 0 || damagedPieces < 0) {
         const e = new Error('Invalid piece count');
         e.status = 400;
@@ -292,15 +298,17 @@ export const completeAssignment = async (req, res) => {
         e.status = 400;
         throw e;
       }
-      if (completedPieces > totalPieces) {
-        const workerDoc = await WorkerModel.findById(workerId).select('allowExcessPieces').session(session).lean();
-        if (!workerDoc?.allowExcessPieces && !isAdmin) {
-          const e = new Error(`Cannot exceed total pieces (${totalPieces})`);
-          e.status = 403;
-          throw e;
-        }
+      const completionWorkerDoc = isAdmin
+        ? null
+        : await WorkerModel.findById(workerId).select('allowExcessPieces autoApprove').session(session).lean();
+      const canSubmitExcessPieces = isAdmin || Boolean(completionWorkerDoc?.allowExcessPieces);
+
+      if (!canSubmitExcessPieces && submittedPieces > totalPieces) {
+        const e = new Error(`Cannot submit more than total pieces (${totalPieces})`);
+        e.status = 403;
+        throw e;
       }
-      if (completedPieces < totalPieces && (completedPieces + damagedPieces) < totalPieces) {
+      if (completedPieces < totalPieces && submittedPieces < totalPieces) {
         const e = new Error(`Pieces must sum to ${totalPieces}`);
         e.status = 400;
         throw e;
@@ -353,9 +361,6 @@ export const completeAssignment = async (req, res) => {
         const totalCompletedPieces = stageAssignments.reduce((sum, a) => sum + (a.completedPieces || 0), 0);
         const totalDamagedPieces = stageAssignments.reduce((sum, a) => sum + (a.damagedPieces || 0), 0);
         
-        const orderDoc = assignment.order?._id ? assignment.order : await Order.findById(orderId).session(session);
-        const isFinalStage = isLastStage(orderDoc, stage);
-
         // Update suborder with submission details
         await SubOrder.findByIdAndUpdate(subOrderId, {
           currentStage: stage,
@@ -363,39 +368,14 @@ export const completeAssignment = async (req, res) => {
           completedBy: workerId,
           submittedPieces: totalCompletedPieces + totalDamagedPieces,
           approvedPieces: totalCompletedPieces,
-          faultyPieces: totalDamagedPieces,
-          ...(isFinalStage
-            ? {
-                inventoryStatus: 'ready_for_sale',
-                inventorySourceStage: stage,
-                inventoryUpdatedAt: new Date(),
-                inventoryUpdatedByName: req.user?.name || 'System',
-                inventoryUpdatedByRole: req.user?.role || 'worker',
-                $push: {
-                  inventoryEvents: {
-                    $each: [{
-                      status: 'ready_for_sale',
-                      location: '',
-                      notes: `Moved to inventory after ${stage} stage completion`,
-                      saleReference: '',
-                      updatedAt: new Date(),
-                      updatedByName: req.user?.name || 'System',
-                      updatedByRole: req.user?.role || 'worker'
-                    }],
-                    $position: 0,
-                    $slice: 20
-                  }
-                }
-              }
-            : {})
+          faultyPieces: totalDamagedPieces
         }, { session }).exec();
 
-        const workerDoc = await WorkerModel.findById(workerId).select('autoApprove').session(session).lean();
         const updatedSubOrder = await SubOrder.findById(subOrderId)
           .populate({ path: 'order', populate: { path: 'style' } })
           .session(session);
 
-        if (workerDoc?.autoApprove && updatedSubOrder) {
+        if (completionWorkerDoc?.autoApprove && updatedSubOrder) {
           // Auto approve the suborder stage immediately
           await approveWorkflowStage(updatedSubOrder, {
             adminId: workerId,
@@ -490,7 +470,7 @@ export const forMeAssignments = async (req, res) => {
     const assignments = await Assignment.find(filter)
       .populate({
         path: 'order',
-        select: 'orderId styleSnapshot priority deadline totalQuantity style',
+        select: 'orderId styleSnapshot priority deadline totalQuantity style fabric',
         populate: {
           path: 'style'
           // Include all style fields

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { History, CheckCircle, XCircle, Clock, TrendingUp, RotateCw } from 'lucide-react';
 import { fetchWorkerApprovalHistory } from '../services/approvalServices';
-import { toast } from 'react-toastify';
 import { dataCache } from '../../utils/dataCache';
 
 export const WorkerApprovalHistory = () => {

@@ -2,14 +2,14 @@
 import api from "../../api/api";
 
 // ✅ Fetch all styles (returns array of styles directly, used by StyleManagement.jsx)
-export const fetchStyles = async () => {
-  const res = await api.get("/styles/");
+export const fetchStyles = async (params = {}) => {
+  const res = await api.get("/styles/", { params });
   return res.data.data; 
 };
 
 // For StyleContext compatibility (returns wrapper object { success, data })
-export const getAllStyles = async () => {
-  const res = await api.get("/styles/");
+export const getAllStyles = async (params = {}) => {
+  const res = await api.get("/styles/", { params });
   return res.data;
 };
 

@@ -47,7 +47,7 @@ export const getCurrentUser = async () => {
   try {
     const res = await api.get("/auth/me");
     return { success: true, user: res.data.user };
-  } catch (err) {
+  } catch {
     return { success: false, message: "Failed to get current user" };
   }
 };

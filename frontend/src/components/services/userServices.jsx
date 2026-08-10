@@ -1,7 +1,7 @@
 import api from '../../api/api';
 
-export const fetchUsers = async () => {
-  const res = await api.get('/users');
+export const fetchUsers = async (params = {}) => {
+  const res = await api.get('/users', { params });
   return res.data;
 };
 

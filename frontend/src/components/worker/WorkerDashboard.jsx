@@ -8,7 +8,7 @@ import { useLayout } from '../context/LayoutContext';
 import WorkerMobileBottomNav from '../navigation/WorkerMobileBottomNav';
 
 const WorkerDashboard = () => {
-  const { user, loading, initialLoadDone, logout } = useUser();
+  const { user, initialLoadDone, logout } = useUser();
   const { sidebarOpen } = useLayout();
 
   if (!initialLoadDone) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;

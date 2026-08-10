@@ -10,8 +10,10 @@ import { emitWorkerDataRefresh, subscribeWorkerDataRefresh } from '../../utils/w
 import PaginationControls from '../ui/PaginationControls';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import { dataCache } from '../../utils/dataCache';
+import { useUser } from '../context/UserContext';
 
 export const AssignedTasks = () => {
+  const { user } = useUser();
   const cachedAssigned = dataCache.getCache('assignedTasks');
   const [mine, setMine] = useState(cachedAssigned || []);
   const [loading, setLoading] = useState({ fetch: !cachedAssigned, action: false });
@@ -20,6 +22,7 @@ export const AssignedTasks = () => {
   const [completionData, setCompletionData] = useState({ completedPieces: '', damagedPieces: '', damagedReason: '' });
   const [modalError, setModalError] = useState(null);
   const lastRefreshRef = useRef(0);
+  const canSubmitExcessPieces = Boolean(user?.allowExcessPieces);
 
   const loadMine = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh || !dataCache.getCache('assignedTasks')) {
@@ -110,6 +113,11 @@ export const AssignedTasks = () => {
     
     if (completionData.completedPieces === '' || isNaN(completedPieces) || completedPieces < 0 || damagedPieces < 0) {
       setModalError('Enter valid piece counts.');
+      return;
+    }
+
+    if (!canSubmitExcessPieces && completedPieces + damagedPieces > totalPieces) {
+      setModalError(`You cannot submit more than ${totalPieces} pieces.`);
       return;
     }
 
@@ -311,6 +319,7 @@ export const AssignedTasks = () => {
                 <input
                   type="number"
                   min="0"
+                  max={!canSubmitExcessPieces ? Number(completionModal.assignment?.totalPieces || 0) : undefined}
                   value={completionData.completedPieces}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -339,8 +348,12 @@ export const AssignedTasks = () => {
                 <input
                   type="number"
                   min="0"
+                  max={!canSubmitExcessPieces ? Math.max(0, Number(completionModal.assignment?.totalPieces || 0) - Number(completionData.completedPieces || 0)) : undefined}
                   value={completionData.damagedPieces}
-                  onChange={(e) => setCompletionData(prev => ({ ...prev, damagedPieces: e.target.value }))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCompletionData(prev => ({ ...prev, damagedPieces: val }));
+                  }}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                 />
               </div>
@@ -370,6 +383,8 @@ export const AssignedTasks = () => {
                   completionData.completedPieces === '' ||
                   isNaN(Number(completionData.completedPieces)) ||
                   Number(completionData.completedPieces) < 0 ||
+                  (!canSubmitExcessPieces &&
+                    Number(completionData.completedPieces || 0) + Number(completionData.damagedPieces || 0) > Number(completionModal.assignment?.totalPieces || 0)) ||
                   (Number(completionData.completedPieces) < Number(completionModal.assignment?.totalPieces || 0) &&
                     (Number(completionData.completedPieces) + Number(completionData.damagedPieces || 0)) < Number(completionModal.assignment?.totalPieces || 0))
                 }

@@ -7,6 +7,11 @@ const OrderSchema = new mongoose.Schema({
     name: String,
     sizes: [String],
     colors: [String],
+    steps: [{
+      stageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Stage' },
+      label: String,
+      price: { type: Number, default: 0 }
+    }]
   },
   pieces: { type: Object, default: {} },
   totalQuantity: { type: Number, default: 0 },

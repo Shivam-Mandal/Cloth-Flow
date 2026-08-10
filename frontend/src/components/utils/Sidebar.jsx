@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react';
 
-const Sidebar = ({ activeTab, onTabChange }) => {
+const Sidebar = ({ onTabChange }) => {
   const { sidebarOpen, closeSidebar, isMobile } = useLayout();
   const menuItems = [
     { id: 'overview', label: 'Dashboard', icon: LayoutDashboard, to: '/admin' },
@@ -86,7 +86,7 @@ const Sidebar = ({ activeTab, onTabChange }) => {
             {/* Navigation */}
             <nav className="flex-1 p-4 overflow-auto">
               <ul className="space-y-1">
-                {menuItems.map((item, index) => {
+                {menuItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <li

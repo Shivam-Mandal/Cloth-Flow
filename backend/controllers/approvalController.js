@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
 import SubOrder from '../models/SubOrderSchema.js';
 import Order from '../models/Order.js';
+import Assignment from '../models/Assignment.js';
 import { Style } from '../models/StyleSchema.js';
 import ApprovalHistory from '../models/ApprovalHistory.js';
-import { approveWorkflowStage, calculateStageEarningsFromAssignments, rejectWorkflowStage } from '../services/workflowService.js';
+import { approveWorkflowStage, calculateStageEarningsForSubOrders, rejectWorkflowStage } from '../services/workflowService.js';
 
 const INVENTORY_STATUSES = ['packed', 'ready_for_sale', 'reserved', 'dispatched', 'sold'];
 
@@ -94,6 +95,207 @@ const computePiecesTotal = (pieces = {}) => {
   return total;
 };
 
+const buildPiecesBreakdown = (pieces = {}, targetPieces = null) => {
+  if (!pieces || typeof pieces !== 'object') return [];
+
+  const rawEntries = [];
+  let rawTotal = 0;
+
+  Object.entries(pieces).forEach(([color, sizes]) => {
+    if (typeof sizes === 'number') {
+      const rawCount = Number(sizes) || 0;
+      if (rawCount > 0) {
+        rawEntries.push({ color, size: 'Standard', rawCount });
+        rawTotal += rawCount;
+      }
+      return;
+    }
+
+    if (!sizes || typeof sizes !== 'object') return;
+
+    Object.entries(sizes).forEach(([size, qty]) => {
+      const rawCount = Number(qty) || 0;
+      if (rawCount > 0) {
+        rawEntries.push({ color, size: size || 'Standard', rawCount });
+        rawTotal += rawCount;
+      }
+    });
+  });
+
+  const targetTotal = targetPieces !== null && targetPieces !== undefined ? Number(targetPieces) || 0 : rawTotal;
+  const scaleFactor = rawTotal > 0 && targetTotal !== rawTotal ? targetTotal / rawTotal : 1;
+  let accumulated = 0;
+
+  return rawEntries.map((entry, index) => {
+    let count = Math.round(entry.rawCount * scaleFactor);
+    if (index === rawEntries.length - 1 && scaleFactor !== 1) {
+      count = Math.max(0, targetTotal - accumulated);
+    }
+    accumulated += count;
+
+    return {
+      color: entry.color,
+      size: entry.size,
+      count,
+      percent: targetTotal > 0 ? Number(((count / targetTotal) * 100).toFixed(1)) : 0,
+      label: entry.size === 'Standard'
+        ? `${entry.color}: ${count}`
+        : `${entry.color} / ${entry.size}: ${count}`
+    };
+  });
+};
+
+const buildInventorySummary = (inventory = []) => (
+  inventory.reduce(
+    (acc, item) => {
+      acc.totalSubOrders += 1;
+      acc.totalPieces += Number(item.totalSubmittedPieces) || 0;
+      acc.approvedPieces += Number(item.totalCompletedPieces) || 0;
+      acc.availablePieces += Number(item.availablePieces) || 0;
+      acc.damagedPieces += Number(item.totalDamagedPieces) || 0;
+      return acc;
+    },
+    { totalSubOrders: 0, totalPieces: 0, approvedPieces: 0, availablePieces: 0, damagedPieces: 0 }
+  )
+);
+
+const buildStyleInventorySummaries = (inventory = []) => {
+  const styleMap = new Map();
+
+  inventory.forEach((item) => {
+    const styleName = item.order?.style?.name || item.order?.styleSnapshot?.name || item.name || 'Unnamed Style';
+    const styleId = item.order?.style?._id?.toString() || item.order?.style?.toString() || styleName;
+    const stylePhoto = item.image || (Array.isArray(item.photos) && item.photos[0]) || null;
+
+    if (!styleMap.has(styleId)) {
+      styleMap.set(styleId, {
+        id: styleId,
+        name: styleName,
+        photo: stylePhoto,
+        variantsSet: new Set(),
+        colorsMap: new Map(),
+        breakdownMap: new Map(),
+        availablePieces: 0,
+        totalPieces: 0,
+        subOrdersCount: 0,
+        subOrderRecords: []
+      });
+    }
+
+    const style = styleMap.get(styleId);
+    if (!style.photo && stylePhoto) style.photo = stylePhoto;
+
+    const availablePieces = Number(item.availablePieces) || 0;
+    const totalPieces = Number(item.totalSubmittedPieces) || 0;
+
+    style.availablePieces += availablePieces;
+    style.totalPieces += totalPieces;
+    style.subOrdersCount += 1;
+    style.subOrderRecords.push({
+      code: item.subOrderCode || item.name || 'N/A',
+      orderId: item.order?.orderId || item.orderId || 'N/A',
+      pieces: totalPieces || availablePieces,
+      color: item.piecesBreakdown?.[0]?.color || Object.keys(item.pieces || {})[0] || 'Default'
+    });
+
+    const breakdown = Array.isArray(item.piecesBreakdown) && item.piecesBreakdown.length > 0
+      ? item.piecesBreakdown
+      : [{ color: item.color || 'Default', size: 'Standard', count: totalPieces || availablePieces }];
+
+    breakdown.forEach(({ color = 'Default', size = 'Standard', count = 0 }) => {
+      const normalizedColor = String(color || 'Default').trim() || 'Default';
+      const normalizedSize = String(size || 'Standard').trim() || 'Standard';
+      const qty = Number(count) || 0;
+
+      style.variantsSet.add(normalizedSize);
+      style.colorsMap.set(normalizedColor, (style.colorsMap.get(normalizedColor) || 0) + qty);
+
+      if (!style.breakdownMap.has(normalizedColor)) {
+        style.breakdownMap.set(normalizedColor, new Map());
+      }
+      const sizeMap = style.breakdownMap.get(normalizedColor);
+      sizeMap.set(normalizedSize, (sizeMap.get(normalizedSize) || 0) + qty);
+    });
+  });
+
+  return Array.from(styleMap.values()).map((style) => {
+    const breakdownList = [];
+    const colorGroups = [];
+
+    style.breakdownMap.forEach((sizeMap, color) => {
+      let colorTotal = 0;
+      const sizes = [];
+
+      sizeMap.forEach((count, size) => {
+        colorTotal += count;
+        const row = {
+          color,
+          size,
+          count,
+          percent: style.totalPieces > 0 ? Number(((count / style.totalPieces) * 100).toFixed(1)) : 0
+        };
+        sizes.push(row);
+        breakdownList.push(row);
+      });
+
+      colorGroups.push({ color, total: colorTotal, sizes });
+    });
+
+    return {
+      id: style.id,
+      name: style.name,
+      photo: style.photo,
+      availablePieces: style.availablePieces,
+      totalPieces: style.totalPieces,
+      subOrdersCount: style.subOrdersCount,
+      subOrderRecords: style.subOrderRecords,
+      totalVariants: style.variantsSet.size || 1,
+      totalColors: style.colorsMap.size || 1,
+      variantsList: style.variantsSet.size ? Array.from(style.variantsSet) : ['Standard'],
+      colorsList: style.colorsMap.size
+        ? Array.from(style.colorsMap.entries()).map(([color, count]) => ({ color, count }))
+        : [{ color: 'Default', count: style.availablePieces }],
+      breakdownList,
+      colorGroups
+    };
+  });
+};
+
+const resolveColorAndSize = (subOrder, assignment = null) => {
+  const sourcePieces = subOrder?.pieces && Object.keys(subOrder.pieces).length > 0
+    ? subOrder.pieces
+    : assignment?.pieces;
+  const colorsSet = new Set();
+  const sizesSet = new Set();
+
+  const parsePiecesObj = (obj, parentColor = '') => {
+    if (!obj || typeof obj !== 'object') return;
+
+    for (const [key, val] of Object.entries(obj)) {
+      if (typeof val === 'number') {
+        if (parentColor) colorsSet.add(parentColor);
+        if (key) sizesSet.add(key);
+      } else if (val && typeof val === 'object') {
+        colorsSet.add(key);
+        parsePiecesObj(val, key);
+      }
+    }
+  };
+
+  parsePiecesObj(sourcePieces);
+
+  const orderDoc = subOrder?.order && typeof subOrder.order === 'object' ? subOrder.order : null;
+  if (colorsSet.size === 0) {
+    const colors = orderDoc?.styleSnapshot?.colors || orderDoc?.style?.colors;
+    if (Array.isArray(colors)) colors.forEach(color => colorsSet.add(color));
+  }
+
+  return {
+    color: colorsSet.size > 0 ? Array.from(colorsSet).join(', ') : '—',
+    size: sizesSet.size > 0 ? Array.from(sizesSet).join(', ') : resolveStyleAndSizes(subOrder).sizeStr
+  };
+};
+
 /**
  * Helper function to log approval history
  */
@@ -155,14 +357,15 @@ export const getPendingApprovals = async (req, res) => {
     }));
 
     // Add calculated payment info and resolved style/sizes for admin review
-    const enrichedApprovals = await Promise.all(pendingSubOrders.map(async (subOrder) => {
+    const earningsBySubOrder = await calculateStageEarningsForSubOrders(pendingSubOrders);
+    const enrichedApprovals = pendingSubOrders.map((subOrder) => {
       const {
         amount: calculatedPayment,
         pricePerPiece,
         completedPieces,
         damagedPieces,
         submittedPieces
-      } = await calculateStageEarningsFromAssignments(subOrder);
+      } = earningsBySubOrder.get(String(subOrder._id)) || {};
 
       const { styleName, sizeStr } = resolveStyleAndSizes(subOrder);
 
@@ -176,7 +379,7 @@ export const getPendingApprovals = async (req, res) => {
         calculatedPayment,
         pricePerPiece
       };
-    }));
+    });
 
     res.json({ success: true, approvals: enrichedApprovals });
   } catch (error) {
@@ -207,14 +410,14 @@ export const getPackingInventory = async (req, res) => {
 
     const searchNeedle = String(q).trim().toLowerCase();
 
-    const enrichedInventory = await Promise.all(
-      packedSubOrders.map(async (subOrder) => {
+    const earningsBySubOrder = await calculateStageEarningsForSubOrders(packedSubOrders);
+    const enrichedInventory = packedSubOrders.map((subOrder) => {
         const totalPlannedPieces = computePiecesTotal(subOrder.pieces);
         const {
           completedPieces,
           damagedPieces,
           submittedPieces
-        } = await calculateStageEarningsFromAssignments(subOrder);
+        } = earningsBySubOrder.get(String(subOrder._id)) || {};
         const totalCompletedPieces = completedPieces || Number(subOrder.approvedPieces) || 0;
         const totalDamagedPieces = damagedPieces || Number(subOrder.faultyPieces) || 0;
         const totalReportedPieces = submittedPieces || Number(subOrder.submittedPieces) || (totalCompletedPieces + totalDamagedPieces);
@@ -236,6 +439,8 @@ export const getPackingInventory = async (req, res) => {
           subOrder.order?.style?.imageUrl ||
           null;
 
+        const piecesBreakdown = buildPiecesBreakdown(subOrder.pieces, totalSubmittedPieces);
+
         return {
           ...subOrder,
           submittedPieces: totalSubmittedPieces,
@@ -248,11 +453,11 @@ export const getPackingInventory = async (req, res) => {
               ? Number(((totalDamagedPieces / totalReportedPieces) * 100).toFixed(1))
               : 0,
           availablePieces,
+          piecesBreakdown,
           image,
           photos
         };
-      })
-    );
+      });
 
     // Extract unique styles for filter dropdown
     const styleMap = new Map();
@@ -314,7 +519,10 @@ export const getPackingInventory = async (req, res) => {
         return haystack.includes(searchNeedle);
       });
 
-    return res.json({ success: true, inventory, styles });
+    const summary = buildInventorySummary(inventory);
+    const styleSummaries = buildStyleInventorySummaries(inventory);
+
+    return res.json({ success: true, inventory, styles, summary, styleSummaries });
   } catch (error) {
     console.error('getPackingInventory error:', error);
     return res.status(500).json({ error: error.message || 'Server error' });
@@ -372,7 +580,7 @@ export const approveSubOrder = async (req, res) => {
     res.json({ success: true, message: 'SubOrder approved and payment calculated automatically' });
   } catch (error) {
     console.error('approveSubOrder error:', error);
-    res.status(500).json({ error: error.message || 'Server error' });
+    res.status(error.status || 500).json({ error: error.message || 'Server error' });
   } finally {
     session.endSession();
   }
@@ -417,7 +625,7 @@ export const rejectSubOrder = async (req, res) => {
     res.json({ success: true, message: 'SubOrder rejected and sent back to worker' });
   } catch (error) {
     console.error('rejectSubOrder error:', error);
-    res.status(500).json({ error: error.message || 'Server error' });
+    res.status(error.status || 500).json({ error: error.message || 'Server error' });
   } finally {
     session.endSession();
   }
@@ -596,24 +804,54 @@ export const getWorkerPendingApprovals = async (req, res) => {
       .sort({ updatedAt: -1 })
       .lean();
 
-    const approvals = await Promise.all(pendingSubOrders.map(async (subOrder) => {
+    const subOrderIds = pendingSubOrders.map(so => so._id);
+    const assignments = await Assignment.find({
+      subOrder: { $in: subOrderIds },
+      $or: [{ worker: workerId }, { completedBy: workerId }]
+    }).lean();
+
+    const assignmentMap = new Map();
+    assignments.forEach(a => {
+      if (a.subOrder) {
+        assignmentMap.set(String(a.subOrder), a);
+      }
+    });
+
+    const earningsBySubOrder = await calculateStageEarningsForSubOrders(pendingSubOrders);
+    const approvals = pendingSubOrders.map((subOrder) => {
       const {
         amount: calculatedPayment,
         pricePerPiece,
         completedPieces,
         damagedPieces,
         submittedPieces
-      } = await calculateStageEarningsFromAssignments(subOrder);
+      } = earningsBySubOrder.get(String(subOrder._id)) || {};
+      const assignment = assignmentMap.get(String(subOrder._id));
+      const { styleName, sizeStr } = resolveStyleAndSizes(subOrder);
+      const { color, size } = resolveColorAndSize(subOrder, assignment);
+      const totalPieces = assignment?.totalPieces
+        ?? subOrder.totalPieces
+        ?? computePiecesTotal(subOrder.pieces)
+        ?? 0;
+      const orderDoc = subOrder.order && typeof subOrder.order === 'object' ? subOrder.order : null;
 
       return {
         ...subOrder,
+        styleName,
+        fabric: orderDoc?.fabric || orderDoc?.styleSnapshot?.fabric || orderDoc?.style?.fabric || subOrder.fabric || '—',
+        color,
+        size: size || sizeStr,
+        totalPieces,
+        assignmentTotalPieces: assignment?.totalPieces ?? 0,
         submittedPieces,
         approvedPieces: completedPieces,
         faultyPieces: damagedPieces,
         calculatedPayment,
-        pricePerPiece
+        amount: calculatedPayment,
+        pricePerPiece,
+        statusLabel: 'Pending'
       };
-    }));
+    });
 
     res.json({ success: true, approvals });
   } catch (error) {
@@ -635,13 +873,65 @@ export const getWorkerCompletedWork = async (req, res) => {
 
     const completedSubOrders = await SubOrder.find({
       completedBy: workerId,
-      status: 'approved'
+      status: { $in: ['approved', 'completed'] }
     })
-      .populate('order')
+      .populate({
+        path: 'order',
+        populate: { path: 'style' }
+      })
       .sort({ updatedAt: -1 })
       .lean();
 
-    res.json({ success: true, completedWork: completedSubOrders });
+    const subOrderIds = completedSubOrders.map(so => so._id);
+    const assignments = await Assignment.find({
+      subOrder: { $in: subOrderIds },
+      $or: [{ worker: workerId }, { completedBy: workerId }]
+    }).lean();
+
+    const assignmentMap = new Map();
+    assignments.forEach(a => {
+      if (a.subOrder) {
+        assignmentMap.set(String(a.subOrder), a);
+      }
+    });
+
+    const earningsBySubOrder = await calculateStageEarningsForSubOrders(completedSubOrders);
+    const enrichedCompletedWork = completedSubOrders.map(so => {
+      const assignment = assignmentMap.get(String(so._id));
+      const {
+        amount: calculatedPayment,
+        pricePerPiece,
+        completedPieces,
+        damagedPieces,
+        submittedPieces
+      } = earningsBySubOrder.get(String(so._id)) || {};
+      const { styleName, sizeStr } = resolveStyleAndSizes(so);
+      const { color, size } = resolveColorAndSize(so, assignment);
+      const totalPieces = assignment?.totalPieces
+        ?? so.totalPieces
+        ?? computePiecesTotal(so.pieces)
+        ?? 0;
+      const orderDoc = so.order && typeof so.order === 'object' ? so.order : null;
+
+      return {
+        ...so,
+        styleName,
+        fabric: orderDoc?.fabric || orderDoc?.styleSnapshot?.fabric || orderDoc?.style?.fabric || so.fabric || '—',
+        color,
+        size: size || sizeStr,
+        totalPieces,
+        assignmentTotalPieces: assignment?.totalPieces ?? 0,
+        submittedPieces: submittedPieces || so.submittedPieces,
+        approvedPieces: completedPieces || so.approvedPieces,
+        faultyPieces: damagedPieces || so.faultyPieces,
+        calculatedPayment: calculatedPayment || so.amount || so.workerEarnings || 0,
+        amount: so.amount || so.workerEarnings || calculatedPayment || 0,
+        pricePerPiece: pricePerPiece || so.pricePerPiece || 0,
+        statusLabel: 'Approved'
+      };
+    });
+
+    res.json({ success: true, completedWork: enrichedCompletedWork });
   } catch (error) {
     console.error('getWorkerCompletedWork error:', error);
     res.status(500).json({ error: error.message || 'Server error' });
@@ -660,7 +950,7 @@ export const getBulkApprovalSummary = async (req, res) => {
       return res.status(400).json({ error: 'subOrderIds must be a non-empty array' });
     }
 
-    const validIds = subOrderIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+    const validIds = [...new Set(subOrderIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(String))];
     if (validIds.length === 0) {
       return res.status(400).json({ error: 'No valid subOrderIds provided' });
     }
@@ -683,14 +973,15 @@ export const getBulkApprovalSummary = async (req, res) => {
     const stageBreakdownMap = {};
     const workerBreakdownMap = {};
 
-    const itemsSummary = await Promise.all(pendingSubOrders.map(async (subOrder) => {
+    const earningsBySubOrder = await calculateStageEarningsForSubOrders(pendingSubOrders);
+    const itemsSummary = pendingSubOrders.map((subOrder) => {
       const {
         amount: calculatedPayment,
         pricePerPiece,
         completedPieces,
         damagedPieces,
         submittedPieces
-      } = await calculateStageEarningsFromAssignments(subOrder);
+      } = earningsBySubOrder.get(String(subOrder._id)) || {};
 
       totalSubmittedPieces += submittedPieces;
       totalApprovedPieces += completedPieces;
@@ -731,7 +1022,7 @@ export const getBulkApprovalSummary = async (req, res) => {
         pricePerPiece,
         calculatedPayment
       };
-    }));
+    });
 
     const missingOrInvalidCount = validIds.length - pendingSubOrders.length;
 
@@ -755,7 +1046,7 @@ export const getBulkApprovalSummary = async (req, res) => {
     });
   } catch (error) {
     console.error('getBulkApprovalSummary error:', error);
-    res.status(500).json({ error: error.message || 'Server error' });
+    res.status(error.status || 500).json({ error: error.message || 'Server error' });
   }
 };
 
@@ -774,7 +1065,7 @@ export const bulkApproveSubOrders = async (req, res) => {
       return res.status(400).json({ error: 'subOrderIds must be a non-empty array' });
     }
 
-    const validIds = subOrderIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+    const validIds = [...new Set(subOrderIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(String))];
     if (validIds.length === 0) {
       return res.status(400).json({ error: 'No valid subOrderIds provided' });
     }
@@ -835,7 +1126,7 @@ export const bulkApproveSubOrders = async (req, res) => {
     });
   } catch (error) {
     console.error('bulkApproveSubOrders error:', error);
-    res.status(500).json({ error: error.message || 'Server error' });
+    res.status(error.status || 500).json({ error: error.message || 'Server error' });
   } finally {
     session.endSession();
   }
@@ -860,7 +1151,7 @@ export const bulkRejectSubOrders = async (req, res) => {
       return res.status(400).json({ error: 'Rejection reason is required' });
     }
 
-    const validIds = subOrderIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+    const validIds = [...new Set(subOrderIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(String))];
     if (validIds.length === 0) {
       return res.status(400).json({ error: 'No valid subOrderIds provided' });
     }
@@ -912,9 +1203,8 @@ export const bulkRejectSubOrders = async (req, res) => {
     });
   } catch (error) {
     console.error('bulkRejectSubOrders error:', error);
-    res.status(500).json({ error: error.message || 'Server error' });
+    res.status(error.status || 500).json({ error: error.message || 'Server error' });
   } finally {
     session.endSession();
   }
 };
-

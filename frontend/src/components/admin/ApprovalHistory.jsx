@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { History, CheckCircle, XCircle, Clock, Filter, Search, X, RotateCcw, RotateCw } from 'lucide-react';
 import { fetchApprovalHistory } from '../services/approvalServices';
-import { toast } from 'react-toastify';
 import { dataCache } from '../../utils/dataCache';
 
 export const ApprovalHistory = () => {
@@ -19,7 +18,7 @@ export const ApprovalHistory = () => {
   });
   const [pagination, setPagination] = useState(null);
 
-  const loadHistory = async (isManualRefresh = false) => {
+  const loadHistory = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh || !dataCache.getCache('approvalHistory')) {
       setLoading(true);
     }
@@ -41,7 +40,7 @@ export const ApprovalHistory = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -57,7 +56,7 @@ export const ApprovalHistory = () => {
       clearTimeout(timer);
       window.removeEventListener('app:refresh', handleGlobalRefresh);
     };
-  }, [filters]);
+  }, [loadHistory]);
 
   const getActionIcon = (action) => {
     switch (action) {

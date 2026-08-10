@@ -8,6 +8,7 @@ export const errorHandler = (err, req, res, next) => {
 
   res.status(status).json({
     success: false,
-    message: status >= 500 && isProd ? 'Internal Server Error' : err.message || 'Server Error'
+    message: status >= 500 && isProd ? 'Internal Server Error' : err.message || 'Server Error',
+    requestId: req.id
   });
 };

@@ -378,15 +378,22 @@ export default function StyleManagement() {
   }, []);
 
   const addColor = useCallback(() => {
-    const val = colorRef.current?.value?.trim();
-    if (!val) return;
-    if (colors.includes(val)) {
-      colorRef.current.value = '';
-      return;
-    }
-    setColors(c => [...c, val]);
-    colorRef.current.value = '';
-  }, [colors]);
+    const raw = colorRef.current?.value || '';
+    const parts = raw
+      .split(',')
+      .map(v => v.trim())
+      .filter(Boolean);
+    if (!parts.length) return;
+
+    setColors(prev => {
+      const next = [...prev];
+      parts.forEach(p => {
+        if (!next.includes(p)) next.push(p);
+      });
+      return next;
+    });
+    if (colorRef.current) colorRef.current.value = '';
+  }, []);
 
   const removeColor = useCallback((index) => {
     setColors(c => c.filter((_, i) => i !== index));
@@ -1365,7 +1372,13 @@ export default function StyleManagement() {
                           <input
                             ref={colorRef}
                             className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-                            placeholder="Add color name e.g. Navy"
+                            placeholder="Add color names e.g. Red, Blue, Green"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addColor();
+                              }
+                            }}
                           />
                           <button type="button" onClick={addColor} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Add</button>
                         </div>

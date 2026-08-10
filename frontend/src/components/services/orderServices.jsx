@@ -5,7 +5,7 @@ import api from "../../api/api";
  * Orders service - returns res.data for convenience
  */
 
-export const getOrders = () => api.get("/orders/").then((res) => res.data);
+export const getOrders = (params = {}) => api.get("/orders/", { params }).then((res) => res.data);
 
 export const createOrder = (orderData) => api.post("/orders/", orderData).then((res) => res.data);
 

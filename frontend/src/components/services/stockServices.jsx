@@ -2,9 +2,20 @@
 import api from '../../api/api'; // your axios instance
 
 const stockService = {
-  fetchStocks: async () => {
-    const res = await api.get('/stocks/'); // GET all stocks
+  fetchStocks: async (params = {}) => {
+    const res = await api.get('/stocks/', { params }); // GET all stocks
     return res.data?.data ?? []; // adjust if your API returns differently
+  },
+
+  fetchStockSummary: async (params = {}) => {
+    const res = await api.get('/stocks/', {
+      params: {
+        page: 1,
+        limit: 1,
+        ...params
+      }
+    });
+    return res.data?.meta ?? {};
   },
 
   createStock: async (stock) => {

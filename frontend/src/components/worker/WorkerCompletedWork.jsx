@@ -1,9 +1,163 @@
-import React, { useEffect, useState } from 'react';
-import { CheckCircle, IndianRupee, Calendar, TrendingUp, RotateCw } from 'lucide-react';
-import { fetchWorkerCompletedWork } from '../services/approvalServices';
-import { toast } from 'react-toastify';
-import PaginationControls from '../ui/PaginationControls';
-import { useClientPagination } from '../../hooks/useClientPagination';
+const colorMap = {
+  black: '#111827',
+  blue: '#2563eb',
+  green: '#16a34a',
+  orange: '#f97316',
+  purple: '#7c3aed',
+  red: '#ef4444',
+  white: '#ffffff',
+  yellow: '#eab308',
+  navy: '#1e3a8a',
+  pink: '#ec4899',
+  gray: '#6b7280',
+  grey: '#6b7280',
+  brown: '#78350f',
+  beige: '#f5f5dc',
+  maroon: '#800000',
+  cyan: '#06b6d4',
+  teal: '#0d9488',
+  indigo: '#4f46e5',
+  violet: '#8b5cf6',
+  amber: '#f59e0b',
+  rose: '#f43f5e',
+  emerald: '#10b981',
+  sky: '#0284c7'
+};
+
+const getColorHex = (name) => {
+  if (!name || name === '—') return null;
+  const key = String(name).trim().toLowerCase();
+  if (colorMap[key]) return colorMap[key];
+  if (/^#([0-9a-f]{3}){1,2}$/i.test(key)) return key;
+  if (/^rgb/i.test(key)) return key;
+  return key;
+};
+
+const ColorBadge = ({ color }) => {
+  if (!color || color === '—') return <span>—</span>;
+  const hex = getColorHex(color);
+  const isLight = hex && (hex.toLowerCase() === '#ffffff' || hex.toLowerCase() === 'white' || hex.toLowerCase() === '#f8fafc');
+
+  return (
+    <div className="inline-flex items-center gap-1.5 font-medium">
+      {hex && (
+        <span
+          className={`h-3 w-3 rounded-full shrink-0 ${
+            isLight ? 'border border-gray-300' : 'border border-black/10'
+          }`}
+          style={{ backgroundColor: hex }}
+          title={color}
+        />
+      )}
+      <span>{color}</span>
+    </div>
+  );
+};
+
+const extractCompletedWorkDetails = (work) => {
+  let color = '—';
+  let size = '—';
+
+  try {
+    if (work && work.pieces && typeof work.pieces === 'object' && !Array.isArray(work.pieces)) {
+      const colors = Object.keys(work.pieces);
+      if (colors.length > 0) {
+        color = colors[0];
+        const sizesObj = work.pieces[color] || {};
+        const sizes = Object.keys(sizesObj);
+        if (sizes.length > 0) size = sizes.join(', ');
+      }
+    } else if (Array.isArray(work?.pieces) && work.pieces.length > 0) {
+      const p = work.pieces[0];
+      color = p.color ?? p.colour ?? p.colorName ?? '—';
+      size = p.size ?? p.sizeName ?? '—';
+    } else if (work?.color) {
+      color = work.color;
+      size = work?.size || '—';
+    } else if (typeof work?.name === 'string') {
+      const parts = work.name.split('-');
+      if (parts.length >= 3) {
+        color = parts[1].trim();
+        size = parts[2].trim();
+      } else if (parts.length === 2) {
+        color = parts[1].trim();
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  const styleName = work?.order?.style?.name
+    || work?.order?.styleSnapshot?.name
+    || work?.styleName
+    || (typeof work?.name === 'string' && work.name.includes('-') ? work.name.split('-')[0] : work?.name)
+    || '—';
+
+  const fabricName = work?.order?.fabric
+    || work?.order?.styleSnapshot?.fabric
+    || work?.order?.style?.fabric
+    || work?.fabric
+    || '—';
+
+  const orderId = work?.order?.orderId || work?.orderId || '—';
+  const subOrderCode = work?.subOrderCode || work?.code || (work?._id ? String(work._id).slice(-6) : '—');
+  const stage = work?.currentStage || work?.stage || '—';
+
+  const completedPcs = work?.completedPieces ?? work?.approvedPieces ?? 0;
+  const damagedPcs = work?.damagedPieces ?? work?.faultyPieces ?? 0;
+
+  let totalTargetPcs = work?.totalPieces ?? work?.targetPieces ?? work?.totalPlannedPieces ?? 0;
+  if (!totalTargetPcs && work?.pieces) {
+    if (typeof work.pieces === 'number' && work.pieces > 0) {
+      totalTargetPcs = work.pieces;
+    } else if (Array.isArray(work.pieces) && work.pieces.length > 0) {
+      totalTargetPcs = work.pieces.reduce((acc, p) => acc + Number(p.count ?? p.qty ?? p.quantity ?? p.pieces ?? 0), 0);
+    } else if (typeof work.pieces === 'object') {
+      let sum = 0;
+      for (const col of Object.keys(work.pieces)) {
+        const sizes = work.pieces[col];
+        if (typeof sizes === 'number') sum += sizes;
+        else if (sizes && typeof sizes === 'object') {
+          for (const s of Object.keys(sizes)) {
+            sum += Number(sizes[s]) || 0;
+          }
+        }
+      }
+      if (sum > 0) totalTargetPcs = sum;
+    }
+  }
+
+  if (!totalTargetPcs && typeof work?.submittedPieces === 'number' && work.submittedPieces > 0) {
+    totalTargetPcs = work.submittedPieces;
+  }
+
+  if (!totalTargetPcs && (completedPcs + damagedPcs) > 0) {
+    totalTargetPcs = completedPcs + damagedPcs;
+  }
+
+  const donePcsDisplay = totalTargetPcs > 0 ? `${completedPcs} / ${totalTargetPcs}` : `${completedPcs}`;
+
+  const earnings = work?.amount ?? work?.calculatedPayment ?? 0;
+  const dateStr = work?.updatedAt || work?.approvedAt || work?.createdAt
+    ? new Date(work.updatedAt || work.approvedAt || work.createdAt).toLocaleDateString()
+    : '—';
+
+  return {
+    color: String(color),
+    size: String(size),
+    styleName,
+    fabricName,
+    orderId,
+    subOrderCode,
+    stage,
+    completedPcs,
+    totalTargetPcs,
+    donePcsDisplay,
+    damagedPcs,
+    earnings,
+    dateStr
+  };
+};
 
 export const WorkerCompletedWork = () => {
   const [completedWork, setCompletedWork] = useState([]);
@@ -121,40 +275,55 @@ export const WorkerCompletedWork = () => {
         ) : (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Work History</h3>
-            {paginatedItems.map(work => (
-              <div key={work._id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h4 className="font-semibold text-lg">{work.name}</h4>
-                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                        Approved
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
-                      <div>
-                        <span className="font-medium">Order ID:</span> {work.orderId}
-                      </div>
-                      <div>
-                        <span className="font-medium">Stage:</span> {work.currentStage}
-                      </div>
-                      <div>
-                        <span className="font-medium">Progress:</span> {work.progress}%
-                      </div>
-                      <div>
-                        <span className="font-medium">Approved:</span> {work.approvedAt ? new Date(work.approvedAt).toLocaleDateString() : 'N/A'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-green-600">₹{work.amount?.toFixed(2) || '0.00'}</div>
-                    <div className="text-sm text-gray-500">Payment</div>
-                  </div>
-                </div>
-              </div>
-            ))}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50">
+                  <tr className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-3 py-3">SubOrder</th>
+                    <th className="px-3 py-3">Order ID</th>
+                    <th className="px-3 py-3">Style</th>
+                    <th className="px-3 py-3">Fabric</th>
+                    <th className="px-3 py-3">Stage</th>
+                    <th className="px-3 py-3 text-center">Done Pcs</th>
+                    <th className="px-3 py-3 text-center">Damaged</th>
+                    <th className="px-3 py-3">Color</th>
+                    <th className="px-3 py-3">Size</th>
+                    <th className="px-3 py-3">Completed On</th>
+                    <th className="px-3 py-3 text-right">Earnings</th>
+                    <th className="px-3 py-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {paginatedItems.map((work) => {
+                    const details = extractCompletedWorkDetails(work);
+                    return (
+                      <tr key={work._id} className="hover:bg-gray-50/80 transition-colors">
+                        <td className="px-3 py-3 font-mono font-medium text-gray-900">{details.subOrderCode}</td>
+                        <td className="px-3 py-3 font-medium text-gray-800">{details.orderId}</td>
+                        <td className="px-3 py-3 font-medium text-gray-900">{details.styleName}</td>
+                        <td className="px-3 py-3 text-gray-700">{details.fabricName}</td>
+                        <td className="px-3 py-3 text-gray-700">{details.stage}</td>
+                        <td className="px-3 py-3 text-center font-semibold text-gray-900">{details.donePcsDisplay}</td>
+                        <td className="px-3 py-3 text-center text-red-600 font-medium">{details.damagedPcs}</td>
+                        <td className="px-3 py-3">
+                          <ColorBadge color={details.color} />
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">{details.size}</td>
+                        <td className="px-3 py-3 text-gray-500 whitespace-nowrap">{details.dateStr}</td>
+                        <td className="px-3 py-3 text-right font-bold text-green-600">
+                          +₹{Number(details.earnings).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                            Approved
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

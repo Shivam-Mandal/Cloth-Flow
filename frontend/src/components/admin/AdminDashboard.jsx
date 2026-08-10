@@ -9,26 +9,69 @@ import { useLayout } from '../context/LayoutContext';
 import { ShoppingCart, Package, Users, CheckCircle, Clock, BarChart3, Check, X, TrendingUp, TrendingDown } from 'lucide-react';
 import { fetchPendingApprovals, fetchApprovalHistory } from '../services/approvalServices';
 import { getActiveWorkersCount } from '../services/workerService';
+import { getOrders } from '../services/orderServices';
+import stockService from '../services/stockServices';
 import { toast } from 'react-toastify';
 
+const DASHBOARD_REFRESH_INTERVAL_MS = 30000;
+
+const normalizeOrdersResponse = (res) => {
+  const data = res?.data ?? res;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.orders)) return data.orders;
+  return [];
+};
+
+const clampProgress = (value) => {
+  const progress = Number(value);
+  if (!Number.isFinite(progress)) return 0;
+  return Math.max(0, Math.min(100, Math.round(progress)));
+};
+
+const getActiveOrdersCount = (orders = []) => orders.filter((order) => {
+  const status = String(order?.status || order?.currentStage || '').trim().toLowerCase();
+  return status !== 'cancelled' && status !== 'canceled' && status !== 'completed' && clampProgress(order?.progress) < 100;
+}).length;
+
+const formatNumber = (value, options) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '0';
+  return new Intl.NumberFormat(undefined, options).format(number);
+};
 
 export const Overview = () => {
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [recentHistory, setRecentHistory] = useState([]);
   const [activeWorkersCount, setActiveWorkersCount] = useState(0);
+  const [activeOrdersCount, setActiveOrdersCount] = useState(0);
+  const [totalStockKg, setTotalStockKg] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadDashboardData();
+    const refreshTimer = window.setInterval(loadDashboardData, DASHBOARD_REFRESH_INTERVAL_MS);
+
+    const handleGlobalRefresh = () => {
+      loadDashboardData();
+    };
+
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => {
+      window.clearInterval(refreshTimer);
+      window.removeEventListener('app:refresh', handleGlobalRefresh);
+    };
   }, []);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [pendingRes, historyRes, workersRes] = await Promise.all([
+      const [pendingRes, historyRes, workersRes, ordersRes, stockSummary] = await Promise.all([
         fetchPendingApprovals(),
         fetchApprovalHistory({ limit: 5 }),
-        getActiveWorkersCount()
+        getActiveWorkersCount(),
+        getOrders(),
+        stockService.fetchStockSummary()
       ]);
 
       if (pendingRes.success) {
@@ -42,6 +85,10 @@ export const Overview = () => {
       if (workersRes.success) {
         setActiveWorkersCount(workersRes.activeWorkersCount || 0);
       }
+
+      setActiveOrdersCount(getActiveOrdersCount(normalizeOrdersResponse(ordersRes)));
+      setTotalStockKg(stockSummary.totalStockKg || 0);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       toast.error('Failed to load dashboard data');
@@ -64,7 +111,7 @@ export const Overview = () => {
           <p className="text-gray-600 mt-2">Monitor your manufacturing operations in real-time</p>
         </div>
         <div className="text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg whitespace-nowrap">
-          Last updated: {new Date().toLocaleString()}
+          Last updated: {lastUpdated ? lastUpdated.toLocaleString() : 'Loading...'}
         </div>
       </div>
 
@@ -72,17 +119,17 @@ export const Overview = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatCard
           title="Active Orders"
-          value="24"
-          changeText="+12% from last week"
+          value={loading ? '...' : formatNumber(activeOrdersCount)}
+          changeText="Live from orders"
           icon={<ShoppingCart className="w-6 h-6" />}
-          trend="up"
+          trend="neutral"
           color="blue"
         />
 
         <StatCard
           title="Total Stock (kg)"
-          value="1,250"
-          changeText="Updated today"
+          value={loading ? '...' : formatNumber(totalStockKg, { maximumFractionDigits: 2 })}
+          changeText="Live from stock"
           icon={<Package className="w-6 h-6" />}
           trend="neutral"
           color="green"
@@ -146,7 +193,7 @@ export const Overview = () => {
             </div>
           ) : (
             <div className="space-y-4 max-h-80 overflow-y-auto">
-              {pendingApprovals.slice(0, 5).map((approval, index) => (
+              {pendingApprovals.slice(0, 5).map((approval) => (
                 <div
                   key={approval._id}
 
@@ -216,7 +263,7 @@ export const Overview = () => {
             </div>
           ) : (
             <div className="space-y-4 max-h-80 overflow-y-auto">
-              {recentHistory.map((item, index) => (
+              {recentHistory.map((item) => (
                 <div
                   key={item._id}
 
@@ -298,7 +345,7 @@ const StatCard = ({ title, value, changeText, icon, trend = 'up', color = 'blue'
 import MobileBottomNav from '../navigation/MobileBottomNav';
 
 export default function AdminDashboard() {
-  const { user, loading, initialLoadDone, logout } = useUser();
+  const { user, initialLoadDone, logout } = useUser();
   const { sidebarOpen } = useLayout();
 
   // Show loading only until first fetch is done
@@ -331,4 +378,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-

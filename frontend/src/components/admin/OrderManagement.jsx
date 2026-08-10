@@ -1,5 +1,5 @@
 // src/components/admin/OrderManagement.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Calendar,
   CheckCircle2,
@@ -99,14 +99,6 @@ const getStageLabel = (order = {}) => {
   return order.currentStage || order.status || 'Pending';
 };
 
-const getStatusColor = (order = {}) => {
-  const label = getStageLabel(order).toLowerCase();
-  if (label.includes('complete')) return 'bg-green-100 text-green-700';
-  if (label.includes('delay')) return 'bg-red-100 text-red-700';
-  if (label.includes('progress')) return 'bg-blue-100 text-blue-700';
-  return 'bg-blue-50 text-blue-700';
-};
-
 const getPriorityColor = (priority = 'Normal') => {
   switch (String(priority).toLowerCase()) {
     case 'high':
@@ -139,7 +131,7 @@ export const OrderManagement = () => {
 
   const [loading, setLoading] = useState(!cachedOrders);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const res = await orderService.getOrders();
       const norm = normalizeOrdersResponse(res).map(normalizeOrder);
@@ -148,9 +140,9 @@ export const OrderManagement = () => {
     } catch (err) {
       console.error('Failed to fetch orders:', err);
     }
-  };
+  }, []);
 
-  const loadAllData = async (isManualRefresh = false) => {
+  const loadAllData = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh || !dataCache.getCache('orders')) {
       setLoading(true);
     }
@@ -180,7 +172,7 @@ export const OrderManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchOrders]);
 
   useEffect(() => {
     loadAllData();
@@ -190,7 +182,7 @@ export const OrderManagement = () => {
     };
     window.addEventListener('app:refresh', handleGlobalRefresh);
     return () => window.removeEventListener('app:refresh', handleGlobalRefresh);
-  }, []);
+  }, [loadAllData]);
 
   const selectedStyle = styles.find((style) => style._id === selectedStyleId || style.id === selectedStyleId);
 
@@ -246,7 +238,7 @@ export const OrderManagement = () => {
     (style?.colors || []).forEach((color) => {
       nextPieces[color] = {};
       (style?.sizes || []).forEach((size) => {
-        nextPieces[color][size] = 0;
+        nextPieces[color][size] = '';
       });
     });
     setPieces(nextPieces);
@@ -274,7 +266,18 @@ export const OrderManagement = () => {
     setSelectedStyleId(normalized.style?._id || normalized.style || '');
     setSelectedVendor(normalized.vendor || '');
     setSelectedFabric(normalized.fabric || '');
-    setPieces(normalized.pieces || {});
+
+    const existingPieces = normalized.pieces || {};
+    const formattedPieces = {};
+    for (const color of Object.keys(existingPieces)) {
+      formattedPieces[color] = {};
+      for (const size of Object.keys(existingPieces[color] || {})) {
+        const val = existingPieces[color][size];
+        formattedPieces[color][size] = (val === 0 || val === '0' || val === null || val === undefined) ? '' : val;
+      }
+    }
+    setPieces(formattedPieces);
+
     setRequiredKgInput(normalized.requiredKg ?? '');
     setDeadlineInput(normalized.deadline ? new Date(normalized.deadline).toISOString().slice(0, 10) : '');
     setPriorityInput(normalized.priority || 'Normal');
@@ -286,7 +289,7 @@ export const OrderManagement = () => {
       ...prev,
       [color]: {
         ...(prev[color] || {}),
-        [size]: Number(value)
+        [size]: value === '' ? '' : Math.max(0, Number(value) || 0)
       }
     }));
   };
@@ -388,11 +391,11 @@ export const OrderManagement = () => {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
-        {statCards.map(({ label, count, icon: Icon, color }) => (
+        {statCards.map(({ label, count, icon, color }) => (
           <div key={label} className="rounded-xl border border-gray-200 bg-white p-3.5 sm:p-6 shadow-sm">
             <div className="flex items-center gap-3 sm:gap-5">
               <div className={`flex h-10 w-10 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-xl ${colorClasses[color]}`}>
-                <Icon className="h-5 w-5 sm:h-8 sm:w-8" />
+                {React.createElement(icon, { className: 'h-5 w-5 sm:h-8 sm:w-8' })}
               </div>
               <div className="min-w-0">
                 <p className="text-xs sm:text-base font-medium text-gray-600 truncate">{label}</p>
@@ -707,18 +710,23 @@ export const OrderManagement = () => {
                                       {color}
                                     </span>
                                   </div>
-                                  {sizeColumns.map((size) => (
-                                    <div key={size} className="flex justify-center px-3 py-1.5">
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        value={pieces?.[color]?.[size] ?? 0}
-                                        onChange={(e) => updatePiece(color, size, e.target.value)}
-                                        className="h-9 w-20 rounded-md border border-gray-300 px-2 text-center text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
-                                        disabled={isSubmitting}
-                                      />
-                                    </div>
-                                  ))}
+                                  {sizeColumns.map((size) => {
+                                     const rawVal = pieces?.[color]?.[size];
+                                     const displayVal = (rawVal === 0 || rawVal === '0' || rawVal === null || rawVal === undefined) ? '' : rawVal;
+                                     return (
+                                       <div key={size} className="flex justify-center px-3 py-1.5">
+                                         <input
+                                           type="number"
+                                           min={0}
+                                           value={displayVal}
+                                           onChange={(e) => updatePiece(color, size, e.target.value)}
+                                           placeholder="0"
+                                           className="h-9 w-20 rounded-md border border-gray-300 px-2 text-center text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                                           disabled={isSubmitting}
+                                         />
+                                       </div>
+                                     );
+                                   })}
                                 </div>
                               ))}
                             </>

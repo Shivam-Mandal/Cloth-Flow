@@ -23,6 +23,8 @@ const AssignmentSchema = new mongoose.Schema({
 AssignmentSchema.index({ worker: 1, status: 1 });
 AssignmentSchema.index({ order: 1, subOrder: 1, stage: 1 });
 AssignmentSchema.index({ status: 1, stage: 1, createdAt: 1 });
+AssignmentSchema.index({ status: 1, requiredRole: 1, createdAt: 1 });
+AssignmentSchema.index({ status: 1, category: 1, createdAt: 1 });
 
 export const Assignment = mongoose.model('Assignment', AssignmentSchema);
 export default Assignment;

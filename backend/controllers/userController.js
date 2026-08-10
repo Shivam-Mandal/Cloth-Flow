@@ -1,9 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { AdminModel } from '../models/Admin.js';
 import { WorkerModel } from '../models/Worker.js';
-import { Style } from '../models/StyleSchema.js';
 import Stage from '../models/Stage.js';
-import { getAvailableWorkerTypes, normalizeStageLabel } from '../utils/workflow.js';
+import { normalizeStageLabel } from '../utils/workflow.js';
 
 const sanitizeUser = (user, typeOverride = null) => {
   if (!user) return null;
@@ -75,15 +74,41 @@ const sendCredentialsEmail = async ({ recipientEmail, name, loginEmail, password
   };
 };
 
-export const getUsers = async (_req, res) => {
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const getStageManagedWorkerTypes = async () => {
+  const stages = await Stage.find({ active: true }).select('name').sort({ sortOrder: 1, createdAt: 1 }).lean();
+  const stageWorkerTypes = stages.map((stage) => normalizeStageLabel(stage.name)).filter(Boolean);
+  return [...new Set(stageWorkerTypes)];
+};
+
+export const getUsers = async (req, res) => {
   try {
-    const [admins, workers, styles, stages] = await Promise.all([
-      AdminModel.find().select('-password -refreshToken').sort({ createdAt: -1 }).lean(),
-      WorkerModel.find().select('-password -refreshToken').sort({ createdAt: -1 }).lean(),
-      Style.find().select('steps').lean(),
-      Stage.find({ active: true }).select('name').sort({ sortOrder: 1, createdAt: 1 }).lean()
+    const { q = '', limit = '' } = req.query;
+    const trimmedSearch = String(q).trim();
+    const limitNumber = limit ? Math.min(100, Math.max(1, Number(limit) || 20)) : null;
+    const userQuery = {};
+
+    if (trimmedSearch) {
+      const rx = new RegExp(escapeRegex(trimmedSearch), 'i');
+      userQuery.$or = [
+        { name: rx },
+        { email: rx },
+        { phone: rx },
+        { workerType: rx }
+      ];
+    }
+
+    const applyLimit = (query) => {
+      const sorted = query.select('-password -refreshToken').sort({ createdAt: -1 });
+      return limitNumber ? sorted.limit(limitNumber) : sorted;
+    };
+
+    const [admins, workers, availableWorkerTypes] = await Promise.all([
+      applyLimit(AdminModel.find(userQuery)).lean(),
+      applyLimit(WorkerModel.find(userQuery)).lean(),
+      getStageManagedWorkerTypes()
     ]);
-    const stageWorkerTypes = stages.map((stage) => normalizeStageLabel(stage.name)).filter(Boolean);
 
     const users = [
       ...admins.map((admin) => sanitizeUser(admin, 'admin')),
@@ -93,7 +118,7 @@ export const getUsers = async (_req, res) => {
     return res.json({
       success: true,
       users,
-      availableWorkerTypes: [...new Set([...getAvailableWorkerTypes(styles), ...stageWorkerTypes])]
+      availableWorkerTypes
     });
   } catch (error) {
     console.error('getUsers error:', error);
@@ -127,20 +152,13 @@ export const createUser = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Worker type is required for worker accounts' });
     }
 
-    const [styles, stages] = role === 'worker'
-      ? await Promise.all([
-          Style.find().select('steps').lean(),
-          Stage.find({ active: true }).select('name').sort({ sortOrder: 1, createdAt: 1 }).lean()
-        ])
-      : [[], []];
-    const stageWorkerTypes = stages.map((stage) => normalizeStageLabel(stage.name)).filter(Boolean);
-    const availableWorkerTypes = [...new Set([...getAvailableWorkerTypes(styles), ...stageWorkerTypes])];
+    const availableWorkerTypes = role === 'worker' ? await getStageManagedWorkerTypes() : [];
     const normalizedWorkerType = normalizeStageLabel(workerType);
 
     if (role === 'worker' && !availableWorkerTypes.some((type) => type.toLowerCase() === normalizedWorkerType.toLowerCase())) {
       return res.status(400).json({
         success: false,
-        message: 'Worker type must match an existing style stage or Inventory'
+        message: 'Worker type must match an active stage from Stage Management'
       });
     }
 
@@ -284,12 +302,7 @@ export const updateUser = async (req, res) => {
     }
 
     if (role === 'worker') {
-      const [styles, stages] = await Promise.all([
-        Style.find().select('steps').lean(),
-        Stage.find({ active: true }).select('name').sort({ sortOrder: 1, createdAt: 1 }).lean()
-      ]);
-      const stageWorkerTypes = stages.map((stage) => normalizeStageLabel(stage.name)).filter(Boolean);
-      const availableWorkerTypes = [...new Set([...getAvailableWorkerTypes(styles), ...stageWorkerTypes])];
+      const availableWorkerTypes = await getStageManagedWorkerTypes();
       const normalizedWorkerType = normalizeStageLabel(workerType || user.workerType);
 
       if (!normalizedWorkerType) {
@@ -299,7 +312,7 @@ export const updateUser = async (req, res) => {
       if (!availableWorkerTypes.some((type) => type.toLowerCase() === normalizedWorkerType.toLowerCase())) {
         return res.status(400).json({
           success: false,
-          message: 'Worker type must match an existing style stage or Inventory'
+          message: 'Worker type must match an active stage from Stage Management'
         });
       }
 

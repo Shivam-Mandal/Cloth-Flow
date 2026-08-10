@@ -1,9 +1,9 @@
+/* eslint-disable react-refresh/only-export-components */
 // src/context/UserContext.jsx
 import React, { createContext, useState, useEffect, useContext } from "react";
 import api from "../../api/api"; // axios instance with withCredentials: true
 import * as authService from "../services/authServices";
 import * as orderService from "../services/orderServices"; // we'll create this file below
-import axios from "axios";
 
 export const UserContext = createContext();
 

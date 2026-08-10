@@ -70,7 +70,7 @@ export const WorkerSidebar = () => {
             {/* Navigation */}
             <nav className="flex-1 p-4">
               <ul className="space-y-1">
-                {menuItems.map((item, index) => {
+                {menuItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <li
