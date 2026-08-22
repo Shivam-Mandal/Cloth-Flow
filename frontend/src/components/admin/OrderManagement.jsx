@@ -119,6 +119,32 @@ export const OrderManagement = () => {
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [viewingOrder, setViewingOrder] = useState(null);
+  const [viewingDetails, setViewingDetails] = useState(null);
+  const [viewingLoading, setViewingLoading] = useState(false);
+
+  const handleOpenViewModal = async (orderRaw) => {
+    const order = normalizeOrder(orderRaw);
+    setViewingOrder(order);
+    setViewingDetails(null);
+    setViewingLoading(true);
+    try {
+      const id = getOrderId(order);
+      if (id) {
+        const details = await orderService.getOrderDetails(id);
+        setViewingDetails(details);
+      }
+    } catch (err) {
+      console.error('Failed to load order details:', err);
+    } finally {
+      setViewingLoading(false);
+    }
+  };
+
+  const closeViewModal = () => {
+    setViewingOrder(null);
+    setViewingDetails(null);
+    setViewingLoading(false);
+  };
   const [selectedStyleId, setSelectedStyleId] = useState('');
   const [selectedVendor, setSelectedVendor] = useState('');
   const [selectedFabric, setSelectedFabric] = useState('');
@@ -506,7 +532,7 @@ export const OrderManagement = () => {
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex gap-2">
-                          <button type="button" onClick={() => setViewingOrder(order)} className="rounded-md border border-blue-100 bg-blue-50 p-1.5 text-blue-600 hover:bg-blue-100" aria-label="View order">
+                          <button type="button" onClick={() => handleOpenViewModal(order)} className="rounded-md border border-blue-100 bg-blue-50 p-1.5 text-blue-600 hover:bg-blue-100" aria-label="View order">
                             <Eye className="h-4 w-4" />
                           </button>
                           <button type="button" onClick={() => openEditOrder(order)} className="rounded-md border border-green-100 bg-green-50 p-1.5 text-green-600 hover:bg-green-100" aria-label="Edit order">
@@ -762,50 +788,286 @@ export const OrderManagement = () => {
         </div>
       )}
 
-      {viewingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <div className="mb-5 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">{viewingOrder.orderId || 'Order Details'}</h2>
-                <p className="mt-1 text-sm text-gray-500">{viewingOrder.styleSnapshot?.name || viewingOrder.style?.name || 'Production order'}</p>
+      {viewingOrder && (() => {
+        const fullOrder = viewingDetails?.order ? normalizeOrder(viewingDetails.order) : viewingOrder;
+        const subOrders = viewingDetails?.subOrders || fullOrder?.subOrders || [];
+        const styleObj = styles.find((s) => (s._id || s.id) === (fullOrder.style?._id || fullOrder.style)) || fullOrder.style;
+        const photo = getOrderPhoto(fullOrder) || getStylePhoto(styleObj) || resolvePhotoUrl(fullOrder.styleSnapshot?.photo || fullOrder.styleSnapshot?.photos?.[0]);
+        const skuId = styleObj?.skuId || fullOrder.styleSnapshot?.skuId || fullOrder.skuId;
+        const styleName = fullOrder.styleSnapshot?.name || fullOrder.style?.name || styleObj?.name;
+        const progress = calculateProgress(fullOrder);
+        const stageLabel = getStageLabel(fullOrder);
+
+        // Compute total quantity & check pieces breakdown
+        const piecesObj = fullOrder.pieces || {};
+        const colors = Object.keys(piecesObj).filter(c => Object.values(piecesObj[c] || {}).some(val => Number(val) > 0));
+        const hasPiecesBreakdown = colors.length > 0;
+        const allSizesSet = new Set();
+        colors.forEach(c => {
+          Object.keys(piecesObj[c] || {}).forEach(s => {
+            if (Number(piecesObj[c][s]) > 0) allSizesSet.add(s);
+          });
+        });
+        const sizes = Array.from(allSizesSet);
+
+        // Stages / steps
+        const steps = fullOrder.styleSnapshot?.steps?.length ? fullOrder.styleSnapshot.steps : (styleObj?.steps || []);
+        const stagesList = fullOrder.stages?.length ? fullOrder.stages : (steps.map(s => s.label) || []);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-5 backdrop-blur-sm">
+            <div className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-100">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  {photo ? (
+                    <img src={photo} alt={styleName || 'Product photo'} className="h-12 w-12 rounded-xl object-cover border border-slate-200 shadow-xs" />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-600 font-bold text-lg shadow-xs">
+                      <ShoppingCart className="h-6 w-6" />
+                    </div>
+                  )}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-slate-900">{fullOrder.orderId || 'Production Order'}</h2>
+                      {viewingLoading && <RotateCw className="h-4 w-4 text-blue-600 animate-spin" />}
+                    </div>
+                    {styleName && <p className="text-xs font-semibold text-slate-500">{styleName}{skuId ? ` • SKU: ${skuId}` : ''}</p>}
+                  </div>
+                </div>
+                <button type="button" onClick={closeViewModal} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors" aria-label="Close modal">
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <button type="button" onClick={() => setViewingOrder(null)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="Close details">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-lg bg-gray-50 p-3">
-                <p className="text-gray-500">Vendor</p>
-                <p className="mt-1 font-bold text-gray-900">{viewingOrder.vendor || 'N/A'}</p>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+                {/* Key Attributes Grid (Strictly Conditional: ONLY show if present in backend) */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+                  {fullOrder.vendor && (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Vendor</span>
+                      <p className="mt-1 font-bold text-slate-900 text-sm">{fullOrder.vendor}</p>
+                    </div>
+                  )}
+
+                  {fullOrder.fabric && (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Fabric</span>
+                      <p className="mt-1 font-bold text-purple-700 text-sm">{fullOrder.fabric}</p>
+                    </div>
+                  )}
+
+                  {fullOrder.priority && (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Priority</span>
+                      <div className="mt-1">
+                        <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-bold ${getPriorityColor(fullOrder.priority)}`}>
+                          {fullOrder.priority}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {fullOrder.requiredKg != null && Number(fullOrder.requiredKg) > 0 && (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Required KG</span>
+                      <p className="mt-1 font-bold text-slate-900 text-sm">{fullOrder.requiredKg} kg</p>
+                    </div>
+                  )}
+
+                  {fullOrder.totalQuantity != null && Number(fullOrder.totalQuantity) > 0 && (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Quantity</span>
+                      <p className="mt-1 font-bold text-slate-900 text-sm">{fullOrder.totalQuantity} pcs</p>
+                    </div>
+                  )}
+
+                  {progress != null && (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Progress</span>
+                      <div className="mt-1 flex items-center gap-2">
+                        <div className="h-2 w-16 overflow-hidden rounded-full bg-slate-200">
+                          <div className="h-full rounded-full bg-blue-600 transition-all duration-300" style={{ width: `${progress}%` }} />
+                        </div>
+                        <span className="font-bold text-slate-900 text-sm">{progress}%</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {stageLabel && (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Current Stage</span>
+                      <p className="mt-1 font-bold text-slate-900 text-sm">{stageLabel}</p>
+                    </div>
+                  )}
+
+                  {fullOrder.deadline && (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Deadline</span>
+                      <p className="mt-1 flex items-center gap-1.5 font-bold text-slate-900 text-sm">
+                        <Calendar className="h-4 w-4 text-violet-600" />
+                        {new Date(fullOrder.deadline).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+
+                  {fullOrder.createdAt && (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Order Date</span>
+                      <p className="mt-1 font-bold text-slate-900 text-sm">{new Date(fullOrder.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Color & Size Pieces Breakdown Table (ONLY if present in backend) */}
+                {hasPiecesBreakdown && (
+                  <div className="rounded-xl border border-slate-200 overflow-hidden">
+                    <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                      <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <PackageCheck className="h-4 w-4 text-blue-600" />
+                        Color & Size Breakdown
+                      </span>
+                      {fullOrder.totalQuantity > 0 && (
+                        <span className="text-xs font-bold px-2.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                          Total: {fullOrder.totalQuantity} pcs
+                        </span>
+                      )}
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-slate-100 text-slate-600 uppercase font-semibold">
+                          <tr>
+                            <th className="px-4 py-2.5">Color</th>
+                            {sizes.map(s => (
+                              <th key={s} className="px-3 py-2.5 text-center">{s}</th>
+                            ))}
+                            <th className="px-4 py-2.5 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-800">
+                          {colors.map(color => {
+                            const rowTotal = sizes.reduce((sum, s) => sum + (Number(piecesObj[color]?.[s]) || 0), 0);
+                            return (
+                              <tr key={color} className="hover:bg-slate-50">
+                                <td className="px-4 py-2.5">
+                                  <span className="inline-flex items-center gap-2 font-bold">
+                                    <span className="h-3 w-3 rounded-full border border-slate-300 shadow-xs" style={{ backgroundColor: getColorValue(color) }} />
+                                    {color}
+                                  </span>
+                                </td>
+                                {sizes.map(s => {
+                                  const cnt = Number(piecesObj[color]?.[s]) || 0;
+                                  return (
+                                    <td key={s} className={`px-3 py-2.5 text-center ${cnt > 0 ? 'font-bold text-slate-900' : 'text-slate-300'}`}>
+                                      {cnt > 0 ? cnt : '—'}
+                                    </td>
+                                  );
+                                })}
+                                <td className="px-4 py-2.5 text-right font-bold text-blue-600">{rowTotal}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Production Workflow Stages (ONLY if present in backend) */}
+                {stagesList.length > 0 && (
+                  <div className="rounded-xl border border-slate-200 overflow-hidden">
+                    <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                      <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <Hourglass className="h-4 w-4 text-violet-600" />
+                        Production Stages & Rate
+                      </span>
+                    </div>
+                    <div className="p-4 bg-white">
+                      <div className="flex flex-wrap gap-2">
+                        {stagesList.map((st, idx) => {
+                          const stepInfo = steps.find(s => String(s.label).toLowerCase() === String(st).toLowerCase());
+                          const price = stepInfo?.price;
+                          return (
+                            <div key={idx} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">
+                                {idx + 1}
+                              </span>
+                              <span className="text-xs font-bold text-slate-800">{st}</span>
+                              {price != null && Number(price) > 0 && (
+                                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                  ₹{price}/pc
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Sub-Orders / Production Batches (ONLY if present in backend) */}
+                {subOrders.length > 0 && (
+                  <div className="rounded-xl border border-slate-200 overflow-hidden">
+                    <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                      <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <ShoppingCart className="h-4 w-4 text-emerald-600" />
+                        Sub-Orders / Batches ({subOrders.length})
+                      </span>
+                    </div>
+                    <div className="divide-y divide-slate-100 bg-white">
+                      {subOrders.map((so) => (
+                        <div key={so._id || so.id} className="p-3.5 hover:bg-slate-50/80 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 text-sm">{so.subOrderCode || so.name || 'Batch'}</span>
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                so.status === 'completed' || so.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                                so.status === 'pending_approval' ? 'bg-amber-100 text-amber-700' :
+                                'bg-blue-100 text-blue-700'
+                              }`}>
+                                {so.status}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                              {so.currentStage && <span>Stage: <strong className="text-slate-700">{so.currentStage}</strong></span>}
+                              {so.submittedPieces > 0 && <span>Submitted: <strong className="text-slate-700">{so.submittedPieces} pcs</strong></span>}
+                              {so.approvedPieces > 0 && <span>Approved: <strong className="text-emerald-700">{so.approvedPieces} pcs</strong></span>}
+                              {so.assignedWorkers > 0 && <span>Workers: <strong className="text-slate-700">{so.assignedWorkers}</strong></span>}
+                            </div>
+                          </div>
+                          {so.progress != null && (
+                            <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                              <div className="h-2 w-20 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${clampProgress(so.progress)}%` }} />
+                              </div>
+                              <span className="text-xs font-bold text-slate-700">{clampProgress(so.progress)}%</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               </div>
-              <div className="rounded-lg bg-gray-50 p-3">
-                <p className="text-gray-500">Priority</p>
-                <p className="mt-1 font-bold text-gray-900">{viewingOrder.priority || 'Normal'}</p>
-              </div>
-              <div className="rounded-lg bg-gray-50 p-3">
-                <p className="text-gray-500">Required KG</p>
-                <p className="mt-1 font-bold text-gray-900">{viewingOrder.requiredKg ?? 0} kg</p>
-              </div>
-              <div className="rounded-lg bg-gray-50 p-3">
-                <p className="text-gray-500">Progress</p>
-                <p className="mt-1 font-bold text-gray-900">{calculateProgress(viewingOrder)}%</p>
-              </div>
-              <div className="col-span-2 rounded-lg bg-gray-50 p-3">
-                <p className="text-gray-500">Current Stage</p>
-                <p className="mt-1 font-bold text-gray-900">{getStageLabel(viewingOrder)}</p>
-              </div>
-              <div className="col-span-2 rounded-lg bg-gray-50 p-3">
-                <p className="text-gray-500">Deadline</p>
-                <p className="mt-1 inline-flex items-center gap-2 font-bold text-gray-900">
-                  <Timer className="h-4 w-4 text-violet-600" />
-                  {viewingOrder.deadline ? new Date(viewingOrder.deadline).toLocaleDateString() : 'N/A'}
-                </p>
+
+              {/* Modal Footer */}
+              <div className="border-t border-slate-100 px-6 py-3.5 bg-slate-50/50 flex justify-end">
+                <button
+                  type="button"
+                  onClick={closeViewModal}
+                  className="px-5 py-2 rounded-xl bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 transition-colors shadow-xs"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

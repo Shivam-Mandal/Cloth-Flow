@@ -3,7 +3,7 @@ import AvailableTasksTable from "./AvailableTasksTable";
 import AssignedTasksTable from "./AssignedTasksTable";
 import { useUser } from "../context/UserContext";
 import { fetchWorkerPendingApprovals, fetchWorkerCompletedWork } from "../services/approvalServices";
-import { fetchAssignedForMe } from "../services/assignmentServices";
+import { fetchAssignedForMe, fetchAvailableForMe } from "../services/assignmentServices";
 import { Clock, CheckCircle, IndianRupee, Target, Award, Activity, RotateCw } from "lucide-react";
 import { toast } from "react-toastify";
 import { useSocket } from "../../hooks/useSocket";
@@ -11,6 +11,7 @@ import { useSocket } from "../../hooks/useSocket";
 import { StatsCard, Card, EmptyState, Spinner } from "../ui/UIComponents";
 import { subscribeWorkerDataRefresh } from "../../utils/workerRefresh";
 import { dataCache } from "../../utils/dataCache";
+
 const colorMap = {
   black: '#111827',
   blue: '#2563eb',
@@ -188,14 +189,32 @@ export default function WorkerOverview() {
   const [completedWork, setCompletedWork] = useState(cachedCompleted || []);
   const [loading, setLoading] = useState(!cachedPending);
   const [todaysTasks, setTodaysTasks] = useState(0);
-  const lastRefreshRef = useRef({ assigned: 0, pending: 0, completed: 0 });
-  const inFlightRef = useRef({ assigned: false, pending: false, completed: false });
+  const [availableTasksCount, setAvailableTasksCount] = useState(0);
+  const lastRefreshRef = useRef({ available: 0, assigned: 0, pending: 0, completed: 0 });
+  const inFlightRef = useRef({ available: false, assigned: false, pending: false, completed: false });
 
   useSocket();
 
   const isFresh = useCallback((key, maxAgeMs) => {
     return Date.now() - lastRefreshRef.current[key] < maxAgeMs;
   }, []);
+
+  const loadAvailableTasksCount = useCallback(async ({ force = false } = {}) => {
+    if (inFlightRef.current.available) return;
+    if (!force && isFresh("available", 30000)) return;
+
+    inFlightRef.current.available = true;
+    try {
+      const res = await fetchAvailableForMe(workerCategory ? { category: workerCategory } : {});
+      const list = Array.isArray(res) ? res : (res?.assignments ?? (res?.data ?? []));
+      setAvailableTasksCount(list.length);
+      lastRefreshRef.current.available = Date.now();
+    } catch (error) {
+      console.error("Error loading available tasks:", error);
+    } finally {
+      inFlightRef.current.available = false;
+    }
+  }, [isFresh, workerCategory]);
 
   const loadTodaysTasks = useCallback(async ({ force = false } = {}) => {
     if (inFlightRef.current.assigned) return;
@@ -264,6 +283,7 @@ export default function WorkerOverview() {
     if (!silent) setLoading(true);
     try {
       await Promise.allSettled([
+        loadAvailableTasksCount({ force }),
         loadTodaysTasks({ force }),
         loadPendingApprovals({ force, silent: true }),
         loadCompletedWork({ force, silent: true })
@@ -271,7 +291,7 @@ export default function WorkerOverview() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [loadCompletedWork, loadPendingApprovals, loadTodaysTasks]);
+  }, [loadAvailableTasksCount, loadCompletedWork, loadPendingApprovals, loadTodaysTasks]);
 
   useEffect(() => {
     const handleApprovalUpdate = (event) => {
@@ -292,14 +312,16 @@ export default function WorkerOverview() {
   }, [refreshOverview]);
 
   useEffect(() => {
-    if (tab === "approval") {
+    if (tab === "available") {
+      loadAvailableTasksCount({ force: true });
+    } else if (tab === "approval") {
       loadPendingApprovals({ silent: false });
     } else if (tab === "added") {
       loadCompletedWork({ silent: false });
     } else if (tab === "current") {
       loadTodaysTasks();
     }
-  }, [tab, loadCompletedWork, loadPendingApprovals, loadTodaysTasks]);
+  }, [tab, loadAvailableTasksCount, loadCompletedWork, loadPendingApprovals, loadTodaysTasks]);
 
   useEffect(() => {
     const unsubscribe = subscribeWorkerDataRefresh(({ scope, force }) => {
@@ -309,6 +331,7 @@ export default function WorkerOverview() {
       }
 
       if (scope === "assignments") {
+        loadAvailableTasksCount({ force: Boolean(force) });
         loadTodaysTasks({ force: Boolean(force) });
       }
     });
@@ -333,16 +356,16 @@ export default function WorkerOverview() {
       window.removeEventListener("focus", revalidateVisibleState);
       document.removeEventListener("visibilitychange", revalidateVisibleState);
     };
-  }, [loadTodaysTasks, refreshOverview]);
+  }, [loadAvailableTasksCount, loadTodaysTasks, refreshOverview]);
 
   const totalEarnings = completedWork.reduce((sum, work) => sum + (work.amount || 0), 0);
   const completionRate = todaysTasks > 0 ? Math.round((completedWork.length / todaysTasks) * 100) : 0;
 
   const tabs = [
-    { id: "available", label: "Available Tasks", icon: Target },
-    { id: "current", label: "Current Tasks", icon: Activity },
-    { id: "approval", label: "Pending", icon: Clock },
-    { id: "added", label: "Completed Work", icon: CheckCircle },
+    { id: "available", label: "Available Tasks", icon: Target, count: availableTasksCount },
+    { id: "current", label: "Current Tasks", icon: Activity, count: todaysTasks },
+    { id: "approval", label: "Pending", icon: Clock, count: pendingApprovals.length },
+    { id: "added", label: "Completed Work", icon: CheckCircle, count: completedWork.length },
   ];
 
   return (
@@ -416,17 +439,29 @@ export default function WorkerOverview() {
         <div className="flex flex-wrap justify-center mb-6 gap-2">
           {tabs.map((tabItem) => {
             const Icon = tabItem.icon;
+            const isActive = tab === tabItem.id;
             return (
               <button
                 key={tabItem.id}
                 onClick={() => setTab(tabItem.id)}
-                className={`flex items-center space-x-1.5 sm:space-x-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl text-xs sm:text-sm font-medium ${tab === tabItem.id
-                    ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg"
+                className={`flex items-center space-x-1.5 sm:space-x-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl text-xs sm:text-sm font-medium transition-all ${isActive
+                    ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/20"
                     : "bg-gray-50 hover:bg-gray-100 text-gray-700"
                   }`}
               >
                 <Icon className="w-4 h-4" />
                 <span>{tabItem.label}</span>
+                {tabItem.count !== undefined && (
+                  <span
+                    className={`ml-1 px-2 py-0.5 text-xs font-bold rounded-full transition-colors ${
+                      isActive
+                        ? "bg-white/25 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}
+                  >
+                    {tabItem.count}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -466,8 +501,8 @@ export default function WorkerOverview() {
                         <th className="px-3 py-3">Order ID</th>
                         <th className="px-3 py-3">Style</th>
                         <th className="px-3 py-3">Fabric</th>
-                        <th className="px-3 py-3">Stage</th>
                         <th className="px-3 py-3 text-center">Done Pcs</th>
+                        <th className="px-3 py-3 text-center">Total Pcs</th>
                         <th className="px-3 py-3 text-center">Damaged</th>
                         <th className="px-3 py-3">Color</th>
                         <th className="px-3 py-3">Size</th>
@@ -485,8 +520,8 @@ export default function WorkerOverview() {
                             <td className="px-3 py-3 font-medium text-gray-800">{details.orderId}</td>
                             <td className="px-3 py-3 font-medium text-gray-900">{details.styleName}</td>
                             <td className="px-3 py-3 text-gray-700">{details.fabricName}</td>
-                            <td className="px-3 py-3 text-gray-700">{details.stage}</td>
-                            <td className="px-3 py-3 text-center font-semibold text-gray-900">{details.donePcsDisplay}</td>
+                            <td className="px-3 py-3 text-center font-semibold text-gray-900">{details.completedPcs}</td>
+                            <td className="px-3 py-3 text-center font-semibold text-gray-900">{details.totalTargetPcs}</td>
                             <td className="px-3 py-3 text-center text-red-600 font-medium">{details.damagedPcs}</td>
                             <td className="px-3 py-3">
                               <ColorBadge color={details.color} />
@@ -541,8 +576,8 @@ export default function WorkerOverview() {
                           <th className="px-3 py-3">Order ID</th>
                           <th className="px-3 py-3">Style</th>
                           <th className="px-3 py-3">Fabric</th>
-                          <th className="px-3 py-3">Stage</th>
                           <th className="px-3 py-3 text-center">Done Pcs</th>
+                          <th className="px-3 py-3 text-center">Total Pcs</th>
                           <th className="px-3 py-3 text-center">Damaged</th>
                           <th className="px-3 py-3">Color</th>
                           <th className="px-3 py-3">Size</th>
@@ -560,8 +595,8 @@ export default function WorkerOverview() {
                               <td className="px-3 py-3 font-medium text-gray-800">{details.orderId}</td>
                               <td className="px-3 py-3 font-medium text-gray-900">{details.styleName}</td>
                               <td className="px-3 py-3 text-gray-700">{details.fabricName}</td>
-                              <td className="px-3 py-3 text-gray-700">{details.stage}</td>
-                              <td className="px-3 py-3 text-center font-semibold text-gray-900">{details.donePcsDisplay}</td>
+                              <td className="px-3 py-3 text-center font-semibold text-gray-900">{details.completedPcs}</td>
+                              <td className="px-3 py-3 text-center font-semibold text-gray-900">{details.totalTargetPcs}</td>
                               <td className="px-3 py-3 text-center text-red-600 font-medium">{details.damagedPcs}</td>
                               <td className="px-3 py-3">
                                 <ColorBadge color={details.color} />

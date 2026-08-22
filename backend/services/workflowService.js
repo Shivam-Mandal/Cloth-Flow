@@ -201,7 +201,7 @@ export const rejectWorkflowStage = async (subOrder, { session } = {}) => {
   }
 
   const updateResult = await Assignment.updateMany(
-    { subOrder: subOrder._id, status: 'completed' },
+    { subOrder: subOrder._id, stage: subOrder.currentStage },
     {
       status: 'assigned',
       worker: subOrder.completedBy,

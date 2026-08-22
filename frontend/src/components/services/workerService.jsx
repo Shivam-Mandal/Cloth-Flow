@@ -1,5 +1,5 @@
 // src/services/workerService.jsx
-import api from '../../api/api'
+import api from '../../api/api';
 
 // Get all workers or a specific worker when an id is provided
 export const getWorker = async (id = null, config = {}) => {
@@ -32,5 +32,16 @@ export const getActiveWorkersCount = async () => {
   } catch (error) {
     console.error("Error fetching active workers count:", error);
     throw error.response?.data || { message: "Failed to fetch active workers count" };
+  }
+};
+
+// Get worker performance metrics & active task details
+export const fetchWorkerPerformance = async (config = {}) => {
+  try {
+    const response = await api.get('/workers/performance', config);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching worker performance:", error);
+    throw error.response?.data || { message: "Failed to fetch worker performance" };
   }
 };

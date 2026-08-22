@@ -21,6 +21,7 @@ const logApprovalHistoryForSubmission = async (subOrder, workerId) => {
       action: 'submitted',
       actor: workerId,
       actorRole: 'worker',
+      actorModel: 'Worker',
       previousStatus: 'in_progress',
       newStatus: subOrder.status,
       metadata: {
@@ -33,6 +34,34 @@ const logApprovalHistoryForSubmission = async (subOrder, workerId) => {
     await historyEntry.save();
   } catch (error) {
     console.error('Failed to log submission history:', error);
+  }
+};
+
+/**
+ * Helper function to log approval history for auto-approvals
+ */
+const logApprovalHistoryForAutoApproval = async (subOrder, workerId, amount = 0) => {
+  try {
+    const historyEntry = new ApprovalHistory({
+      subOrder: subOrder._id,
+      order: subOrder.order?._id || subOrder.order,
+      action: 'approved',
+      actor: workerId,
+      actorRole: 'worker',
+      actorModel: 'Worker',
+      amount: amount || 0,
+      previousStatus: 'pending_approval',
+      newStatus: subOrder.status,
+      metadata: {
+        subOrderName: subOrder.name,
+        orderId: subOrder.orderId,
+        stage: subOrder.currentStage,
+        progress: subOrder.progress
+      }
+    });
+    await historyEntry.save();
+  } catch (error) {
+    console.error('Failed to log auto-approval history:', error);
   }
 };
 
@@ -144,7 +173,10 @@ export const pickAssignment = async (req, res) => {
 
     // Prevent multiple assigned tasks unless worker has allowMultipleClaims enabled
     if (!worker.allowMultipleClaims) {
-      const active = await Assignment.countDocuments({ worker: workerId, status: 'assigned' }).exec();
+      const active = await Assignment.countDocuments({
+        worker: workerId,
+        status: { $in: ['assigned', 'in_progress'] }
+      }).exec();
       if (active > 0) {
         return res.status(409).json({ error: 'Finish your current assignment before picking another.' });
       }
@@ -303,8 +335,8 @@ export const completeAssignment = async (req, res) => {
         : await WorkerModel.findById(workerId).select('allowExcessPieces autoApprove').session(session).lean();
       const canSubmitExcessPieces = isAdmin || Boolean(completionWorkerDoc?.allowExcessPieces);
 
-      if (!canSubmitExcessPieces && submittedPieces > totalPieces) {
-        const e = new Error(`Cannot submit more than total pieces (${totalPieces})`);
+      if (!canSubmitExcessPieces && (completedPieces > totalPieces || submittedPieces > totalPieces)) {
+        const e = new Error(`Cannot submit more than total pieces (${totalPieces}). You do not have permission to submit excess pieces.`);
         e.status = 403;
         throw e;
       }
@@ -376,13 +408,13 @@ export const completeAssignment = async (req, res) => {
           .session(session);
 
         if (completionWorkerDoc?.autoApprove && updatedSubOrder) {
-          // Auto approve the suborder stage immediately
-          await approveWorkflowStage(updatedSubOrder, {
+          // Auto approve the suborder stage immediately and record approval history
+          const { amount: autoAmount } = await approveWorkflowStage(updatedSubOrder, {
             adminId: workerId,
             session,
             io: req.app.get('io')
           });
-          await logApprovalHistoryForSubmission(updatedSubOrder, workerId);
+          await logApprovalHistoryForAutoApproval(updatedSubOrder, workerId, autoAmount);
         } else if (updatedSubOrder) {
           // Log submission to approval history for regular admin review
           await logApprovalHistoryForSubmission(updatedSubOrder, workerId);
@@ -459,13 +491,24 @@ export const releaseAssignment = async (req, res) => {
  */
 export const forMeAssignments = async (req, res) => {
   try {
-    const workerId = req.user?.id;
+    const workerId = req.user?._id || req.user?.id;
     if (!workerId) return res.status(401).json({ error: 'Unauthorized' });
 
     const key = 'worker'; // change to 'assignedTo' if needed
     const filter = { [key]: workerId };
 
-    if (req.query.status) filter.status = req.query.status;
+    if (req.query.status) {
+      if (req.query.status === 'all') {
+        // No status filter
+      } else if (req.query.status === 'active') {
+        filter.status = { $in: ['assigned', 'in_progress'] };
+      } else {
+        filter.status = req.query.status;
+      }
+    } else {
+      // Default to active tasks for current task view
+      filter.status = { $in: ['assigned', 'in_progress'] };
+    }
 
     const assignments = await Assignment.find(filter)
       .populate({

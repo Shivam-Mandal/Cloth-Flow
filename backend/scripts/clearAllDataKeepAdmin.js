@@ -36,12 +36,12 @@ async function clearDataKeepAdmin() {
     ApprovalHistory.deleteMany({})
   ]);
 
-  console.log('🔑 Creating Admin credential: admin@gmail.com / admin123 ...');
-  const adminPasswordHash = await bcrypt.hash('admin123', 10);
+  console.log('🔑 Creating Admin credential: admin@mail.com / admin ...');
+  const adminPasswordHash = await bcrypt.hash('admin', 10);
   
   const newAdmin = new AdminModel({
     name: 'Admin User',
-    email: 'admin@gmail.com',
+    email: 'admin@mail.com',
     password: adminPasswordHash,
     role: 'admin'
   });
@@ -50,8 +50,8 @@ async function clearDataKeepAdmin() {
 
   console.log('✅ Success! Database wiped completely.');
   console.log('Admin account created:');
-  console.log(' - Email: admin@gmail.com');
-  console.log(' - Password: admin123');
+  console.log(' - Email: admin@mail.com');
+  console.log(' - Password: admin');
 
   // Verify counts
   const adminCount = await AdminModel.countDocuments();

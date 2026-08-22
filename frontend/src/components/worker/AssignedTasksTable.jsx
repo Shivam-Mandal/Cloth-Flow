@@ -369,9 +369,12 @@ export const AssignedTasksTable = () => {
     setLoading(l => ({ ...l, fetch: true }));
     setError(null);
     try {
-      const res = await fetchAssignedForMe();
+      const res = await fetchAssignedForMe({ status: 'assigned' });
       const list = Array.isArray(res) ? res : (res?.assignments ?? (res?.data ?? []));
-      setMine(list);
+      const activeList = list.filter(task =>
+        task.status === 'assigned' || task.status === 'in_progress'
+      );
+      setMine(activeList);
       lastRefreshRef.current = Date.now();
     } catch (e) {
       console.error('Failed to load my assignments', e);
@@ -641,9 +644,17 @@ export const AssignedTasksTable = () => {
                   max={!canSubmitExcessPieces ? Number(completionModal.assignment?.totalPieces || 0) : undefined}
                   value={completionData.completedPieces}
                   onChange={(e) => {
-                    const val = e.target.value;
-                    const num = Number(val);
+                    let val = e.target.value;
                     const total = Number(completionModal.assignment?.totalPieces || 0);
+                    if (!canSubmitExcessPieces && val !== '' && !isNaN(Number(val))) {
+                      if (Number(val) > total) {
+                        val = String(total);
+                        setModalError(`You do not have permission to submit excess pieces (max: ${total}).`);
+                      } else {
+                        setModalError(null);
+                      }
+                    }
+                    const num = Number(val);
                     let autoDamaged = completionData.damagedPieces;
                     if (!isNaN(num) && val !== '') {
                       if (num < total) {
@@ -670,7 +681,18 @@ export const AssignedTasksTable = () => {
                   max={!canSubmitExcessPieces ? Math.max(0, Number(completionModal.assignment?.totalPieces || 0) - Number(completionData.completedPieces || 0)) : undefined}
                   value={completionData.damagedPieces}
                   onChange={(e) => {
-                    const val = e.target.value;
+                    let val = e.target.value;
+                    const total = Number(completionModal.assignment?.totalPieces || 0);
+                    const completed = Number(completionData.completedPieces || 0);
+                    if (!canSubmitExcessPieces && val !== '' && !isNaN(Number(val))) {
+                      const maxDamaged = Math.max(0, total - completed);
+                      if (Number(val) > maxDamaged) {
+                        val = String(maxDamaged);
+                        setModalError(`Total pieces (completed + damaged) cannot exceed ${total}.`);
+                      } else {
+                        setModalError(null);
+                      }
+                    }
                     setCompletionData(prev => ({ ...prev, damagedPieces: val }));
                   }}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"

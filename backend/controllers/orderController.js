@@ -557,6 +557,12 @@ export const updateOrder = async (req, res) => {
     if (up.pieces) {
       order.pieces = up.pieces;
       order.totalQuantity = computeTotalQuantity(up.pieces);
+
+      // Sync suborders & assignments for newly added/updated SKUs
+      const firstStage = getFirstStage(order, order.style);
+      if (firstStage) {
+        await createAssignmentsPerSku(order, firstStage, { session: null });
+      }
     }
 
     ['priority', 'deadline', 'vendor', 'fabric', 'requiredKg'].forEach(k => {

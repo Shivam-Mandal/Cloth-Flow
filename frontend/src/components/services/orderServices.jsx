@@ -14,3 +14,6 @@ export const deleteOrder = (orderId) =>
 
 export const updateOrder = (orderId, data) =>
   api.put(`/orders/${orderId}`, data).then((res) => res.data);
+
+export const getOrderDetails = (orderId) =>
+  api.get(`/orders/${orderId}`).then((res) => res.data);

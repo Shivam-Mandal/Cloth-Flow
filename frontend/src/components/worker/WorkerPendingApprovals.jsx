@@ -252,8 +252,8 @@ export const WorkerPendingApprovals = () => {
                   <th className="px-3 py-3">Order ID</th>
                   <th className="px-3 py-3">Style</th>
                   <th className="px-3 py-3">Fabric</th>
-                  <th className="px-3 py-3">Stage</th>
                   <th className="px-3 py-3 text-center">Done Pcs</th>
+                  <th className="px-3 py-3 text-center">Total Pcs</th>
                   <th className="px-3 py-3 text-center">Damaged</th>
                   <th className="px-3 py-3">Color</th>
                   <th className="px-3 py-3">Size</th>
@@ -271,8 +271,8 @@ export const WorkerPendingApprovals = () => {
                       <td className="px-3 py-3 font-medium text-gray-800">{details.orderId}</td>
                       <td className="px-3 py-3 font-medium text-gray-900">{details.styleName}</td>
                       <td className="px-3 py-3 text-gray-700">{details.fabricName}</td>
-                      <td className="px-3 py-3 text-gray-700">{details.stage}</td>
-                      <td className="px-3 py-3 text-center font-semibold text-gray-900">{details.donePcsDisplay}</td>
+                      <td className="px-3 py-3 text-center font-semibold text-gray-900">{details.completedPcs}</td>
+                      <td className="px-3 py-3 text-center font-semibold text-gray-900">{details.totalTargetPcs}</td>
                       <td className="px-3 py-3 text-center text-red-600 font-medium">{details.damagedPcs}</td>
                       <td className="px-3 py-3">
                         <ColorBadge color={details.color} />

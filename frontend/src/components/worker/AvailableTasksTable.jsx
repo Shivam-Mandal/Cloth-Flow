@@ -351,7 +351,7 @@ const TaskRow = React.memo(({
         <button
           onClick={() => onClaim(chunk._id)}
           disabled={disabled || (chunk.status === 'assigned' || chunk.status === 'Current')}
-          className={`inline-flex items-center px-3 py-1 rounded text-sm font-medium ${disabled || (chunk.status === 'assigned') ? 'bg-gray-200 text-gray-600' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+          className={`inline-flex items-center px-3 py-1 rounded text-sm font-medium ${disabled || (chunk.status === 'assigned' || chunk.status === 'Current') ? 'bg-gray-200 text-gray-600 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
         >
           <Plus className="w-4 h-4 mr-2" />
           {claimingId === chunk._id ? 'Claiming…' : (!workerId ? 'Sign in to claim' : 'Claim')}
@@ -670,21 +670,6 @@ export const AvailableTasksTable = ({ workerId, workerCategory: initialWorkerCat
             </thead>
 
             <tbody className="bg-white divide-y divide-gray-100">
-              {activeAssigned && (
-                <TaskRow
-                  key={activeAssigned._id}
-                  chunk={activeAssigned}
-                  orderKey={activeAssigned.order?.orderId ?? activeAssigned.order}
-                  status="Current"
-                  activeAssignedId={activeAssigned._id}
-                  claimingId={claimingId}
-                  onClaim={handleClaim}
-                  workerId={workerId}
-                  onOpenGallery={openGallery}
-                  allowMultipleClaims={allowMultipleClaims}
-                />
-              )}
-
               {tableRows.length === 0 && !loading ? (
                 <tr>
                   <td colSpan={9} className="px-3 py-6 text-center text-sm text-gray-500">No available tasks</td>

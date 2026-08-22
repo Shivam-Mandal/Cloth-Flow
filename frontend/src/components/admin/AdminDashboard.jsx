@@ -11,6 +11,7 @@ import { fetchPendingApprovals, fetchApprovalHistory } from '../services/approva
 import { getActiveWorkersCount } from '../services/workerService';
 import { getOrders } from '../services/orderServices';
 import stockService from '../services/stockServices';
+import { fetchInventory } from '../services/inventoryServices';
 import { toast } from 'react-toastify';
 
 const DASHBOARD_REFRESH_INTERVAL_MS = 30000;
@@ -45,6 +46,7 @@ export const Overview = () => {
   const [activeWorkersCount, setActiveWorkersCount] = useState(0);
   const [activeOrdersCount, setActiveOrdersCount] = useState(0);
   const [totalStockKg, setTotalStockKg] = useState(0);
+  const [packedInventoryPcs, setPackedInventoryPcs] = useState(0);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -66,28 +68,30 @@ export const Overview = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [pendingRes, historyRes, workersRes, ordersRes, stockSummary] = await Promise.all([
+      const [pendingRes, historyRes, workersRes, ordersRes, stockSummary, inventoryRes] = await Promise.all([
         fetchPendingApprovals(),
         fetchApprovalHistory({ limit: 5 }),
         getActiveWorkersCount(),
         getOrders(),
-        stockService.fetchStockSummary()
+        stockService.fetchStockSummary(),
+        fetchInventory().catch(() => null)
       ]);
 
-      if (pendingRes.success) {
+      if (pendingRes?.success) {
         setPendingApprovals(pendingRes.approvals || []);
       }
 
-      if (historyRes.success) {
+      if (historyRes?.success) {
         setRecentHistory(historyRes.history || []);
       }
 
-      if (workersRes.success) {
+      if (workersRes?.success) {
         setActiveWorkersCount(workersRes.activeWorkersCount || 0);
       }
 
       setActiveOrdersCount(getActiveOrdersCount(normalizeOrdersResponse(ordersRes)));
-      setTotalStockKg(stockSummary.totalStockKg || 0);
+      setTotalStockKg(stockSummary?.totalStockKg || 0);
+      setPackedInventoryPcs(inventoryRes?.summary?.availablePieces || 0);
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -100,12 +104,7 @@ export const Overview = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div
-
-
-
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600 mt-2">Monitor your manufacturing operations in real-time</p>
@@ -127,9 +126,9 @@ export const Overview = () => {
         />
 
         <StatCard
-          title="Total Stock (kg)"
-          value={loading ? '...' : formatNumber(totalStockKg, { maximumFractionDigits: 2 })}
-          changeText="Live from stock"
+          title="Raw Fabric Stock"
+          value={loading ? '...' : `${formatNumber(totalStockKg, { maximumFractionDigits: 2 })} kg`}
+          changeText={`Packed Inventory: ${packedInventoryPcs} pcs`}
           icon={<Package className="w-6 h-6" />}
           trend="neutral"
           color="green"
@@ -284,7 +283,10 @@ export const Overview = () => {
                     </div>
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900 capitalize">{item.action}</p>
-                      <p className="text-sm text-gray-600">{item.subOrderName}</p>
+                      <p className="text-sm text-gray-600 font-medium">
+                        {item.subOrder?.subOrderCode || item.subOrder?.code || item.subOrder?.name || item.metadata?.subOrderName || item.subOrderName || 'Task'}
+                        {item.actor?.name ? ` • by ${item.actor.name}` : ''}
+                      </p>
                       <p className="text-xs text-gray-500">
                         {new Date(item.createdAt).toLocaleDateString()}
                       </p>
