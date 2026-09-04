@@ -24,16 +24,25 @@ export const getStyleStages = (style = {}) => {
 };
 
 export const getOrderStages = (order = {}, fallbackStyle = null) => {
+  const styleObj = (order?.style && typeof order.style === 'object')
+    ? order.style
+    : (fallbackStyle && typeof fallbackStyle === 'object')
+      ? fallbackStyle
+      : null;
+
+  if (styleObj && Array.isArray(styleObj.steps) && styleObj.steps.length > 0) {
+    const styleStages = getStyleStages(styleObj);
+    if (styleStages.length > 0) {
+      return styleStages;
+    }
+  }
+
   const orderStages = Array.isArray(order?.stages)
     ? order.stages.map(normalizeStageLabel).filter(Boolean)
     : [];
 
   if (orderStages.length > 0) {
     return [...new Set(orderStages)];
-  }
-
-  if (fallbackStyle) {
-    return getStyleStages(fallbackStyle);
   }
 
   return DEFAULT_STAGE_SEQUENCE;

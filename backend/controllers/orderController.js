@@ -314,7 +314,7 @@ export const createNextStageAssignments = async (orderId, currentStage, opts = {
   if (typeof orderId === 'object' && orderId._id) orderId = orderId._id;
   if (!mongoose.Types.ObjectId.isValid(String(orderId))) throw new Error('Invalid orderId');
 
-  const order = await Order.findById(orderId).session(session);
+  const order = await Order.findById(orderId).populate('style').session(session);
   if (!order) return [];
 
   const nextStage = getNextStage(order, currentStage);

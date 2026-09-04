@@ -1,5 +1,7 @@
 // controllers/styleController.js
 import { Style } from '../models/StyleSchema.js';
+import Order from '../models/Order.js';
+import { normalizeStageLabel } from '../utils/workflow.js';
 
 export async function getStyles(req, res) {
   try {
@@ -45,6 +47,23 @@ export async function createStyle(req, res) {
       return res.status(400).json({ success: false, message: 'name and skuId are required' });
     }
 
+    if (Array.isArray(steps)) {
+      for (const step of steps) {
+        if (
+          step.price === undefined ||
+          step.price === null ||
+          step.price === '' ||
+          isNaN(step.price) ||
+          Number(step.price) < 0
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: `Please enter a valid amount for stage "${step.label || 'unknown'}"`
+          });
+        }
+      }
+    }
+
     // optional: enforce uniqueness of skuId handled by mongoose unique index
     const style = await Style.create({ name, skuId, photos, sizes, colors, steps });
     res.status(201).json({ success: true, data: style });
@@ -67,6 +86,23 @@ export async function updateStyle(req, res) {
       return res.status(400).json({ success: false, message: 'name and skuId are required' });
     }
 
+    if (Array.isArray(steps)) {
+      for (const step of steps) {
+        if (
+          step.price === undefined ||
+          step.price === null ||
+          step.price === '' ||
+          isNaN(step.price) ||
+          Number(step.price) < 0
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: `Please enter a valid amount for stage "${step.label || 'unknown'}"`
+          });
+        }
+      }
+    }
+
     const updated = await Style.findByIdAndUpdate(
       id,
       {
@@ -81,6 +117,19 @@ export async function updateStyle(req, res) {
     );
 
     if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
+
+    if (Array.isArray(steps)) {
+      const updatedStages = steps
+        .map((step) => normalizeStageLabel(step.label))
+        .filter(Boolean);
+
+      if (updatedStages.length > 0) {
+        await Order.updateMany(
+          { style: id },
+          { $set: { stages: [...new Set(updatedStages)] } }
+        ).catch((err) => console.error('Failed to sync Order.stages on style update:', err));
+      }
+    }
 
     res.json({ success: true, data: updated });
   } catch (err) {

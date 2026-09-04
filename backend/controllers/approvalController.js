@@ -303,7 +303,7 @@ const logApprovalHistory = async (subOrder, action, actor, actorRole, options = 
   try {
     const historyEntry = new ApprovalHistory({
       subOrder: subOrder._id,
-      order: subOrder.order,
+      order: subOrder.order?._id || subOrder.order,
       action,
       actor,
       actorRole,
@@ -315,8 +315,13 @@ const logApprovalHistory = async (subOrder, action, actor, actorRole, options = 
       metadata: {
         subOrderName: subOrder.name,
         orderId: subOrder.orderId,
-        stage: subOrder.currentStage,
-        progress: subOrder.progress
+        stage: options.stage || subOrder.currentStage,
+        progress: subOrder.progress,
+        submittedPieces: options.submittedPieces ?? subOrder.submittedPieces ?? 0,
+        approvedPieces: options.approvedPieces ?? subOrder.approvedPieces ?? 0,
+        faultyPieces: options.faultyPieces ?? subOrder.faultyPieces ?? 0,
+        pricePerPiece: options.pricePerPiece ?? subOrder.pricePerPiece ?? 0,
+        pieces: subOrder.pieces || {}
       }
     });
     await historyEntry.save();
@@ -661,15 +666,86 @@ export const getApprovalHistory = async (req, res) => {
     const history = await ApprovalHistory.find(query)
       .populate({
         path: 'subOrder',
-        select: 'name subOrderCode code orderId currentStage pieces color size totalPieces',
-        populate: { path: 'order', select: 'orderId style styleSnapshot styleCode styleName' }
+        populate: [
+          {
+            path: 'order',
+            populate: { path: 'style' }
+          },
+          {
+            path: 'completedBy',
+            select: 'name email workerType category type'
+          },
+          {
+            path: 'approvedBy',
+            select: 'name email'
+          }
+        ]
       })
-      .populate('order', 'orderId style styleSnapshot styleCode styleName')
+      .populate({
+        path: 'order',
+        populate: { path: 'style' }
+      })
       .populate('actor', 'name email workerType category type')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
       .lean();
+
+    // Map stageWorker for each history item based on subOrder + stage
+    const subOrderIds = history
+      .filter(item => item.subOrder)
+      .map(item => item.subOrder._id || item.subOrder);
+
+    if (subOrderIds.length > 0) {
+      const submissionEntries = await ApprovalHistory.find({
+        subOrder: { $in: subOrderIds },
+        actorRole: 'worker'
+      })
+        .populate('actor', 'name email workerType category type')
+        .lean();
+
+      const stageWorkerMap = new Map();
+      submissionEntries.forEach(entry => {
+        const sId = String(entry.subOrder?._id || entry.subOrder);
+        const stageKey = (entry.metadata?.stage || '').toLowerCase().trim();
+        if (sId && stageKey && entry.actor) {
+          stageWorkerMap.set(`${sId}_${stageKey}`, entry.actor);
+        }
+      });
+
+      const assignments = await Assignment.find({
+        subOrder: { $in: subOrderIds }
+      })
+        .populate('completedBy', 'name email workerType category type')
+        .populate('worker', 'name email workerType category type')
+        .lean();
+
+      const assignmentMap = new Map();
+      assignments.forEach(asg => {
+        const sId = String(asg.subOrder?._id || asg.subOrder);
+        const stageKey = (asg.stage || '').toLowerCase().trim();
+        const workerObj = asg.completedBy || asg.worker;
+        if (sId && stageKey) {
+          assignmentMap.set(`${sId}_${stageKey}`, asg);
+          if (workerObj && !stageWorkerMap.has(`${sId}_${stageKey}`)) {
+            stageWorkerMap.set(`${sId}_${stageKey}`, workerObj);
+          }
+        }
+      });
+
+      history.forEach(item => {
+        const sId = String(item.subOrder?._id || item.subOrder);
+        const stageKey = (item.metadata?.stage || item.subOrder?.currentStage || '').toLowerCase().trim();
+        item.stageAssignment = assignmentMap.get(`${sId}_${stageKey}`) || null;
+
+        if (item.actorRole === 'worker' && item.actor) {
+          item.stageWorker = item.actor;
+        } else {
+          const matchedWorker = stageWorkerMap.get(`${sId}_${stageKey}`);
+          item.stageWorker = matchedWorker || item.subOrder?.completedBy || null;
+        }
+      });
+    }
 
     const total = await ApprovalHistory.countDocuments(query);
 
@@ -712,13 +788,83 @@ export const getWorkerApprovalHistory = async (req, res) => {
     };
 
     const history = await ApprovalHistory.find(filterQuery)
-      .populate('subOrder', 'name orderId currentStage status')
-      .populate('order', 'orderId')
-      .populate('actor', 'name email')
+      .populate({
+        path: 'subOrder',
+        populate: [
+          {
+            path: 'order',
+            populate: { path: 'style' }
+          },
+          {
+            path: 'completedBy',
+            select: 'name email workerType category type'
+          }
+        ]
+      })
+      .populate({
+        path: 'order',
+        populate: { path: 'style' }
+      })
+      .populate('actor', 'name email workerType category type')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
       .lean();
+
+    const subOrderIds = history
+      .filter(item => item.subOrder)
+      .map(item => item.subOrder._id || item.subOrder);
+
+    if (subOrderIds.length > 0) {
+      const submissionEntries = await ApprovalHistory.find({
+        subOrder: { $in: subOrderIds },
+        actorRole: 'worker'
+      })
+        .populate('actor', 'name email workerType category type')
+        .lean();
+
+      const stageWorkerMap = new Map();
+      submissionEntries.forEach(entry => {
+        const sId = String(entry.subOrder?._id || entry.subOrder);
+        const stageKey = (entry.metadata?.stage || '').toLowerCase().trim();
+        if (sId && stageKey && entry.actor) {
+          stageWorkerMap.set(`${sId}_${stageKey}`, entry.actor);
+        }
+      });
+
+      const assignments = await Assignment.find({
+        subOrder: { $in: subOrderIds }
+      })
+        .populate('completedBy', 'name email workerType category type')
+        .populate('worker', 'name email workerType category type')
+        .lean();
+
+      const assignmentMap = new Map();
+      assignments.forEach(asg => {
+        const sId = String(asg.subOrder?._id || asg.subOrder);
+        const stageKey = (asg.stage || '').toLowerCase().trim();
+        const workerObj = asg.completedBy || asg.worker;
+        if (sId && stageKey) {
+          assignmentMap.set(`${sId}_${stageKey}`, asg);
+          if (workerObj && !stageWorkerMap.has(`${sId}_${stageKey}`)) {
+            stageWorkerMap.set(`${sId}_${stageKey}`, workerObj);
+          }
+        }
+      });
+
+      history.forEach(item => {
+        const sId = String(item.subOrder?._id || item.subOrder);
+        const stageKey = (item.metadata?.stage || item.subOrder?.currentStage || '').toLowerCase().trim();
+        item.stageAssignment = assignmentMap.get(`${sId}_${stageKey}`) || null;
+
+        if (item.actorRole === 'worker' && item.actor) {
+          item.stageWorker = item.actor;
+        } else {
+          const matchedWorker = stageWorkerMap.get(`${sId}_${stageKey}`);
+          item.stageWorker = matchedWorker || item.subOrder?.completedBy || null;
+        }
+      });
+    }
 
     const total = await ApprovalHistory.countDocuments(filterQuery);
 
@@ -776,8 +922,25 @@ export const getWorkerApprovalHistory = async (req, res) => {
  * Helper function to get suborders completed by a worker
  */
 const getWorkerSubOrders = async (workerId) => {
-  const subOrders = await SubOrder.find({ completedBy: workerId }).select('_id');
-  return subOrders.map(so => so._id);
+  const [soList, asgList, histList] = await Promise.all([
+    SubOrder.find({
+      $or: [{ completedBy: workerId }, { assignedWorker: workerId }]
+    }).select('_id'),
+    Assignment.find({
+      $or: [{ worker: workerId }, { completedBy: workerId }]
+    }).select('subOrder'),
+    ApprovalHistory.find({
+      actor: workerId,
+      actorRole: 'worker'
+    }).select('subOrder')
+  ]);
+
+  const idSet = new Set();
+  soList.forEach(so => idSet.add(String(so._id)));
+  asgList.forEach(a => a.subOrder && idSet.add(String(a.subOrder._id || a.subOrder)));
+  histList.forEach(h => h.subOrder && idSet.add(String(h.subOrder._id || h.subOrder)));
+
+  return Array.from(idSet).map(id => new mongoose.Types.ObjectId(id));
 };
 
 /**
@@ -871,65 +1034,104 @@ export const getWorkerCompletedWork = async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const completedSubOrders = await SubOrder.find({
-      completedBy: workerId,
-      status: { $in: ['approved', 'completed'] }
+    // 1. Fetch all completed assignments for this worker
+    const workerAssignments = await Assignment.find({
+      $or: [{ worker: workerId }, { completedBy: workerId }],
+      status: 'completed'
+    }).lean();
+
+    if (workerAssignments.length === 0) {
+      return res.json({ success: true, completedWork: [] });
+    }
+
+    const subOrderIds = [...new Set(workerAssignments.map(a => String(a.subOrder)).filter(Boolean))];
+
+    // 2. Fetch corresponding suborders with order/style populated
+    const subOrders = await SubOrder.find({
+      _id: { $in: subOrderIds }
     })
       .populate({
         path: 'order',
         populate: { path: 'style' }
       })
-      .sort({ updatedAt: -1 })
       .lean();
 
-    const subOrderIds = completedSubOrders.map(so => so._id);
-    const assignments = await Assignment.find({
+    const subOrderMap = new Map();
+    subOrders.forEach(so => subOrderMap.set(String(so._id), so));
+
+    // 3. Fetch approval history items for these suborders to check approval status and amounts
+    const approvalEntries = await ApprovalHistory.find({
       subOrder: { $in: subOrderIds },
-      $or: [{ worker: workerId }, { completedBy: workerId }]
+      action: 'approved'
     }).lean();
 
-    const assignmentMap = new Map();
-    assignments.forEach(a => {
-      if (a.subOrder) {
-        assignmentMap.set(String(a.subOrder), a);
+    const approvalMap = new Map();
+    approvalEntries.forEach(entry => {
+      const sId = String(entry.subOrder?._id || entry.subOrder);
+      const stageKey = (entry.metadata?.stage || '').toLowerCase().trim();
+      if (sId && stageKey) {
+        approvalMap.set(`${sId}_${stageKey}`, entry);
       }
     });
 
-    const earningsBySubOrder = await calculateStageEarningsForSubOrders(completedSubOrders);
-    const enrichedCompletedWork = completedSubOrders.map(so => {
-      const assignment = assignmentMap.get(String(so._id));
-      const {
-        amount: calculatedPayment,
-        pricePerPiece,
-        completedPieces,
-        damagedPieces,
-        submittedPieces
-      } = earningsBySubOrder.get(String(so._id)) || {};
-      const { styleName, sizeStr } = resolveStyleAndSizes(so);
-      const { color, size } = resolveColorAndSize(so, assignment);
-      const totalPieces = assignment?.totalPieces
-        ?? so.totalPieces
-        ?? computePiecesTotal(so.pieces)
-        ?? 0;
-      const orderDoc = so.order && typeof so.order === 'object' ? so.order : null;
+    const enrichedCompletedWork = [];
 
-      return {
-        ...so,
+    for (const assignment of workerAssignments) {
+      const sId = String(assignment.subOrder);
+      const stageKey = (assignment.stage || '').toLowerCase().trim();
+      const approval = approvalMap.get(`${sId}_${stageKey}`);
+      const subOrder = subOrderMap.get(sId);
+
+      // Verify assignment was approved via history or suborder status
+      if (!approval && subOrder?.status !== 'approved' && subOrder?.status !== 'completed' && subOrder?.currentStage?.toLowerCase() === stageKey) {
+        continue;
+      }
+
+      if (!subOrder) continue;
+
+      const orderDoc = subOrder.order && typeof subOrder.order === 'object' ? subOrder.order : null;
+      const styleObj = orderDoc?.styleSnapshot || orderDoc?.style;
+      const step = styleObj?.steps?.find(s => s.name?.toLowerCase() === stageKey);
+      const rate = approval?.metadata?.pricePerPiece || step?.pricePerPiece || subOrder.pricePerPiece || 0;
+
+      const completedPcs = assignment.completedPieces ?? approval?.metadata?.approvedPieces ?? 0;
+      const damagedPcs = assignment.damagedPieces ?? approval?.metadata?.faultyPieces ?? 0;
+      const totalTargetPcs = assignment.totalPieces ?? (completedPcs + damagedPcs);
+
+      const calculatedPayment = approval?.amount
+        ?? (rate > 0 ? completedPcs * rate : 0)
+        ?? assignment.workerEarnings
+        ?? 0;
+
+      const { styleName, sizeStr } = resolveStyleAndSizes(subOrder);
+      const { color, size } = resolveColorAndSize(subOrder, assignment);
+
+      enrichedCompletedWork.push({
+        ...subOrder,
+        _id: `${subOrder._id}_${assignment.stage}`,
+        subOrderId: subOrder._id,
+        currentStage: assignment.stage,
         styleName,
-        fabric: orderDoc?.fabric || orderDoc?.styleSnapshot?.fabric || orderDoc?.style?.fabric || so.fabric || '—',
+        fabric: orderDoc?.fabric || orderDoc?.styleSnapshot?.fabric || orderDoc?.style?.fabric || subOrder.fabric || '—',
         color,
         size: size || sizeStr,
-        totalPieces,
-        assignmentTotalPieces: assignment?.totalPieces ?? 0,
-        submittedPieces: submittedPieces || so.submittedPieces,
-        approvedPieces: completedPieces || so.approvedPieces,
-        faultyPieces: damagedPieces || so.faultyPieces,
-        calculatedPayment: calculatedPayment || so.amount || so.workerEarnings || 0,
-        amount: so.amount || so.workerEarnings || calculatedPayment || 0,
-        pricePerPiece: pricePerPiece || so.pricePerPiece || 0,
-        statusLabel: 'Approved'
-      };
-    });
+        totalPieces: totalTargetPcs,
+        assignmentTotalPieces: assignment.totalPieces ?? totalTargetPcs,
+        submittedPieces: completedPcs + damagedPcs,
+        completedPieces: completedPcs,
+        approvedPieces: completedPcs,
+        damagedPieces: damagedPcs,
+        faultyPieces: damagedPcs,
+        calculatedPayment,
+        amount: calculatedPayment,
+        pricePerPiece: rate,
+        statusLabel: 'Approved',
+        approvedAt: approval?.createdAt || assignment.completedAt || subOrder.updatedAt
+      });
+    }
+
+    // Sort by most recent
+    enrichedCompletedWork.sort((a, b) => new Date(b.approvedAt || 0) - new Date(a.approvedAt || 0));
 
     res.json({ success: true, completedWork: enrichedCompletedWork });
   } catch (error) {

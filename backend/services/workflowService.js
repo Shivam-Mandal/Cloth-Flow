@@ -9,7 +9,10 @@ const getStagePricePerPiece = (subOrder) => {
   const liveSteps = subOrder?.order?.style?.steps || [];
   const steps = snapshotSteps.length ? snapshotSteps : liveSteps;
   const currentStage = normalizeStageKey(subOrder?.currentStage);
-  const currentStageStep = steps.find((step) => normalizeStageKey(step?.label) === currentStage);
+  let currentStageStep = steps.find((step) => normalizeStageKey(step?.label) === currentStage);
+  if (!currentStageStep && liveSteps.length) {
+    currentStageStep = liveSteps.find((step) => normalizeStageKey(step?.label) === currentStage);
+  }
   return Number(currentStageStep?.price) || 0;
 };
 

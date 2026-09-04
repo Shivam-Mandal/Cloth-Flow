@@ -301,7 +301,7 @@ export default function StyleManagement() {
       const rawId = step.stageId?._id || step.stageId;
       const id = rawId ? String(rawId) : '';
       const matchingStage = availableStages.find((stage) => String(stage._id) === id || stage.name === step.label);
-      if (matchingStage?._id) prices[matchingStage._id] = step.price ?? 0;
+      if (matchingStage?._id) prices[matchingStage._id] = step.price ?? '';
     });
 
     setEditingStyle(style);
@@ -519,6 +519,21 @@ export default function StyleManagement() {
 
     if (selectedStages.length === 0) return alert('Select at least one stage');
 
+    const unenteredStage = selectedStages.find((stage) => {
+      const val = stepPrices[stage._id];
+      return (
+        val === undefined ||
+        val === null ||
+        String(val).trim() === '' ||
+        isNaN(val) ||
+        Number(val) < 0
+      );
+    });
+
+    if (unenteredStage) {
+      return alert(`Please enter a valid amount for stage "${unenteredStage.name}".`);
+    }
+
     const payload = {
       name,
       skuId: sku,
@@ -528,7 +543,7 @@ export default function StyleManagement() {
       steps: selectedStages.map((stage) => ({
         stageId: stage._id,
         label: stage.name,
-        price: Number(stepPrices[stage._id] || 0)
+        price: Number(stepPrices[stage._id])
       })),
     };
 
@@ -1519,7 +1534,7 @@ export default function StyleManagement() {
                             <input
                               type="number"
                               min="0"
-                              value={selected ? stepPrices[stage._id] || '' : ''}
+                              value={selected ? (stepPrices[stage._id] ?? '') : ''}
                               onChange={e => updateStepPrice(stage._id, e.target.value)}
                               disabled={!selected}
                               placeholder="amount"
